@@ -195,6 +195,7 @@ def create_distant_np_connections(
     :param r_loc: radius for local connections needed to calculate the long range connection probability
     :param p_loc: probability for local connections needed to calculate the long range connection probability
     :param allow_multapses: allow multiple connections between neurons
+    :return Neurons of the layer for debugging (plotting)
     """
     # Mask for area to which long-range connections can be established
     mask_dict = {
