@@ -1,6 +1,6 @@
 # The investigation of the dynamical consequences of long-range patchy connections in the visual cortex V1
 
-This repository collects the code for simulation and experiments that was used for
+This repository collects the code for simulations and experiments that was used for
 my thesis project. The code is written in Python3.6 and uses mainly the Nest framework.
 
 ## Requirements
