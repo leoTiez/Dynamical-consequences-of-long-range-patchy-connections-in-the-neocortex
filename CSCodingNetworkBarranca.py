@@ -11,7 +11,7 @@ import nest
 
 nest.Install("nestmlmodule")
 
-VERBOSITY = 2
+VERBOSITY = 3
 
 
 def load_image(name, path=None):
@@ -76,22 +76,17 @@ def stimulus_reconstruction(
 
 
 def create_input_current_generator(
-        input,
-        num_receptors=1e4,
-        epsilon=1e-3
+        input_stimulus,
+        num_receptors=1e4
 ):
-    assert np.all(input < 256) and np.all(input >= 0)
+    assert np.all(input_stimulus < 256) and np.all(input_stimulus >= 0)
 
-    # Transforming to k-sparse stimulus
-    shape = input.shape
-    trans_input = np.asarray(input).copy().reshape(-1)
-    fourier_trans_input = fft(trans_input)
-    trans_input[fourier_trans_input <= epsilon] = 0
-    if VERBOSITY > 1:
-        plt.imshow(trans_input.reshape(shape), cmap='gray')
-        plt.show()
+    # Transforming to k-sparse stimulus ---> Necessary?
 
-    current_dict = [{"amplitude": float(amplitude)} for amplitude in trans_input]
+    # fourier_trans_input = fft(trans_input)
+    # trans_input[np.abs(fourier_trans_input) <= epsilon] = 0  # How to transform?
+
+    current_dict = [{"amplitude": float(amplitude)} for amplitude in input_stimulus.reshape(-1)]
 
     dc_generator = nest.Create("dc_generator", n=int(num_receptors), params=current_dict)
     return dc_generator
@@ -102,25 +97,27 @@ def create_sensory_nodes(
         time_const=20.0,
         rest_pot=0.0,
         threshold_pot=1.0,
-        capacitance=1.0
+        capacitance=1.,
+        use_barranca=True
 ):
-    neuron_dict = {
-        "tau_m": time_const,
-        "V_th": threshold_pot,
-        "V_reset": rest_pot,
-        "E_L": rest_pot,
-        "C_m":  capacitance
-    }
-
-    neuron_dict = {
-        "tau_m": time_const,
-        "V_th": threshold_pot,
-        "V_R": rest_pot,
-        "C_m": capacitance
-    }
-
-    # sensory_nodes = nest.Create("iaf_psc_delta", n=int(num_neurons), params=neuron_dict)
-    sensory_nodes = nest.Create("barranca_neuron", n=int(num_neurons), params=neuron_dict)
+    if use_barranca:
+        neuron_dict_barranca = {
+            "tau_m": time_const,
+            "V_th": threshold_pot,
+            "V_R": rest_pot,
+            "C_m": capacitance
+        }
+        sensory_nodes = nest.Create("barranca_neuron", n=int(num_neurons), params=neuron_dict_barranca)
+    else:
+        neuron_dict_iaf_delta = {
+            "V_m": rest_pot,
+            "E_L": rest_pot,
+            "C_m": capacitance,
+            "tau_m": time_const,
+            "V_th": threshold_pot,
+            "V_reset": rest_pot
+        }
+        sensory_nodes = nest.Create("iaf_psc_delta", n=int(num_neurons), params=neuron_dict_iaf_delta)
 
     # Create spike detector for stimulus reconstruction
     spikedetector = nest.Create("spike_detector", params={"withgid": True, "withtime": True})
@@ -134,12 +131,13 @@ def create_connections_random(
         src_nodes,
         target_nodes,
         indegree=10,
-        connection_strength=0.7
+        connection_strength=0.7,
 ):
     connect_dict = {
         "rule": "fixed_indegree",
         "indegree": indegree
     }
+
     synapse_dict = {
         "weight": connection_strength
     }
@@ -148,8 +146,8 @@ def create_connections_random(
 
 
 def main():
-    image = load_image("sunflower50.jpg")
-    if VERBOSITY > 1:
+    image = load_image("dots50.png")
+    if VERBOSITY > 2:
         plt.imshow(image, cmap='gray')
         plt.show()
 
@@ -161,15 +159,22 @@ def main():
     cap_s = 1.
     receptor_connect_strength = 1.
     num_sensor_connections = indegree_sen_sen * num_sensors
+    threshold_pot = 1.
+    capacitance = 1.
 
-    receptor_nodes = create_input_current_generator(image, num_receptors=num_receptors, epsilon=0.0)
-    sensory_nodes, spike_detect, multi_meter = create_sensory_nodes(num_neurons=num_sensors)
+    receptor_nodes = create_input_current_generator(image, num_receptors=num_receptors)
+    sensory_nodes, spike_detect, multi_meter = create_sensory_nodes(
+        num_neurons=num_sensors,
+        threshold_pot=threshold_pot,
+        capacitance=capacitance,
+        use_barranca=True
+    )
 
     create_connections_random(
         receptor_nodes,
         sensory_nodes,
         connection_strength=receptor_connect_strength,
-        indegree=indegree_rec_sen
+        indegree=indegree_rec_sen,
     )
     receptor_sensor_connect_values = nest.GetConnections(receptor_nodes, sensory_nodes)
     receptor_sensor_mat = np.zeros((int(num_receptors), int(num_sensors)))
@@ -187,6 +192,10 @@ def main():
     for n in sensor_connect_values:
         sensor_mat[n[0] - min(sensory_nodes), n[1] - min(sensory_nodes)] = 1
 
+    if VERBOSITY > 0:
+        print("\n#####################\t"
+              "The estimate N_A %s and the actual number of sensory neuron connections %s\n"
+              % (num_sensor_connections, sensor_mat.sum()))
     nest.Simulate(simulation_time)
 
     data_sp = nest.GetStatus(spike_detect, keys="events")[0]
@@ -195,20 +204,24 @@ def main():
     if VERBOSITY > 1:
         plt.plot(time_s, spikes_s, "g.")
         plt.show()
+
     spike_count = Counter(spikes_s)
     firing_rates = np.zeros(len(sensory_nodes))
     for value, number in spike_count.items():
         firing_rates[int(value) - min(sensory_nodes)] = number / float(simulation_time / 1000.)
 
-    average_firing_rate = np.mean(firing_rates)
-    print("\n##################### \t Average firing rate: %s \n" % average_firing_rate)
+    if VERBOSITY > 0:
+        average_firing_rate = np.mean(firing_rates)
+        print("\n#####################\tAverage firing rate: %s \n" % average_firing_rate)
+
     stimulus_reconstruction(
         firing_rates,
         cap_s/float(num_sensor_connections),
         receptor_connect_strength,
         receptor_sensor_mat,
         sensor_mat,
-        stimulus_size=num_receptors
+        stimulus_size=num_receptors,
+        threshold_pot=threshold_pot
     )
 
 
