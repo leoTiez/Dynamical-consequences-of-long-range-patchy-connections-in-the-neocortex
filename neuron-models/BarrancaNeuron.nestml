@@ -5,19 +5,19 @@ neuron barranca_neuron:
 
     equations:
         shape G = delta(t, tau_m)
-        V_m' = -((V_m - V_R) / tau_m) + (currents + convolve(G, spikes)) / C_m
+        V_m' = -((V_m - V_R) / tau_m) + (currents + convolve(G, spikes)) / (C_m * tau_m)
     end
 
     parameters:
         V_R mV = 0mV
         V_th mV = 1mV - V_R
         tau_m ms = 20.0ms
-        C_m pF = 1.0pF
+        C_m mF = 1.0mF
     end
 
     input:
         currents pA <- current
-        spikes pA <- spike
+        spikes mA <- spike
     end
 
     output: spike
@@ -29,12 +29,4 @@ neuron barranca_neuron:
             emit_spike()
         end
     end
-
-    /*function delta(t real, tau real) integer:
-        if t - tau == 0:
-            return 1
-        else:
-            return 0
-        end
-    end*/
 end
