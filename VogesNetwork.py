@@ -47,6 +47,27 @@ def to_coordinates(angle, distance):
     return [distance * np.cos(angle), distance * np.sin(angle)]
 
 
+def create_adjacency_matrix(src_nodes, target_nodes):
+    connect_values = nest.GetConnections(src_nodes, target_nodes)
+    adjacency_mat = np.zeros((int(len(src_nodes)), int(len(target_nodes))))
+    for n in connect_values:
+        adjacency_mat[n[0] - min(src_nodes), n[1] - min(target_nodes)] = 1
+    return adjacency_mat
+
+
+def eigenvalue_analysis(matrix, plot=True):
+    eigenvalues, eigenvectors = np.linalg.eig(matrix)
+    if plot:
+        plt.plot(eigenvalues.real, eigenvalues.imag, 'b.')
+        plt.xlabel("Re($\lambda$)")
+        plt.ylabel("Im($\lambda$)")
+        x1, x2, y1, y2 = plt.axis()
+        plt.axis((x1, x2, -10, 10))
+        plt.show()
+
+    return eigenvalues, eigenvectors
+
+
 def get_local_connectivity(
         r_loc,
         p_loc
@@ -521,6 +542,9 @@ def main(
         for c in choice:
             tp.PlotTargets([int(c)], torus_layer)
         plt.show()
+
+    adj_mat = create_adjacency_matrix(nest.GetNodes(torus_layer)[0], nest.GetNodes(torus_layer)[0])
+    eigenvalue_analysis(adj_mat, plot=True)
 
 
 if __name__ == '__main__':
