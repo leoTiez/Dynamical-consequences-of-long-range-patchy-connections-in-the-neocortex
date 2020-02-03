@@ -18,6 +18,14 @@ import nest
 GLOBAL_CONNECTIVITY = 0.0123
 R_MAX = 8.
 
+NETWORK_DICT = {
+    "np": 1,
+    "random": 2,
+    "overlapping": 3,
+    "shared": 4,
+    "partially-overlapping": 5
+}
+
 
 def degree_to_rad(deg):
     """
@@ -477,12 +485,15 @@ def create_partially_overlapping_patches(
 def main(
         plot_torus=True,
         plot_target=True,
-        num_plot_tagets=3
+        num_plot_tagets=3,
+        use_lr_connection_type=NETWORK_DICT["np"]
 ):
     """
     Main function running the test routines
     :param plot_torus: Flag to plot neural layer
     :param plot_target: Flag to plot targets to control established connections
+    :param num_plot_tagets: Plot connections of the num_plot_targts-th node
+    :param use_lr_connection_type: Define the type of long range connections
     """
     torus_layer = create_torus_layer_uniform()
     if plot_torus:
@@ -492,7 +503,19 @@ def main(
 
     create_local_circular_connections(torus_layer)
 
-    debug_layer = create_partially_overlapping_patches(torus_layer)
+    if use_lr_connection_type == NETWORK_DICT["np"]:
+        debug_layer = create_distant_np_connections(torus_layer)
+    elif use_lr_connection_type == NETWORK_DICT["random"]:
+        debug_layer = create_random_patches(torus_layer)
+    elif use_lr_connection_type == NETWORK_DICT["overlapping"]:
+        debug_layer = create_overlapping_patches(torus_layer)
+    elif use_lr_connection_type == NETWORK_DICT["shared"]:
+        debug_layer = create_shared_patches(torus_layer)
+    elif use_lr_connection_type == NETWORK_DICT["partially-overlapping"]:
+        debug_layer = create_partially_overlapping_patches(torus_layer)
+    else:
+        raise ValueError("Not a valid network")
+
     if plot_target:
         choice = np.random.choice(np.asarray(debug_layer), num_plot_tagets, replace=False)
         for c in choice:
@@ -502,6 +525,6 @@ def main(
 
 if __name__ == '__main__':
     np.random.seed(0)
-    main(plot_torus=False)
+    main(plot_torus=False, use_lr_connection_type=NETWORK_DICT['partially-overlapping'])
 
 
