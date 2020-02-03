@@ -1,0 +1,32 @@
+neuron barranca_neuron:
+    initial_values:
+        V_m mV = V_R
+    end
+
+    equations:
+        shape G = delta(t, tau_m)
+        V_m' = -((V_m - V_R) / tau_m) + (currents + convolve(G, spikes)) / (C_m * tau_m)
+    end
+
+    parameters:
+        V_R mV = 0mV
+        V_th mV = 1000.0mV - V_R
+        tau_m ms = 20.0ms
+        C_m pF = 1.0pF
+    end
+
+    input:
+        currents pA <- current
+        spikes pA <- spike
+    end
+
+    output: spike
+
+    update:
+        integrate_odes()
+        if V_m >= V_th:
+            V_m = V_R
+            emit_spike()
+        end
+    end
+end
