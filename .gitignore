@@ -2,3 +2,6 @@
 *.pdf
 /*target*
 /report
+/test-input/nfl*
+/reconstructed-samples
+/.idea
