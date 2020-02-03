@@ -43,5 +43,24 @@ Afterwards the customised `nestmlmodule` can be dynamically linked to the script
 nest.Install("nestmlmodules")
 ``` 
 
+## Execution
+There are two main files that implement proposals of the two papers [1] and [2]. The script 
+`VogesNetwork.py` implements the network setups proposed in [2]. Run the script via the command
+```bash
+python VogesNetwork.py
+```
+There are five different networks implemented. To try out different networks change the parameter
+`use_lr_connection_type` passed to the main function.
+
+The script `CSCodeingNetworkBarranca.py` implements the stimulus response reconstruction based on 
+the neural response that was described in [1]. Run the script via
+```bash
+CSCodingNetworkBarranca.py
+``` 
+If you want to compute the mutual information (MI) of input and reconstructed stimulus over a number of
+stimuli set the flag `use_mi=True` that is passed as a parameter to the main function.
+
 ## Sources
-[1] 1.Barranca, V. J., Kovačič, G., Zhou, D. & Cai, D. Sparsity and Compressed Coding in Sensory Systems. PLoS Computational Biology 10, (2014). 
+[1] 1.Barranca, V. J., Kovačič, G., Zhou, D. & Cai, D. Sparsity and Compressed Coding in Sensory Systems. PLoS Computational Biology 10, (2014).
+
+[2] Voges, N., Guijarro, C., Aertsen, A. & Rotter, S.Models of cortical networks with long-range patchy projections. Journal of Computational Neuroscience 28, 137–154 (2010). 
