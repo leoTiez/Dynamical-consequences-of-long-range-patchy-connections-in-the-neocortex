@@ -10,14 +10,14 @@ neuron barranca_neuron:
 
     parameters:
         V_R mV = 0mV
-        V_th mV = 1mV - V_R
+        V_th mV = 1000.0mV - V_R
         tau_m ms = 20.0ms
-        C_m mF = 1.0mF
+        C_m pF = 1.0pF
     end
 
     input:
         currents pA <- current
-        spikes mA <- spike
+        spikes pA <- spike
     end
 
     output: spike
