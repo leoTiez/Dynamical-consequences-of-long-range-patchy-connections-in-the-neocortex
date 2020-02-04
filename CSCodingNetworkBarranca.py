@@ -9,58 +9,24 @@
 # PLOS Computational Biology 10(8): e1003793. (2014)
 # https://doi.org/10.1371/journal.pcbi.1003793
 # ####################################################################################################################
-import os
+
+# External libraries
 import numpy as np
 import cvxpy as cvx
 from scipy.fft import idct
-from PIL import Image
 import matplotlib.pyplot as plt
-from collections import Counter
+
+# Own libraries
+from thesisUtils import *
+from networkAnalysis import *
+
+# Nest
 import nest
 
 # Import customised neural model
 nest.Install("nestmlmodule")
 
 VERBOSITY = 2
-
-
-def load_image(name, path=None):
-    """
-    Load image with given name from path
-    :param name: Name with suffix of the picture
-    :param path: Path to the image. If None is passed, the current directory + '/test-input/' is taken
-    :return: The image as numpy array
-    """
-    if path is None:
-        path = os.getcwd() + "/test-input/"
-    image = Image.open(path + name).convert("L")
-    return np.asarray(image)
-
-
-def mutual_information_hist(joint_hist):
-    """
-    Compute mutual information based on histogram of arrays
-    :param joint_hist: The joint histogram of the input image and the reconstructed stimulus
-    :return: The mutual information between input image and reconstructed stimulus
-    """
-    # Bins count into probability values
-    joint_xy_p = joint_hist / float(np.sum(joint_hist))
-    # Marginal probabilities
-    marginal_x_p = np.sum(joint_xy_p, axis=1)
-    marginal_y_p = np.sum(joint_xy_p, axis=0)
-    # Broadcasting
-    mult_xy_p = marginal_x_p[:, None] * marginal_y_p[None, :]
-    non_zero_indices = joint_xy_p > 0
-    return np.sum(joint_xy_p[non_zero_indices] * np.log(joint_xy_p[non_zero_indices] / mult_xy_p[non_zero_indices]))
-
-
-def idct2(x):
-    """
-    Two dimensional inverse discrete cosine transform
-    :param x: Input array
-    :return: The two-dim array computed through the two-dim inverse discrete cosune transform
-    """
-    return idct(idct(x.T, norm='ortho', axis=0).T, norm='ortho', axis=0)
 
 
 def observations_from_linear_model(
@@ -289,10 +255,7 @@ def main(compute_mi=False):
             indegree=indegree_rec_sen,
         )
         # Create connection matrix B for synapses from receptors to sensory nodes
-        receptor_sensor_connect_values = nest.GetConnections(receptor_nodes, sensory_nodes)
-        receptor_sensor_mat = np.zeros((int(num_receptors), int(num_sensors)))
-        for n in receptor_sensor_connect_values:
-            receptor_sensor_mat[n[0] - min(receptor_nodes), n[1] - min(sensory_nodes)] = 1
+        receptor_sensor_mat = create_adjacency_matrix(receptor_nodes, sensory_nodes)
 
         # Create sensory-to-sensory-node connections
         create_connections_random(
@@ -302,10 +265,7 @@ def main(compute_mi=False):
             indegree=indegree_sen_sen
         )
         # Create connection matrix A for synapses from sensory nodes to sensory nodes
-        sensor_connect_values = nest.GetConnections(sensory_nodes, sensory_nodes)
-        sensor_mat = np.zeros((int(num_sensors), int(num_sensors)))
-        for n in sensor_connect_values:
-            sensor_mat[n[0] - min(sensory_nodes), n[1] - min(sensory_nodes)] = 1
+        sensor_mat = create_adjacency_matrix(sensory_nodes, sensory_nodes)
 
         if VERBOSITY > 0:
             print("\n#####################\t"
@@ -324,10 +284,8 @@ def main(compute_mi=False):
             plt.show()
 
         # Count number of spikes per neuron and create an array holding the firing rates per neuron in Hz
-        spike_count = Counter(spikes_s)
-        firing_rates = np.zeros(len(sensory_nodes))
-        for value, number in spike_count.items():
-            firing_rates[int(value) - min(sensory_nodes)] = number / float(simulation_time / 1000.)
+
+        firing_rates = get_firing_rates(spikes_s, sensory_nodes, simulation_time)
 
         if VERBOSITY > 0:
             average_firing_rate = np.mean(firing_rates)
@@ -347,8 +305,7 @@ def main(compute_mi=False):
 
     # If the flag is set compute MI between the input stimulus and the reconstructed stimulus
     if compute_mi:
-        hist_2d, _, _ = np.histogram2d(np.mean(input_data, axis=0), np.mean(reconstruction_data, axis=0))
-        mutual_information = mutual_information_hist(hist_2d)
+        mutual_information = mutual_information_hist(input_data, reconstruction_data)
         print("\n#####################\tMutual Information MI: %s \n" % mutual_information)
 
 
