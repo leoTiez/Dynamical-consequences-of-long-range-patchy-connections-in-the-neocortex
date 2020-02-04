@@ -10,10 +10,18 @@
 # DOI: 10.1007/s10827-009-0193-z
 # ####################################################################################################################
 
+# External imports
 import numpy as np
 import matplotlib.pyplot as plt
+
+# Own modules
+from thesisUtils import *
+from networkAnalysis import *
+
+# Nest libraries
 import nest.topology as tp
 import nest
+
 # Define global constants
 GLOBAL_CONNECTIVITY = 0.0123
 R_MAX = 8.
@@ -25,47 +33,6 @@ NETWORK_DICT = {
     "shared": 4,
     "partially-overlapping": 5
 }
-
-
-def degree_to_rad(deg):
-    """
-    Convert degree to radians
-    :param deg: value in degree
-    :return: value in radians
-    """
-    return deg * np.pi / 180.
-
-
-def to_coordinates(angle, distance):
-    """
-    Convert distance and angle to coordinates
-    :param angle: angle
-    :param distance: distance
-    :return: coordinates [x, y]
-    """
-    angle = degree_to_rad(angle)
-    return [distance * np.cos(angle), distance * np.sin(angle)]
-
-
-def create_adjacency_matrix(src_nodes, target_nodes):
-    connect_values = nest.GetConnections(src_nodes, target_nodes)
-    adjacency_mat = np.zeros((int(len(src_nodes)), int(len(target_nodes))))
-    for n in connect_values:
-        adjacency_mat[n[0] - min(src_nodes), n[1] - min(target_nodes)] = 1
-    return adjacency_mat
-
-
-def eigenvalue_analysis(matrix, plot=True):
-    eigenvalues, eigenvectors = np.linalg.eig(matrix)
-    if plot:
-        plt.plot(eigenvalues.real, eigenvalues.imag, 'b.')
-        plt.xlabel("Re($\lambda$)")
-        plt.ylabel("Im($\lambda$)")
-        x1, x2, y1, y2 = plt.axis()
-        plt.axis((x1, x2, -10, 10))
-        plt.show()
-
-    return eigenvalues, eigenvectors
 
 
 def get_local_connectivity(
