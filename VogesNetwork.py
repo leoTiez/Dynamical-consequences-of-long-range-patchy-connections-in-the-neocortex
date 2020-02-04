@@ -470,6 +470,34 @@ def create_partially_overlapping_patches(
     )
 
 
+def create_distant_connections(torus_layer, connection_type=NETWORK_DICT["np"]):
+    if connection_type == NETWORK_DICT["np"]:
+        debug_layer = create_distant_np_connections(torus_layer)
+    elif connection_type == NETWORK_DICT["random"]:
+        debug_layer = create_random_patches(torus_layer)
+    elif connection_type == NETWORK_DICT["overlapping"]:
+        debug_layer = create_overlapping_patches(torus_layer)
+    elif connection_type == NETWORK_DICT["shared"]:
+        debug_layer = create_shared_patches(torus_layer)
+    elif connection_type == NETWORK_DICT["partially-overlapping"]:
+        debug_layer = create_partially_overlapping_patches(torus_layer)
+    else:
+        raise ValueError("Not a valid network")
+
+    return debug_layer
+
+
+def main_create_eigenspectra_plots():
+    torus_layer = create_torus_layer_uniform()
+    create_local_circular_connections(torus_layer)
+
+    for key in NETWORK_DICT:
+        _ = create_distant_connections(torus_layer, connection_type=NETWORK_DICT[key])
+
+        adj_mat = create_adjacency_matrix(nest.GetNodes(torus_layer)[0], nest.GetNodes(torus_layer)[0])
+        eigenvalue_analysis(adj_mat, plot=True, save_plot=True, fig_name="voges_adj_matrix_%s.png" % key)
+
+
 def main(
         plot_torus=True,
         plot_target=True,
@@ -491,18 +519,7 @@ def main(
 
     create_local_circular_connections(torus_layer)
 
-    if use_lr_connection_type == NETWORK_DICT["np"]:
-        debug_layer = create_distant_np_connections(torus_layer)
-    elif use_lr_connection_type == NETWORK_DICT["random"]:
-        debug_layer = create_random_patches(torus_layer)
-    elif use_lr_connection_type == NETWORK_DICT["overlapping"]:
-        debug_layer = create_overlapping_patches(torus_layer)
-    elif use_lr_connection_type == NETWORK_DICT["shared"]:
-        debug_layer = create_shared_patches(torus_layer)
-    elif use_lr_connection_type == NETWORK_DICT["partially-overlapping"]:
-        debug_layer = create_partially_overlapping_patches(torus_layer)
-    else:
-        raise ValueError("Not a valid network")
+    debug_layer = create_distant_connections(torus_layer, connection_type=use_lr_connection_type)
 
     if plot_target:
         choice = np.random.choice(np.asarray(debug_layer), num_plot_tagets, replace=False)
@@ -516,6 +533,6 @@ def main(
 
 if __name__ == '__main__':
     np.random.seed(0)
-    main(plot_torus=False, use_lr_connection_type=NETWORK_DICT['partially-overlapping'])
-
+    # main(plot_torus=False, use_lr_connection_type=NETWORK_DICT['partially-overlapping'])
+    main_create_eigenspectra_plots()
 
