@@ -15,8 +15,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Own modules
-from thesisUtils import *
-from networkAnalysis import *
+from modules.thesisUtils import *
+from modules.networkAnalysis import *
 
 # Nest libraries
 import nest.topology as tp
