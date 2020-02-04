@@ -17,8 +17,8 @@ from scipy.fft import idct
 import matplotlib.pyplot as plt
 
 # Own libraries
-from thesisUtils import *
-from networkAnalysis import *
+from modules.thesisUtils import *
+from modules.networkAnalysis import *
 
 # Nest
 import nest
