@@ -15,7 +15,7 @@ The required Python modules that can be downloaded via pip are compiled in the
 `requirements.txt` file and can be installed via
 
 ```bash
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 ## Install the Barranca neuron model
@@ -47,7 +47,7 @@ nest.Install("nestmlmodules")
 There are two main files that implement proposals of the two papers [1] and [2]. The script 
 `VogesNetwork.py` implements the network setups proposed in [2]. Run the script via the command
 ```bash
-python VogesNetwork.py
+python3 VogesNetwork.py
 ```
 There are five different networks implemented. To try out different networks change the parameter
 `use_lr_connection_type` passed to the main function.
@@ -55,7 +55,7 @@ There are five different networks implemented. To try out different networks cha
 The script `CSCodeingNetworkBarranca.py` implements the stimulus response reconstruction based on 
 the neural response that was described in [1]. Run the script via
 ```bash
-CSCodingNetworkBarranca.py
+pyhton3 CSCodingNetworkBarranca.py
 ``` 
 If you want to compute the mutual information (MI) of input and reconstructed stimulus over a number of
 stimuli set the flag `use_mi=True` that is passed as a parameter to the main function.
