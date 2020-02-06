@@ -1,9 +1,9 @@
 #!/usr/bin/python3
+from modules.thesisUtils import *
+
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-
-from thesisUtils import *
 
 
 def convert_image_to_orientation_map(image, magnitude_threshold=50, num_orientation_ranges=8):
