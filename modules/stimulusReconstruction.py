@@ -3,7 +3,6 @@ from modules.thesisUtils import *
 
 import numpy as np
 from scipy.fft import idct
-import matplotlib.pyplot as plt
 import cvxpy as cvx
 
 
