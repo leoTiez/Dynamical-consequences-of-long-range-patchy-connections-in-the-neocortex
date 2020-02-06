@@ -130,8 +130,9 @@ def main(compute_mi=False):
             threshold_pot=threshold_pot
         )
         if VERBOSITY > 1:
-            plt.imshow(reconstruction)
-            plt.imshow(image, cmap="gray")
+            _, figs = plt.subplots(1, 2)
+            figs[0].imshow(reconstruction, cmap="gray")
+            figs[1].imshow(image, cmap="gray")
             plt.show()
 
         reconstruction_data.append(reconstruction.reshape(-1))
