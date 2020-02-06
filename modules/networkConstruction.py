@@ -76,6 +76,8 @@ def create_distinct_sublayer_boxes(size_boxes, size_layer=R_MAX):
                         for x in range(-int(size_layer / (2. * float(size_boxes))),
                                        int(size_layer / (2. * float(size_boxes))))
                         ]
+    if len(sublayer_anchors) == 0:
+        sublayer_anchors = [[0., 0.]]
     box_mask_dict = {"lower_left": [-size_boxes / 2., -size_boxes / 2.],
                      "upper_right": [size_boxes / 2., size_boxes / 2.]}
 
@@ -485,6 +487,7 @@ def create_stimulus_based_patches_random(
         r_loc=0.5,
         p_loc=0.7,
         p_p=0.7,
+        connect_dict = None,
         size_layer=R_MAX,
 ):
     # Calculate parameters for the patches
@@ -499,7 +502,7 @@ def create_stimulus_based_patches_random(
     for neuron in node_ids:
         stimulus_tuning = neuron_to_tuning_map[neuron]
         same_tuning_nodes = tuning_to_neuron_map[stimulus_tuning]
-        same_tuning_nodes = [area for area in same_tuning_nodes if neuron not in area]
+        # same_tuning_nodes = [area for area in same_tuning_nodes if neuron not in area]
         patch_center_nodes = []
         while len(patch_center_nodes) < num_patches:
             area_idx = np.random.choice(len(same_tuning_nodes))
@@ -516,10 +519,11 @@ def create_stimulus_based_patches_random(
                 mask_obj=tp.CreateMask("circular", specs=mask_specs)
             )
         # Define connection
-        connect_dict = {
-            "rule": "pairwise_bernoulli",
-            "p": p_p
-        }
+        if connect_dict is None:
+            connect_dict = {
+                "rule": "pairwise_bernoulli",
+                "p": p_p
+            }
         nest.Connect([neuron], patches, connect_dict)
 
 
