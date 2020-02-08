@@ -16,33 +16,20 @@ VERBOSITY = 3
 nest.set_verbosity("M_ERROR")
 
 
-def main_lr(use_patchy=True):
-    # load input stimulus
-    # input_stimulus = image_with_spartial_correlation(size_img=(50, 50))
-    input_stimulus = load_image("nfl-sunflower50.jpg")
-    if VERBOSITY > 2:
-        plt.imshow(input_stimulus, cmap='gray')
-        plt.show()
-
+def create_network(input_stimulus, cap_s=1., receptor_connect_strength=1., use_patchy=True, use_stimulus_local=True):
     # #################################################################################################################
     # Define values
     # #################################################################################################################
-    num_receptor = input_stimulus.size
     # Not necessary to divide by 10, as sparsity is obtained by tuning preference ?
     num_sensory = input_stimulus.size // 10
     num_stimulus_discr = 4
-    simulation_time = 250.
-    cap_s = 1.
-    receptor_connect_strength = 1.
     rf_size = (input_stimulus.shape[0] / 3., input_stimulus.shape[1] / 3.)
-    ignore_weights_adj = True
+    ignore_weights_adj = False
     patchy_connect_dict = {"rule": "fixed_indegree", "indegree": 25}
     rf_connect_dict = {"rule": "pairwise_bernoulli", "p": 0.7}
     local_connect_dict = {"rule": "pairwise_bernoulli", "p": 0.7}
-    use_mask = False
     plot_rf_relation = False if VERBOSITY < 4 else True
     p_loc = 0.5
-
     # #################################################################################################################
     # Create nodes and orientation map
     # #################################################################################################################
@@ -87,21 +74,28 @@ def main_lr(use_patchy=True):
         rf_size=rf_size,
         ignore_weights=ignore_weights_adj,
         plot_src_target=plot_rf_relation,
-        retina_size=input_stimulus.shape
+        retina_size=input_stimulus.shape,
+        synaptic_strength=receptor_connect_strength
     )
 
     if VERBOSITY > 0:
         print("\n#####################\tCreate local connections")
     if not use_patchy:
-        p_loc = 1.
+        if use_stimulus_local:
+            local_connect_dict={"rule": "pairwise_bernoulli", "p": 1.}
+        else:
+            p_loc = 1.
+
     # Create local connections
-    # create_local_circular_connections(torus_layer, p_loc=p_loc)
-    create_stimulus_based_local_connections(
-        torus_layer,
-        neuron_to_tuning_map,
-        tuning_to_neuron_map,
-        connect_dict=local_connect_dict
-    )
+    if use_stimulus_local:
+        create_stimulus_based_local_connections(
+            torus_layer,
+            neuron_to_tuning_map,
+            tuning_to_neuron_map,
+            connect_dict=local_connect_dict
+        )
+    else:
+        create_local_circular_connections(torus_layer, p_loc=p_loc)
 
     # Create long-range patchy connections
     if use_patchy:
@@ -123,6 +117,49 @@ def main_lr(use_patchy=True):
     if VERBOSITY > 0:
         print("\n#####################\tSet synaptic weights for sensory to sensory neurons")
     set_synaptic_strenght(torus_layer_nodes, adj_sens_sens_mat, cap_s=cap_s)
+
+    return receptor_layer, torus_layer, adj_rec_sens_mat, adj_sens_sens_mat, tuning_weight_vector, spike_detect
+
+
+def main_lr(use_patchy=True):
+    # load input stimulus
+    # input_stimulus = image_with_spartial_correlation(size_img=(50, 50))
+    input_stimulus = load_image("nfl-sunflower50.jpg")
+    if VERBOSITY > 2:
+        plt.imshow(input_stimulus, cmap='gray')
+        plt.show()
+
+    # #################################################################################################################
+    # Define values
+    # #################################################################################################################
+    num_receptor = input_stimulus.size
+    simulation_time = 250.
+    use_mask = False
+    plot_only_eigenspectrum = True
+    cap_s = 1.
+    receptor_connect_strength = 1.
+
+    (receptor_layer,
+     torus_layer,
+     adj_rec_sens_mat,
+     adj_sens_sens_mat,
+     tuning_weight_vector,
+     spike_detect) = create_network(
+        input_stimulus,
+        cap_s=cap_s,
+        receptor_connect_strength=receptor_connect_strength,
+        use_patchy=use_patchy
+    )
+
+    torus_layer_nodes = nest.GetNodes(torus_layer)[0]
+    if plot_only_eigenspectrum:
+        _, _ = eigenvalue_analysis(
+            adj_sens_sens_mat,
+            plot=True,
+            save_plot=True,
+            fig_name="thesis_network_non-zero_connections.png"
+        )
+        return
 
     # #################################################################################################################
     # Simulate and retrieve resutls
