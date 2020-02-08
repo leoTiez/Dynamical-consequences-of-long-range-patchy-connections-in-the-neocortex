@@ -13,6 +13,7 @@ def observations_from_linear_model(
         time_const=20.0,
         threshold_pot=1e3,
         rest_pot=0.,
+        tuning_weight_vector=None
 ):
     """
     Compute the observations from the linearised neural activity for stimulus reconstruction.
@@ -28,8 +29,10 @@ def observations_from_linear_model(
     :param rest_pot: resting potential / reset potential in mV
     :return: The observation that is used for the stimulus reconstruction
     """
+    if tuning_weight_vector is None:
+        tuning_weight_vector = np.ones(firing_rates.shape)
     return ((time_const / 1000.) * firing_rates + 0.5) * (threshold_pot - rest_pot) -\
-           (connection_strength * sensor_connect_mat.dot(firing_rates))
+           (connection_strength * sensor_connect_mat.dot(firing_rates * tuning_weight_vector))
 
 
 def stimulus_reconstruction(
@@ -41,7 +44,8 @@ def stimulus_reconstruction(
         time_const=20.0,
         threshold_pot=1e3,
         rest_pot=0.,
-        stimulus_size=1e4
+        stimulus_size=1e4,
+        tuning_weight_vector=None
 ):
     """
     Reconstruct input stimulus based on the firing patterns of the nodes in the network
@@ -70,7 +74,8 @@ def stimulus_reconstruction(
         threshold_pot=threshold_pot,
         rest_pot=rest_pot,
         sensor_connect_mat=sensor_connect_mat,
-        connection_strength=sensor_connection_strength
+        connection_strength=sensor_connection_strength,
+        tuning_weight_vector=tuning_weight_vector
     )
 
     # The L1 optimisation
