@@ -3,6 +3,8 @@ from modules.thesisUtils import *
 from modules.networkAnalysis import *
 
 import numpy as np
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
 
 import nest.topology as tp
 import nest
@@ -479,6 +481,32 @@ def create_partially_overlapping_patches(
     )
 
 
+def create_stimulus_based_local_connections(
+        layer,
+        neuron_to_tuning_map,
+        tuning_to_neuron_map,
+        r_loc=0.5,
+        connect_dict=None
+):
+    if connect_dict is None:
+        connect_dict = {
+            "rule": "pairwise_bernoulli",
+            "p": 0.7
+        }
+
+    node_ids = nest.GetNodes(layer)[0]
+    for node in node_ids:
+        stimulus_tuning = neuron_to_tuning_map[node]
+        similar_tuned_neurons = tuning_to_neuron_map[stimulus_tuning]
+        same_stimulus_area = list(filter(lambda l: node in l, similar_tuned_neurons))[0]
+        same_stimulus_area = list(filter(lambda n: n != node, same_stimulus_area))
+        connect_partners = [
+            connect_p for connect_p in same_stimulus_area
+            if tp.Distance([connect_p], [node])[0] < r_loc
+        ]
+        nest.Connect([node], connect_partners, connect_dict)
+
+
 def create_stimulus_based_patches_random(
         layer,
         neuron_to_tuning_map,
@@ -562,7 +590,6 @@ def create_input_current_generator(
             "rows": input_stimulus.shape[0],
             "columns": input_stimulus.shape[1],
             "elements": "dc_generator",
-            "edge_wrap": True
         }
         dc_generator = tp.CreateLayer(receptor_layer_dict)
         dc_nodes = nest.GetNodes(dc_generator)[0]
@@ -648,6 +675,9 @@ def create_stimulus_tuning_map(layer, num_stimulus_discr=4, size_layer=R_MAX):
     sublayer_anchors, box_mask_dict = create_distinct_sublayer_boxes(size_boxes=box_size, size_layer=size_layer)
     tuning_to_neuron_map = {stimulus: [] for stimulus in range(num_stimulus_discr)}
     neuron_to_tuning_map = {}
+    nodes = nest.GetNodes(layer)[0]
+    tuning_weight_vector = np.zeros(len(nodes))
+    min_idx = min(nodes)
     shift = 0
     for num, anchor in enumerate(sublayer_anchors):
         stimulus_area = tp.SelectNodesByMask(layer, anchor, mask_obj=tp.CreateMask("rectangular", specs=box_mask_dict))
@@ -655,9 +685,11 @@ def create_stimulus_tuning_map(layer, num_stimulus_discr=4, size_layer=R_MAX):
         if num % num_stimulus_discr == num_stimulus_discr - 1:
             shift = 0 if shift == num_stimulus_discr // 2 else num_stimulus_discr // 2
         tuning_to_neuron_map[stimulus_tuning].append(stimulus_area)
+        for neuron in stimulus_area:
+            tuning_weight_vector[neuron - min_idx] = stimulus_tuning / (num_stimulus_discr - 1)
         neuron_to_tuning_sub = {neuron: stimulus_tuning for neuron in stimulus_area}
         neuron_to_tuning_map = {**neuron_to_tuning_map, **neuron_to_tuning_sub}
-    return tuning_to_neuron_map, neuron_to_tuning_map
+    return tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector
 
 
 def check_in_stimulus_tuning(
@@ -676,15 +708,18 @@ def create_connections_rf(
         rf_size=(5, 5),
         connect_dict=None,
         synaptic_strength=1.,
-        ignore_weights=True
+        ignore_weights=True,
+        plot_src_target=False,
+        plot_freq=10,
+        retina_size=(100, 100)
 ):
     target_node_ids = nest.GetNodes(target_layer)[0]
     src_node_ids = nest.GetNodes(src_layer)[0]
 
     # Follow the nest convention [columns, rows]
     mask_specs = {
-        "rows": rf_size[1],
-        "columns": rf_size[0]
+        "lower_left": [-rf_size[1] / 2., -rf_size[0] / 2.],
+        "upper_right": [rf_size[1] / 2., rf_size[0] / 2.]
     }
     num_tuning_discr = max(neuron_to_tuning_map.values()) + 1
     tuning_discr_step = 255 / float(num_tuning_discr)
@@ -698,9 +733,12 @@ def create_connections_rf(
             "p": 0.7
         }
 
+    counter = 0
+    rf_list = []
     for target_node, rf_center in zip(target_node_ids, rf_centers):
-        src_nodes = tp.SelectNodesByMask(src_layer, rf_center, mask_obj=tp.CreateMask("grid", specs=mask_specs))
-
+        src_nodes = tp.SelectNodesByMask(src_layer, rf_center, mask_obj=tp.CreateMask("rectangular", specs=mask_specs))
+        src_pos = tp.GetPosition(src_nodes)
+        rf_list.append(list(src_pos))
         nest.Connect(src_nodes, [target_node], connect_dict)
         connections = nest.GetConnections(source=src_nodes, target=[target_node])
         connected_src_nodes = nest.GetStatus(connections, "source")
@@ -711,6 +749,28 @@ def create_connections_rf(
                 tuning_discr_step) else synaptic_strength
              } for receptor in connected_src_nodes]
 
+        if plot_src_target:
+            if counter % plot_freq == 0:
+                fig, ax = plt.subplots(1, 2)
+                ax[0].axis((-retina_size[1]/2., retina_size[1]/2., -retina_size[0]/2., retina_size[0]/2.))
+                for rf in rf_list:
+                    # De-zip to get x and y values separately
+                    x_pixel, y_pixel = zip(*rf)
+                    ax[0].plot(x_pixel, y_pixel, '.')
+                ax[0].set_xlabel("Retina tissue in X")
+                ax[0].set_ylabel("Retina tissue in Y")
+
+                ax[1].axis((-R_MAX / 2., R_MAX / 2., -R_MAX / 2., R_MAX / 2.))
+                target_positions = tp.GetPosition(list(target_node_ids[max(counter - plot_freq, 0): counter + 1]))
+                # Iterate over values to have matching colors
+                for x, y in target_positions:
+                    ax[1].plot(x, y, 'o')
+                ax[1].set_xlabel("V1 tissue in X")
+                ax[1].set_ylabel("V1 tissue in Y")
+                plt.show()
+
+        counter += 1
+
         nest.SetStatus(connections, synapse_declaration)
         adj_mat = set_values_in_adjacency_matrix(
             connections,
@@ -720,4 +780,5 @@ def create_connections_rf(
             ignore_weights=ignore_weights
         )
 
+    nest.SetStatus(src_node_ids, {"amplitude": 255e12})
     return adj_mat
