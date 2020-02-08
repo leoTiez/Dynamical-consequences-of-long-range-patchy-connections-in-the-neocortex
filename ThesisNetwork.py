@@ -12,14 +12,14 @@ import matplotlib.pyplot as plt
 import nest
 
 
-VERBOSITY = 2
+VERBOSITY = 3
 nest.set_verbosity("M_ERROR")
 
 
 def main_lr(use_patchy=True):
     # load input stimulus
     # input_stimulus = image_with_spartial_correlation(size_img=(50, 50))
-    input_stimulus = load_image("nfl-planet.PNG")
+    input_stimulus = load_image("nfl-sunflower50.jpg")
     if VERBOSITY > 2:
         plt.imshow(input_stimulus, cmap='gray')
         plt.show()
@@ -29,40 +29,55 @@ def main_lr(use_patchy=True):
     # #################################################################################################################
     num_receptor = input_stimulus.size
     # Not necessary to divide by 10, as sparsity is obtained by tuning preference ?
-    num_sensory = input_stimulus.size // 5
-    num_stimulus_discr = 8
+    num_sensory = input_stimulus.size // 10
+    num_stimulus_discr = 4
     simulation_time = 250.
     cap_s = 1.
     receptor_connect_strength = 1.
-    rf_size = (3, 3)
+    rf_size = (input_stimulus.shape[0] / 3., input_stimulus.shape[1] / 3.)
     ignore_weights_adj = True
     patchy_connect_dict = {"rule": "fixed_indegree", "indegree": 25}
-    rf_connect_dict = {"rule": "fixed_indegree", "indegree": 5}
-    use_mask = True
+    rf_connect_dict = {"rule": "pairwise_bernoulli", "p": 0.7}
+    local_connect_dict = {"rule": "pairwise_bernoulli", "p": 0.7}
+    use_mask = False
+    plot_rf_relation = False if VERBOSITY < 4 else True
     p_loc = 0.5
 
     # #################################################################################################################
     # Create nodes and orientation map
     # #################################################################################################################
+    if VERBOSITY > 0:
+        print("\n#####################\tCreate receptor layer")
     receptor_layer = create_input_current_generator(input_stimulus, organise_on_grid=True)
+
+    if VERBOSITY > 0:
+        print("\n#####################\tCreate sensory layer")
     torus_layer, spike_detect, _ = create_torus_layer_uniform(num_sensory)
     torus_layer_nodes = nest.GetNodes(torus_layer)[0]
     receptor_layer_nodes = nest.GetNodes(receptor_layer)[0]
+
     # Create stimulus tuning map
-    tuning_to_neuron_map, neuron_to_tuning_map = create_stimulus_tuning_map(
+    if VERBOSITY > 0:
+        print("\n#####################\tCreate stimulus tuning map")
+    tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector = create_stimulus_tuning_map(
         torus_layer,
         num_stimulus_discr=num_stimulus_discr
     )
 
-    # Create map for receptive field centers for neurons
-    x_rf = np.random.choice(input_stimulus.shape[1], size=num_sensory)
-    y_rf = np.random.choice(input_stimulus.shape[0], size=num_sensory)
-    rf_center_map = zip(x_rf.astype('float'), y_rf.astype('float'))
+    if VERBOSITY > 0:
+        print("\n#####################\tCreate central points for receptive fields")
+    sens_node_positions = tp.GetPosition(torus_layer_nodes)
+    rf_center_map = [
+        ((x / (R_MAX / 2.)) * input_stimulus.shape[1] / 2., (y / (R_MAX / 2.)) * input_stimulus.shape[0] / 2.)
+        for (x, y) in sens_node_positions
+    ]
 
     # #################################################################################################################
     # Create Connections
     # #################################################################################################################
     # Create connections to receptive field
+    if VERBOSITY > 0:
+        print("\n#####################\tCreate connections between receptors and sensory neurons")
     adj_rec_sens_mat = create_connections_rf(
         receptor_layer,
         torus_layer,
@@ -70,29 +85,51 @@ def main_lr(use_patchy=True):
         neuron_to_tuning_map,
         connect_dict=rf_connect_dict,
         rf_size=rf_size,
-        ignore_weights=ignore_weights_adj
+        ignore_weights=ignore_weights_adj,
+        plot_src_target=plot_rf_relation,
+        retina_size=input_stimulus.shape
     )
+
+    if VERBOSITY > 0:
+        print("\n#####################\tCreate local connections")
     if not use_patchy:
         p_loc = 1.
     # Create local connections
-    create_local_circular_connections(torus_layer, p_loc=p_loc)
+    # create_local_circular_connections(torus_layer, p_loc=p_loc)
+    create_stimulus_based_local_connections(
+        torus_layer,
+        neuron_to_tuning_map,
+        tuning_to_neuron_map,
+        connect_dict=local_connect_dict
+    )
+
     # Create long-range patchy connections
     if use_patchy:
+        if VERBOSITY > 0:
+            print("\n#####################\tCreate long-range patchy connections")
         create_stimulus_based_patches_random(
             torus_layer,
             neuron_to_tuning_map,
             tuning_to_neuron_map,
             connect_dict=patchy_connect_dict
         )
+
     # Create sensory-to-sensory matrix
+    if VERBOSITY > 0:
+        print("\n#####################\tCreate adjacency matrix for sensory-to-sensory connections")
     adj_sens_sens_mat = create_adjacency_matrix(torus_layer_nodes, torus_layer_nodes)
+
     # Set sensory-to-sensory weights
+    if VERBOSITY > 0:
+        print("\n#####################\tSet synaptic weights for sensory to sensory neurons")
     set_synaptic_strenght(torus_layer_nodes, adj_sens_sens_mat, cap_s=cap_s)
 
     # #################################################################################################################
     # Simulate and retrieve resutls
-    nest.Simulate(simulation_time)
     # #################################################################################################################
+    if VERBOSITY > 0:
+        print("\n#####################\tSimulate")
+    nest.Simulate(simulation_time)
 
     # Get network response in spikes
     data_sp = nest.GetStatus(spike_detect, keys="events")[0]
@@ -114,14 +151,18 @@ def main_lr(use_patchy=True):
     mask = np.ones(firing_rates.shape, dtype='bool')
     if use_mask:
         mask = firing_rates > 0
+
     # Reconstruct input stimulus
+    if VERBOSITY > 0:
+        print("\n#####################\tReconstruct stimulus")
     reconstruction = stimulus_reconstruction(
         firing_rates[mask],
         cap_s / float(adj_sens_sens_mat.sum()),
         receptor_connect_strength,
         adj_rec_sens_mat[:, mask],
         adj_sens_sens_mat[mask, mask],
-        stimulus_size=num_receptor
+        stimulus_size=num_receptor,
+        tuning_weight_vector=tuning_weight_vector[mask]
     )
 
     if VERBOSITY > 1:
