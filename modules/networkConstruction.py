@@ -2,8 +2,10 @@
 from modules.thesisUtils import *
 from modules.networkAnalysis import *
 
+import warnings
 import numpy as np
 import matplotlib.patches as patches
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 
 import nest.topology as tp
@@ -92,7 +94,8 @@ def create_torus_layer_uniform(
         rest_pot=0.,
         threshold_pot=1e3,
         time_const=20.,
-        capacitance=1e12
+        capacitance=1e12,
+        size_layer = R_MAX
 ):
     """
     Create a layer wrapped a torus to avoid boundary conditions. Neurons are placed uniformly
@@ -100,15 +103,15 @@ def create_torus_layer_uniform(
     :return: neural layer
     """
     # Calculate positions
-    positions = np.random.uniform(- R_MAX / 2., R_MAX / 2., size=(num_neurons, 2)).tolist()
+    positions = np.random.uniform(- size_layer / 2., size_layer / 2., size=(num_neurons, 2)).tolist()
     # Create dict for neural layer that is wrapped as torus to avoid boundary effects
     torus_dict = {
-        "extent": [R_MAX, R_MAX],
+        "extent": [size_layer, size_layer],
         "positions": positions,
         "elements": neuron_type,
         "edge_wrap": True
     }
-    if neuron_type is "iaf_psc_delta":
+    if neuron_type is "iaf_psc_delta" or neuron_type is "iaf_psc_alpha":
         neuron_dict = {
             "V_m": rest_pot,
             "E_L": rest_pot,
@@ -117,6 +120,9 @@ def create_torus_layer_uniform(
             "V_th": threshold_pot,
             "V_reset": rest_pot
         }
+
+    else:
+        raise ValueError("The passed neuron type %s is not supported" % neuron_type)
     # Create layer
     torus_layer = tp.CreateLayer(torus_dict)
     sensory_nodes = nest.GetNodes(torus_layer)[0]
@@ -130,7 +136,8 @@ def create_torus_layer_uniform(
 
 def create_torus_layer_with_jitter(
         num_neurons=3600,
-        jitter=0.03
+        jitter=0.03,
+        neuron_type="iaf_psc_alpha"
 ):
     """
     Create a layer wrapped a torus to avoid boundary conditions. Neurons are placed on a grid with fluctuations
@@ -139,7 +146,7 @@ def create_torus_layer_with_jitter(
     :return: layer
     """
     # Create coordinates of neurons
-    mod_size = R_MAX- jitter*2
+    mod_size = R_MAX - jitter*2
     step_size = mod_size / float(np.sqrt(num_neurons))
     coordinate_scale = np.arange(-mod_size / 2., mod_size / 2., step_size)
     grid = [[x, y] for y in coordinate_scale for x in coordinate_scale]
@@ -151,7 +158,7 @@ def create_torus_layer_with_jitter(
     torus_dict = {
         "extent": [R_MAX, R_MAX],
         "positions": positions,
-        "elements": "iaf_psc_alpha",
+        "elements": neuron_type,
         "edge_wrap": True
     }
 
@@ -515,10 +522,15 @@ def create_stimulus_based_patches_random(
         r_loc=0.5,
         p_loc=0.7,
         p_p=0.7,
-        connect_dict = None,
+        connect_dict=None,
         size_layer=R_MAX,
 ):
     # Calculate parameters for the patches
+    if connect_dict is None and p_p is None:
+        warnings.warn("Connect dict not specified.\n"
+                      "Computed probability based on Voges does not necessarily return in all cases a valid value.\n"
+                      "Recommended values are p_loc >= 0.5 and r_loc > 0.5")
+
     r_p = r_loc / 2.
     min_distance = r_loc + r_p
     max_distance = size_layer / 2. - r_loc
@@ -561,6 +573,8 @@ def set_synaptic_strenght(
         cap_s=1.
 ):
     num_connec = adj_mat.sum()
+    if num_connec == 0:
+        return
     connect = nest.GetConnections(source=nodes)
     connect = [c for c in connect if nest.GetStatus([c], "target")[0] in nodes]
     nest.SetStatus(connect, {"weight": cap_s/float(num_connec)})
@@ -669,7 +683,14 @@ def create_connections_random(
     nest.Connect(src_nodes, target_nodes, conn_spec=connect_dict, syn_spec=synapse_dict)
 
 
-def create_stimulus_tuning_map(layer, num_stimulus_discr=4, size_layer=R_MAX):
+def create_stimulus_tuning_map(
+        layer,
+        num_stimulus_discr=4,
+        size_layer=R_MAX,
+        plot=False,
+        save_plot=False,
+        plot_name=None
+):
     # Assume quadratic layer size
     box_size = size_layer // num_stimulus_discr
     sublayer_anchors, box_mask_dict = create_distinct_sublayer_boxes(size_boxes=box_size, size_layer=size_layer)
@@ -679,17 +700,55 @@ def create_stimulus_tuning_map(layer, num_stimulus_discr=4, size_layer=R_MAX):
     tuning_weight_vector = np.zeros(len(nodes))
     min_idx = min(nodes)
     shift = 0
+    color_map = []
     for num, anchor in enumerate(sublayer_anchors):
         stimulus_area = tp.SelectNodesByMask(layer, anchor, mask_obj=tp.CreateMask("rectangular", specs=box_mask_dict))
+        # TODO correct error handling?
+        if len(stimulus_area) == 0:
+            continue
         stimulus_tuning = (num + shift) % num_stimulus_discr
         if num % num_stimulus_discr == num_stimulus_discr - 1:
             shift = 0 if shift == num_stimulus_discr // 2 else num_stimulus_discr // 2
+        # Note that every value is a list of tuples
         tuning_to_neuron_map[stimulus_tuning].append(stimulus_area)
         for neuron in stimulus_area:
             tuning_weight_vector[neuron - min_idx] = stimulus_tuning / (num_stimulus_discr - 1)
         neuron_to_tuning_sub = {neuron: stimulus_tuning for neuron in stimulus_area}
         neuron_to_tuning_map = {**neuron_to_tuning_map, **neuron_to_tuning_sub}
-    return tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector
+
+        color = list(mcolors.TABLEAU_COLORS)[stimulus_tuning]
+        color_map.append({
+            "lower_left": (anchor[0] + box_mask_dict["lower_left"][0], anchor[1] + box_mask_dict["lower_left"][1]),
+            "width": box_mask_dict["upper_right"][0] - box_mask_dict["lower_left"][0],
+            "height": box_mask_dict["upper_right"][1] - box_mask_dict["lower_left"][1],
+            "color":color
+        })
+
+        if plot:
+
+            positions = tp.GetPosition(stimulus_area)
+            x, y = zip(*positions)
+            plt.plot(x, y, '.', color=color)
+            area_rect = patches.Rectangle(
+                color_map[-1]["lower_left"],
+                width=color_map[-1]["width"],
+                height=color_map[-1]["height"],
+                color=color_map[-1]["color"],
+                alpha=0.2
+            )
+            plt.gca().add_patch(area_rect)
+            plt.plot()
+
+    if plot:
+        if not save_plot:
+            plt.show()
+        else:
+            curr_dir = os.getcwd()
+            if plot_name is None:
+                plot_name = "stimulus_tuning_map.png"
+            plt.savefig(curr_dir + "/figures/" + plot_name)
+
+    return tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map
 
 
 def check_in_stimulus_tuning(
