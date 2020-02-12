@@ -58,7 +58,7 @@ def create_image_bar(orientation, bar_width=5, size=(50, 50)):
     return img
 
 
-def image_with_spartial_correlation(num_circles=50, radius=5, size_img=(50, 50)):
+def image_with_spatial_correlation(num_circles=50, radius=5, size_img=(50, 50)):
     image = np.zeros(size_img)
     x_coordinates = np.random.choice(size_img[0], size=num_circles)
     y_coordinates = np.random.choice(size_img[1], size=num_circles)
@@ -84,7 +84,7 @@ def test_main():
     plt.imshow(orient_bar, cmap='gray')
     plt.show()
 
-    spart_img = image_with_spartial_correlation()
+    spart_img = image_with_spatial_correlation()
     plt.imshow(spart_img, cmap='gray')
     plt.show()
 
