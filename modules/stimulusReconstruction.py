@@ -2,7 +2,7 @@
 from modules.thesisUtils import *
 
 import numpy as np
-from scipy.fft import idct
+from scipy.fft import idct, fft2, fftfreq
 import cvxpy as cvx
 
 
@@ -90,3 +90,26 @@ def stimulus_reconstruction(
     stimulus = idct2(stimulus_pixel_matrix)
 
     return stimulus
+
+
+def direct_stimulus_reconstruction(
+        firing_rates,
+        rec_sens_adj_mat,
+        tuning_weight_vector
+):
+    reconstruction = np.zeros(rec_sens_adj_mat.shape[0])
+    sorted_rates = sorted(zip(firing_rates, range(firing_rates.size)), key=lambda l: l[0])
+    for _, idx in sorted_rates:
+        reduced_vector = np.zeros(firing_rates.shape)
+        reduced_vector[idx] = firing_rates[idx]
+        reconstruction += rec_sens_adj_mat.dot(tuning_weight_vector * reduced_vector)
+
+    return reconstruction.reshape(int(np.sqrt(reconstruction.size)), int(np.sqrt(reconstruction.size)))
+
+
+def fourier_trans(signal):
+    return fft2(signal)
+
+
+
+
