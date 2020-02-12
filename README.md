@@ -43,6 +43,12 @@ Afterwards the customised `nestmlmodule` can be dynamically linked to the script
 nest.Install("nestmlmodules")
 ``` 
 
+## Coding style and naming
+All scripts follow the standard Python coding style. It uses the conventional naming for variables 
+and files with one exception: main files start with a capital letter, whereas module files start
+with a lower case letter. The aim is to simplify the navigation through the project directories.
+
+
 ## Execution
 There are two main files that implement proposals of the two papers [1] and [2]. The script 
 `VogesNetwork.py` implements the network setups proposed in [2]. Run the script via the command
