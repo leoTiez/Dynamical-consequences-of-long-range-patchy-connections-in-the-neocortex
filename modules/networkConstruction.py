@@ -95,7 +95,7 @@ def create_torus_layer_uniform(
         threshold_pot=1e3,
         time_const=20.,
         capacitance=1e12,
-        size_layer = R_MAX
+        size_layer=R_MAX
 ):
     """
     Create a layer wrapped a torus to avoid boundary conditions. Neurons are placed uniformly
@@ -493,7 +493,10 @@ def create_stimulus_based_local_connections(
         neuron_to_tuning_map,
         tuning_to_neuron_map,
         r_loc=0.5,
-        connect_dict=None
+        connect_dict=None,
+        plot=False,
+        save_plot=False,
+        color_mask=None
 ):
     if connect_dict is None:
         connect_dict = {
@@ -513,6 +516,20 @@ def create_stimulus_based_local_connections(
         ]
         nest.Connect([node], connect_partners, connect_dict)
 
+        # Plot first one
+        if node - min(node_ids) == 0:
+            if plot:
+                # Assume that layer is a square
+                layer_size = nest.GetStatus(layer, "topology")[0]["extent"][0]
+                plot_connections(
+                    [node],
+                    connect_partners,
+                    save_plot=save_plot,
+                    plot_name="local_connections.png",
+                    color_mask=color_mask,
+                    layer_size=layer_size
+                )
+
 
 def create_stimulus_based_patches_random(
         layer,
@@ -523,8 +540,8 @@ def create_stimulus_based_patches_random(
         p_loc=0.7,
         p_p=0.7,
         connect_dict=None,
-        size_layer=R_MAX,
 ):
+    size_layer = nest.GetStatus(layer, "topology")[0]["extent"][0]
     # Calculate parameters for the patches
     if connect_dict is None and p_p is None:
         warnings.warn("Connect dict not specified.\n"
@@ -686,11 +703,11 @@ def create_connections_random(
 def create_stimulus_tuning_map(
         layer,
         num_stimulus_discr=4,
-        size_layer=R_MAX,
         plot=False,
         save_plot=False,
         plot_name=None
 ):
+    size_layer = nest.GetStatus(layer, "topology")[0]["extent"][0]
     # Assume quadratic layer size
     box_size = size_layer // num_stimulus_discr
     sublayer_anchors, box_mask_dict = create_distinct_sublayer_boxes(size_boxes=box_size, size_layer=size_layer)
@@ -810,6 +827,8 @@ def create_connections_rf(
 
         if plot_src_target:
             if counter % plot_freq == 0:
+                src_layer_size = nest.GetStatus(src_layer, "topology")[0]["extent"][0]
+
                 fig, ax = plt.subplots(1, 2)
                 ax[0].axis((-retina_size[1]/2., retina_size[1]/2., -retina_size[0]/2., retina_size[0]/2.))
                 for rf in rf_list:
@@ -819,7 +838,7 @@ def create_connections_rf(
                 ax[0].set_xlabel("Retina tissue in X")
                 ax[0].set_ylabel("Retina tissue in Y")
 
-                ax[1].axis((-R_MAX / 2., R_MAX / 2., -R_MAX / 2., R_MAX / 2.))
+                ax[1].axis((-src_layer_size / 2., src_layer_size / 2., -src_layer_size / 2., src_layer_size / 2.))
                 target_positions = tp.GetPosition(list(target_node_ids[max(counter - plot_freq, 0): counter + 1]))
                 # Iterate over values to have matching colors
                 for x, y in target_positions:
