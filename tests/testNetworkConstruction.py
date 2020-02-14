@@ -20,7 +20,7 @@ class NetworkConstructionTest(unittest.TestCase):
         self.capacitance = 1e4
 
         self.num_stimulus_discr = 4
-        self.size_layer = nc.R_MAX
+        self.size_layer = 2.
 
         self.input_stimulus = cs.image_with_spatial_correlation(size_img=(50, 50), radius=3, num_circles=80)
         organise_on_grid = True
@@ -41,8 +41,7 @@ class NetworkConstructionTest(unittest.TestCase):
          self.tuning_weight_vector,
          _) = nc.create_stimulus_tuning_map(
             self.torus_layer,
-            num_stimulus_discr=self.num_stimulus_discr,
-            size_layer=self.size_layer
+            num_stimulus_discr=self.num_stimulus_discr
         )
 
         self.retina = nc.create_input_current_generator(
@@ -180,11 +179,9 @@ class NetworkConstructionTest(unittest.TestCase):
 
     def test_create_stimulus_tuning_map(self):
         num_stimulus_discr = 4
-        size_layer = nc.R_MAX
         tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, _ = nc.create_stimulus_tuning_map(
             self.torus_layer,
             num_stimulus_discr=num_stimulus_discr,
-            size_layer=size_layer
         )
 
         for tuning, area in tuning_to_neuron_map.items():
@@ -241,7 +238,6 @@ class NetworkConstructionTest(unittest.TestCase):
             p_loc=p_loc,
             p_p=p_p,
             connect_dict=connect_dict,
-            size_layer=self.size_layer
         )
 
         connect = nest.GetConnections(self.torus_layer)
@@ -265,7 +261,6 @@ class NetworkConstructionTest(unittest.TestCase):
             p_loc=p_loc,
             p_p=p_p,
             connect_dict=connect_dict,
-            size_layer=self.size_layer
         )
 
         connect = nest.GetConnections(self.torus_layer)
@@ -294,6 +289,7 @@ class NetworkConstructionTest(unittest.TestCase):
 
     def test_create_connections_rf(self):
         pass
+
 
 if __name__ == '__main__':
     unittest.main()
