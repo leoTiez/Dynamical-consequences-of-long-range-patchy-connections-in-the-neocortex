@@ -58,13 +58,19 @@ def create_image_bar(orientation, bar_width=5, size=(50, 50)):
     return img
 
 
-def image_with_spatial_correlation(num_circles=50, radius=5, size_img=(50, 50)):
-    image = np.zeros(size_img)
+def image_with_spatial_correlation(num_circles=50, radius=5, size_img=(50, 50), background_noise=True):
+    if background_noise:
+        image = np.random.randint(0, 255, size_img).astype('float')
+    else:
+        image = np.zeros(size_img)
     x_coordinates = np.random.choice(size_img[0], size=num_circles)
     y_coordinates = np.random.choice(size_img[1], size=num_circles)
 
     for x, y in zip(x_coordinates, y_coordinates):
-        intensity = np.random.choice(range(10, 255))
+        if background_noise:
+            intensity = np.random.choice(range(0, 255))
+        else:
+            intensity = np.random.choice(range(10, 255))
         image = cv2.circle(image, (x, y), radius=radius, color=int(intensity), thickness=-1)
 
     return image
