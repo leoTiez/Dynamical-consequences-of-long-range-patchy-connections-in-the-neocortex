@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-from modules.stimulusReconstruction import *
+from modules.stimulusReconstruction import stimulus_reconstruction, fourier_trans, direct_stimulus_reconstruction
 from modules.networkConstruction import *
 from modules.createStimulus import *
 from modules.networkAnalysis import *
@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import nest
 
 
-VERBOSITY = 4
+VERBOSITY = 0
 nest.set_verbosity("M_ERROR")
 
 
@@ -32,13 +32,20 @@ def create_network(
     num_stimulus_discr = 4
     num_patches = 3
     rf_size = (input_stimulus.shape[0] / 3., input_stimulus.shape[1] / 3.)
-    patchy_connect_dict = {"rule": "pairwise_bernoulli", "p": 0.3}
-    rf_connect_dict = {"rule": "pairwise_bernoulli", "p": 0.7}
-    local_connect_dict = {"rule": "pairwise_bernoulli", "p": 0.7}
-    plot_rf_relation = False if VERBOSITY < 4 else True
+    patchy_connect_dict = {"rule": "pairwise_bernoulli", "p": 0.4}
+    rf_connect_dict = {"rule": "pairwise_bernoulli", "p": 0.1}
+    local_connect_dict = {"rule": "pairwise_bernoulli", "p": 0.6}
     p_loc = 0.5
     pot_threshold = 1e3
     capacitance = 1e12
+    layer_size = 3.
+    stimulus_per_row = 2
+
+    plot_rf_relation = False if VERBOSITY < 4 else True
+    plot_tuning_map = False if VERBOSITY < 4 else True
+    plot_local_connections = False if VERBOSITY < 4 else True
+    plot_patchy_connections = False if VERBOSITY < 4 else True
+    save_plots = True
 
     # #################################################################################################################
     # Create nodes and orientation map
@@ -52,7 +59,8 @@ def create_network(
     torus_layer, spike_detect, _ = create_torus_layer_uniform(
         num_sensory,
         threshold_pot=pot_threshold,
-        capacitance=capacitance
+        capacitance=capacitance,
+        size_layer=layer_size
     )
     torus_layer_nodes = nest.GetNodes(torus_layer)[0]
     receptor_layer_nodes = nest.GetNodes(receptor_layer)[0]
@@ -63,15 +71,16 @@ def create_network(
     tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map = create_stimulus_tuning_map(
         torus_layer,
         num_stimulus_discr=num_stimulus_discr,
-        plot=False,
-        save_plot=False
+        plot=plot_tuning_map,
+        stimulus_per_row=stimulus_per_row,
+        save_plot=save_plots
     )
 
     if VERBOSITY > 0:
         print("\n#####################\tCreate central points for receptive fields")
     sens_node_positions = tp.GetPosition(torus_layer_nodes)
     rf_center_map = [
-        ((x / (R_MAX / 2.)) * input_stimulus.shape[1] / 2., (y / (R_MAX / 2.)) * input_stimulus.shape[0] / 2.)
+        ((x / (layer_size / 2.)) * input_stimulus.shape[1] / 2., (y / (layer_size / 2.)) * input_stimulus.shape[0] / 2.)
         for (x, y) in sens_node_positions
     ]
 
@@ -92,6 +101,7 @@ def create_network(
         plot_src_target=plot_rf_relation,
         retina_size=input_stimulus.shape,
         synaptic_strength=receptor_connect_strength,
+        save_plot=save_plots
     )
 
     if VERBOSITY > 0:
@@ -108,10 +118,19 @@ def create_network(
             torus_layer,
             neuron_to_tuning_map,
             tuning_to_neuron_map,
-            connect_dict=local_connect_dict
+            connect_dict=local_connect_dict,
+            plot=plot_local_connections,
+            color_mask=color_map,
+            save_plot=save_plots
         )
     else:
-        create_local_circular_connections(torus_layer, p_loc=p_loc)
+        create_local_circular_connections(
+            torus_layer,
+            p_loc=p_loc,
+            plot=plot_local_connections,
+            color_mask=color_map,
+            save_plot=save_plots
+        )
 
     # Create long-range patchy connections
     if use_patchy:
@@ -122,7 +141,23 @@ def create_network(
             neuron_to_tuning_map,
             tuning_to_neuron_map,
             connect_dict=patchy_connect_dict,
-            num_patches=num_patches
+            num_patches=num_patches,
+            plot=plot_patchy_connections,
+            save_plot=save_plots,
+            color_mask=color_map
+        )
+
+    if VERBOSITY > 3:
+        connect = nest.GetConnections([torus_layer_nodes[0]])
+        targets = nest.GetStatus(connect, "target")
+        sensory_targets = [t for t in targets if t in list(torus_layer_nodes)]
+        plot_connections(
+            [torus_layer_nodes[0]],
+            sensory_targets,
+            layer_size,
+            save_plot=save_plots,
+            plot_name="all_connections.png",
+            color_mask=color_map
         )
 
     # Create sensory-to-sensory matrix
@@ -139,7 +174,7 @@ def create_network(
 
 
 def main_matrix_dynamics():
-    input_stimulus = image_with_spatial_correlation(size_img=(50, 50), num_circles=5)
+    input_stimulus = image_with_spatial_correlation(size_img=(50, 50), num_circles=5, background_noise=False)
     if VERBOSITY > 2:
         plt.imshow(input_stimulus, cmap='gray')
         plt.show()
@@ -173,8 +208,7 @@ def main_matrix_dynamics():
 
 def main_lr(use_patchy=True):
     # load input stimulus
-    input_stimulus = image_with_spatial_correlation(size_img=(50, 50), num_circles=5)
-    # input_stimulus = load_image("nfl-sunflower50.jpg")
+    input_stimulus = image_with_spatial_correlation(size_img=(50, 50), num_circles=5, radius=15, background_noise=True)
     stimulus_fft = fourier_trans(input_stimulus)
     if VERBOSITY > 2:
         plt.imshow(input_stimulus, cmap='gray')
@@ -188,7 +222,8 @@ def main_lr(use_patchy=True):
     use_mask = False
     plot_only_eigenspectrum = False
     ignore_weights_adj = True
-    cap_s = 1.
+    cap_s = 20.     # Increased to reduce the effect of the input and to make it easier to investigate the dynamical
+                    # consequences of local / lr patchy connections
     receptor_connect_strength = 1.
 
     (receptor_layer,
@@ -225,7 +260,7 @@ def main_lr(use_patchy=True):
     data_sp = nest.GetStatus(spike_detect, keys="events")[0]
     spikes_s = data_sp["senders"]
     time_s = data_sp["times"]
-    if VERBOSITY > 1:
+    if VERBOSITY > 2:
         plt.plot(time_s, spikes_s, "k,")
         plt.show()
 
@@ -257,7 +292,8 @@ def main_lr(use_patchy=True):
     #     adj_rec_sens_mat[:, mask],
     #     adj_sens_sens_mat[mask, mask],
     #     stimulus_size=num_receptor,
-    #     tuning_weight_vector=tuning_weight_vector[mask]
+    #     tuning_weight_vector=tuning_weight_vector[mask],
+    #     verbosity=True if VERBOSITY > 1 else False
     # )
 
     reconstruction = direct_stimulus_reconstruction(
@@ -298,8 +334,9 @@ def main_mi():
 
 
 if __name__ == '__main__':
-    np.random.seed(0)
-    main_lr()
+    # np.random.seed(0)
+    main_mi()
+    # main_lr()
     # main_matrix_dynamics()
 
 
