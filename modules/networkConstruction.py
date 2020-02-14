@@ -172,7 +172,10 @@ def create_local_circular_connections(
         r_loc=0.5,
         p_loc=0.7,
         allow_autapses=False,
-        allow_multapses=False
+        allow_multapses=False,
+        plot=False,
+        save_plot=False,
+        color_mask=None
 ):
     """
     Create local connections with in a circular radius
@@ -199,6 +202,18 @@ def create_local_circular_connections(
     }
 
     tp.ConnectLayers(layer, layer, connection_dict)
+
+    if plot:
+        node = nest.GetNodes(layer)[0]
+        node_conn = nest.GetConnections([node])
+        target_nodes = nest.GetStatus(node_conn, "targets")
+        plot_connections(
+            [node],
+            target_nodes,
+            color_mask=color_mask,
+            save_plot=save_plot,
+            plot_name="circular_local_connections.png"
+        )
 
 
 def create_distant_np_connections(
@@ -521,9 +536,12 @@ def create_stimulus_based_local_connections(
             if plot:
                 # Assume that layer is a square
                 layer_size = nest.GetStatus(layer, "topology")[0]["extent"][0]
+                connect = nest.GetConnections([node])
+                targets = nest.GetStatus(connect, "target")
+                local_targets = [t for t in targets if t in list(connect_partners)]
                 plot_connections(
                     [node],
-                    connect_partners,
+                    local_targets,
                     save_plot=save_plot,
                     plot_name="local_connections.png",
                     color_mask=color_mask,
@@ -539,7 +557,11 @@ def create_stimulus_based_patches_random(
         r_loc=0.5,
         p_loc=0.7,
         p_p=0.7,
+        r_p=None,
         connect_dict=None,
+        plot=False,
+        save_plot=False,
+        color_mask=None
 ):
     size_layer = nest.GetStatus(layer, "topology")[0]["extent"][0]
     # Calculate parameters for the patches
@@ -548,9 +570,11 @@ def create_stimulus_based_patches_random(
                       "Computed probability based on Voges does not necessarily return in all cases a valid value.\n"
                       "Recommended values are p_loc >= 0.5 and r_loc > 0.5")
 
-    r_p = r_loc / 2.
+    if r_p is None:
+        r_p = r_loc / 2.
+
     min_distance = r_loc + r_p
-    max_distance = size_layer / 2. - r_loc
+    max_distance = size_layer / 2. # - r_p
     if p_p is None:
         p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches)
     node_ids = nest.GetNodes(layer)[0]
@@ -559,7 +583,8 @@ def create_stimulus_based_patches_random(
     for neuron in node_ids:
         stimulus_tuning = neuron_to_tuning_map[neuron]
         same_tuning_nodes = tuning_to_neuron_map[stimulus_tuning]
-        # same_tuning_nodes = [area for area in same_tuning_nodes if neuron not in area]
+        if len(same_tuning_nodes) > 1:
+            same_tuning_nodes = [area for area in same_tuning_nodes if neuron not in area]
         patch_center_nodes = []
         while len(patch_center_nodes) < num_patches:
             area_idx = np.random.choice(len(same_tuning_nodes))
@@ -568,33 +593,53 @@ def create_stimulus_based_patches_random(
             if min_distance <= tp.Distance([neuron], [int(patch_center)])[0] < max_distance:
                 patch_center_nodes.append(tp.GetPosition([int(patch_center)])[0])
 
-        patches = tuple()
+        lr_patches = tuple()
         for neuron_anchor in patch_center_nodes:
-            patches += tp.SelectNodesByMask(
+            lr_patches += tp.SelectNodesByMask(
                 layer,
                 neuron_anchor,
                 mask_obj=tp.CreateMask("circular", specs=mask_specs)
             )
+            stimulus_tuning = neuron_to_tuning_map[neuron]
+            lr_patches = tuple(filter(lambda n: neuron_to_tuning_map[n] == stimulus_tuning, lr_patches))
+
         # Define connection
         if connect_dict is None:
             connect_dict = {
                 "rule": "pairwise_bernoulli",
                 "p": p_p
             }
-        nest.Connect([neuron], patches, connect_dict)
+        nest.Connect([neuron], lr_patches, connect_dict)
+
+        # Plot only first neuron
+        if neuron - min(node_ids) == 4:
+            connect = nest.GetConnections([neuron])
+            targets = nest.GetStatus(connect, "target")
+            patchy_targets = [t for t in targets if t in list(lr_patches)]
+            if plot:
+                plot_connections(
+                    [neuron],
+                    patchy_targets,
+                    size_layer,
+                    color_mask=color_mask,
+                    save_plot=save_plot,
+                    plot_name="lr-patchy-connections.png"
+                )
 
 
 def set_synaptic_strenght(
         nodes,
         adj_mat,
-        cap_s=1.
+        cap_s=1.,
+        divide_by_num_connect=False
 ):
     num_connec = adj_mat.sum()
     if num_connec == 0:
         return
     connect = nest.GetConnections(source=nodes)
     connect = [c for c in connect if nest.GetStatus([c], "target")[0] in nodes]
-    nest.SetStatus(connect, {"weight": cap_s/float(num_connec)})
+    weight = cap_s / float(num_connec) if divide_by_num_connect else cap_s
+    nest.SetStatus(connect, {"weight": weight})
 
 
 def create_input_current_generator(
@@ -703,13 +748,14 @@ def create_connections_random(
 def create_stimulus_tuning_map(
         layer,
         num_stimulus_discr=4,
+        stimulus_per_row=2,
         plot=False,
         save_plot=False,
         plot_name=None
 ):
     size_layer = nest.GetStatus(layer, "topology")[0]["extent"][0]
     # Assume quadratic layer size
-    box_size = size_layer // num_stimulus_discr
+    box_size = size_layer / float(stimulus_per_row * num_stimulus_discr)
     sublayer_anchors, box_mask_dict = create_distinct_sublayer_boxes(size_boxes=box_size, size_layer=size_layer)
     tuning_to_neuron_map = {stimulus: [] for stimulus in range(num_stimulus_discr)}
     neuron_to_tuning_map = {}
@@ -759,6 +805,7 @@ def create_stimulus_tuning_map(
     if plot:
         if not save_plot:
             plt.show()
+            plt.close()
         else:
             curr_dir = os.getcwd()
             if plot_name is None:
@@ -786,7 +833,8 @@ def create_connections_rf(
         synaptic_strength=1.,
         ignore_weights=True,
         plot_src_target=False,
-        plot_freq=10,
+        save_plot=False,
+        plot_point=10,
         retina_size=(100, 100)
 ):
     target_node_ids = nest.GetNodes(target_layer)[0]
@@ -815,6 +863,7 @@ def create_connections_rf(
         src_nodes = tp.SelectNodesByMask(src_layer, rf_center, mask_obj=tp.CreateMask("rectangular", specs=mask_specs))
         src_pos = tp.GetPosition(src_nodes)
         rf_list.append(list(src_pos))
+
         nest.Connect(src_nodes, [target_node], connect_dict)
         connections = nest.GetConnections(source=src_nodes, target=[target_node])
         connected_src_nodes = nest.GetStatus(connections, "source")
@@ -826,10 +875,10 @@ def create_connections_rf(
              } for receptor in connected_src_nodes]
 
         if plot_src_target:
-            if counter % plot_freq == 0:
-                src_layer_size = nest.GetStatus(src_layer, "topology")[0]["extent"][0]
+            if counter == plot_point:
+                target_layer_size = nest.GetStatus(target_layer, "topology")[0]["extent"][0]
 
-                fig, ax = plt.subplots(1, 2)
+                fig, ax = plt.subplots(1, 2, sharex='none', sharey='none')
                 ax[0].axis((-retina_size[1]/2., retina_size[1]/2., -retina_size[0]/2., retina_size[0]/2.))
                 for rf in rf_list:
                     # De-zip to get x and y values separately
@@ -838,14 +887,21 @@ def create_connections_rf(
                 ax[0].set_xlabel("Retina tissue in X")
                 ax[0].set_ylabel("Retina tissue in Y")
 
-                ax[1].axis((-src_layer_size / 2., src_layer_size / 2., -src_layer_size / 2., src_layer_size / 2.))
-                target_positions = tp.GetPosition(list(target_node_ids[max(counter - plot_freq, 0): counter + 1]))
+                target_positions = tp.GetPosition(list(target_node_ids[max(counter - plot_point, 0): counter + 1]))
                 # Iterate over values to have matching colors
                 for x, y in target_positions:
                     ax[1].plot(x, y, 'o')
                 ax[1].set_xlabel("V1 tissue in X")
                 ax[1].set_ylabel("V1 tissue in Y")
-                plt.show()
+                ax[1].set_xlim([-target_layer_size / 2., target_layer_size / 2.])
+                ax[1].set_ylim([-target_layer_size / 2., target_layer_size / 2.])
+
+                if save_plot:
+                    curr_dir = os.getcwd()
+                    plt.savefig(curr_dir + "/figures/receptive_fields.png")
+                    plt.close()
+                else:
+                    plt.show()
 
         counter += 1
 
