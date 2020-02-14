@@ -1,9 +1,9 @@
 #!/usr/bin/python3
-from modules.thesisUtils import *
+import cvxpy as cvx
 
+from modules.thesisUtils import *
 import numpy as np
 from scipy.fft import idct, fft2, fftfreq
-import cvxpy as cvx
 
 
 def observations_from_linear_model(
@@ -45,7 +45,8 @@ def stimulus_reconstruction(
         threshold_pot=1e3,
         rest_pot=0.,
         stimulus_size=1e4,
-        tuning_weight_vector=None
+        tuning_weight_vector=None,
+        verbosity=True
 ):
     """
     Reconstruct input stimulus based on the firing patterns of the nodes in the network
@@ -84,7 +85,7 @@ def stimulus_reconstruction(
     sampling_trans_mat = receptor_connection_strength * receptor_sensor_connect_mat.T.dot(kron_cosine)
     constraints = [sampling_trans_mat * optimisation_vector == observations]
     prob = cvx.Problem(objective, constraints)
-    _ = prob.solve(verbose=True)
+    _ = prob.solve(verbose=verbosity)
     stimulus_pixel_matrix = np.array(optimisation_vector.value).squeeze()
     stimulus_pixel_matrix = stimulus_pixel_matrix.reshape(int(np.sqrt(stimulus_size)), int(np.sqrt(stimulus_size))).T
     stimulus = idct2(stimulus_pixel_matrix)
