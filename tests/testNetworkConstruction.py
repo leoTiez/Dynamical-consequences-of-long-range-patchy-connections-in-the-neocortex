@@ -9,6 +9,8 @@ import nest.topology as tp
 import nest
 nest.set_verbosity("M_ERROR")
 
+np.random.seed(0)
+
 
 class NetworkConstructionTest(unittest.TestCase):
     def setUp(self):
@@ -22,7 +24,7 @@ class NetworkConstructionTest(unittest.TestCase):
         self.num_stimulus_discr = 4
         self.size_layer = 2.
 
-        self.input_stimulus = cs.image_with_spatial_correlation(size_img=(50, 50), radius=3, num_circles=80)
+        self.input_stimulus = cs.image_with_spatial_correlation(size_img=(20, 20), radius=3, num_circles=80)
         organise_on_grid = True
 
         self.torus_layer, self.spike_det, self.multi = nc.create_torus_layer_uniform(
@@ -31,7 +33,8 @@ class NetworkConstructionTest(unittest.TestCase):
             rest_pot=self.rest_pot,
             threshold_pot=self.threshold_pot,
             time_const=self.time_const,
-            capacitance=self.capacitance
+            capacitance=self.capacitance,
+            size_layer=self.size_layer
         )
         self.torus_nodes = nest.GetNodes(self.torus_layer)[0]
         self.min_id_torus = min(self.torus_nodes)
@@ -48,6 +51,8 @@ class NetworkConstructionTest(unittest.TestCase):
             self.input_stimulus,
             organise_on_grid=organise_on_grid
         )
+
+        self.receptors = nest.GetNodes(self.retina)[0]
 
     # ################################################################################################################
     # Functions used for thesis simulations
@@ -288,7 +293,122 @@ class NetworkConstructionTest(unittest.TestCase):
         )
 
     def test_create_connections_rf(self):
-        pass
+        rf_size = (10, 10)
+        connect_dict = {"rule": "pairwise_bernoulli", "p": 1.}
+        synaptic_strength = 1.
+
+        positions = tp.GetPosition(self.torus_nodes)
+        rf_centers = [
+            (
+                (x / (self.size_layer / 2.)) * self.input_stimulus.shape[1] / 2.,
+                (y / (self.size_layer / 2.)) * self.input_stimulus.shape[0] / 2.
+            )
+            for (x, y) in positions
+        ]
+        rf_mask = {"lower_left": [-rf_size[0]/2., -rf_size[1]/2.], "upper_right": [rf_size[0]/2., rf_size[1]/2.]}
+
+        adj_mat = nc.create_connections_rf(
+            self.retina,
+            self.torus_layer,
+            rf_centers,
+            self.neuron_to_tuning_map,
+            rf_size=rf_size,
+            connect_dict=connect_dict,
+            synaptic_strength=synaptic_strength
+        )
+
+        # Check for lower equal since there can be less neurons at the edges of the retina
+        self.assertLessEqual(
+            np.max(adj_mat.sum(axis=0)),
+            rf_size[0] * rf_size[1],
+            "There are receptors to which no connections are established although they are in the receptive field"
+        )
+
+        tuning_disc_step = 255 / float(self.num_stimulus_discr)
+        for n in self.torus_nodes:
+            n_position = tp.GetPosition([n])[0]
+            rf_center = ((n_position[0] / (self.size_layer / 2.)) * self.input_stimulus.shape[1] / 2.,
+                         (n_position[1] / (self.size_layer / 2.)) * self.input_stimulus.shape[0] / 2.)
+            rf = tp.SelectNodesByMask(self.retina, rf_center, tp.CreateMask("rectangular", specs=rf_mask))
+
+            connect = nest.GetConnections(source=self.receptors, target=[n])
+            source = nest.GetStatus(connect, "source")
+
+            for s, c in zip(source, connect):
+                self.assertIn(s, rf, "Receptor not in the receptive field")
+                pos = tp.GetPosition([s])[0]
+                grid_pos_x = int(self.input_stimulus.shape[0] / 2. + np.floor(pos[0]))
+                grid_pos_y = int(self.input_stimulus.shape[1] / 2. - np.ceil(pos[1]))
+                self.assertEqual(
+                    tp.GetElement(self.retina, (grid_pos_x, grid_pos_y))[0],
+                    s,
+                    "Did not compute the correct grid position"
+                )
+
+                stimulus = self.input_stimulus[grid_pos_x, grid_pos_y]
+                weight = nest.GetStatus([c], "weight")[0]
+                stimulus_tuning = self.neuron_to_tuning_map[n]
+                reacts_on_stimulus = stimulus_tuning * tuning_disc_step <= stimulus <\
+                                     (stimulus_tuning + 1) * tuning_disc_step
+
+                if reacts_on_stimulus:
+                    self.assertEqual(
+                        synaptic_strength,
+                        weight,
+                        "Synaptic weight is not set to the correct value. Actual value %s, expected value %s"
+                        % (weight, synaptic_strength)
+                    )
+                else:
+                    self.assertEqual(
+                        weight,
+                        0,
+                        "Synaptic weight is not set to zero although not correct stimulus. Actual value %s" % weight
+                    )
+                nest.Disconnect([s], [n])
+
+    def test_create_torus_layer_with_jitter(self):
+        # Must be number that has a square root in N
+        num_neurons = 144
+        jitter = 0.01
+        neuron_type = "iaf_psc_delta"
+
+        layer = nc.create_torus_layer_with_jitter(
+            num_neurons=num_neurons,
+            jitter=jitter,
+            neuron_type=neuron_type
+        )
+
+        nodes = nest.GetNodes(layer)[0]
+        self.assertEqual(len(nodes), num_neurons, "Not the right number of nodes")
+
+        model = nest.GetStatus(nodes, "model")
+        for m in model:
+            self.assertEqual(m, neuron_type, "Wrong neuron type set")
+
+        mod_size = nc.R_MAX - jitter * 2
+        step_size = mod_size / float(np.sqrt(num_neurons))
+        coordinate_scale = np.arange(-mod_size / 2., mod_size / 2., step_size)
+        grid = [[x, y] for y in coordinate_scale for x in coordinate_scale]
+
+        for n in nodes:
+            pos = np.asarray(tp.GetPosition([n])[0])
+            sorted(grid, key=lambda l: np.linalg.norm(np.asarray(l) - pos))
+            self.assertLessEqual(pos[0], np.abs(grid[0][0] + jitter), "Distance in x to original position too high")
+            self.assertLessEqual(pos[1], np.abs(grid[0][1] + jitter), "Distance in y to original position too high")
+
+    def test_create_distant_np_connections(self):
+        r_loc = .2
+        p_loc = .5
+
+        nc.create_distant_np_connections(self.torus_layer, p_loc=p_loc, r_loc=r_loc)
+
+        conn = nest.GetConnections(source=self.torus_nodes, target=self.torus_nodes)
+        for c in conn:
+            s = nest.GetStatus([c], "source")[0]
+            t = nest.GetStatus([c], "target")[0]
+            d = tp.Distance([s], [t])[0]
+            self.assertLessEqual(d, self.size_layer / 2., "Distance is too large")
+            self.assertGreaterEqual(d, r_loc, "Distance is too low")
 
 
 if __name__ == '__main__':
