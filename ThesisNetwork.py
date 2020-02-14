@@ -108,7 +108,7 @@ def create_network(
         print("\n#####################\tCreate local connections")
     if not use_patchy:
         if use_stimulus_local:
-            local_connect_dict={"rule": "pairwise_bernoulli", "p": 1.}
+            local_connect_dict = {"rule": "pairwise_bernoulli", "p": 1.}
         else:
             p_loc = 1.
 
