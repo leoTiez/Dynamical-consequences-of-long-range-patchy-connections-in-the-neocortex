@@ -230,11 +230,12 @@ def create_distant_np_connections(
     :param allow_multapses: allow multiple connections between neurons
     :return Neurons of the layer for debugging (plotting)
     """
+    layer_size = nest.GetStatus(list(layer), "topology")[0]["extent"][0]
     # Mask for area to which long-range connections can be established
     mask_dict = {
         "doughnut": {
             "inner_radius": r_loc,
-            "outer_radius": R_MAX / 2.
+            "outer_radius": layer_size / 2.
         }
     }
 
