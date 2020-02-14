@@ -51,7 +51,14 @@ def load_image(name, path=None):
     return np.asarray(image)
 
 
-def plot_connections(src_nodes, target_nodes, layer_size, save_plot=False, plot_name=None, color_mask=None):
+def plot_connections(
+        src_nodes,
+        target_nodes,
+        layer_size,
+        save_plot=False,
+        plot_name=None,
+        color_mask=None
+):
     plt.axis((-layer_size/2., layer_size/2., -layer_size/2., layer_size/2.))
     source_positions = tp.GetPosition(src_nodes)
     x_source, y_source = zip(*source_positions)
@@ -80,6 +87,7 @@ def plot_connections(src_nodes, target_nodes, layer_size, save_plot=False, plot_
     if save_plot:
         curr_dir = os.getcwd()
         plt.savefig(curr_dir + "/figures/" + plot_name)
+        plt.close()
     else:
         plt.show()
 
