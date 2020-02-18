@@ -24,7 +24,8 @@ def _create_location_based_patches(
         num_patches=3,
         num_shared_patches=6,
         num_patches_replaced=3,
-        is_partially_overlapping=False
+        is_partially_overlapping=False,
+        p_p=None
 ):
     """
     Function to establish patchy connections for neurons that have a location based relationship, such that
@@ -45,10 +46,11 @@ def _create_location_based_patches(
     r_p = r_loc / 2.
     min_distance = r_loc + r_p
     max_distance = layer_size / 2. - r_loc
-    p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches)
+    if p_p is None:
+        p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches)
 
     # Create sublayer boxes that share same patches
-    sublayer_anchors, box_mask_dict = create_distinct_sublayer_boxes(size_boxes)
+    sublayer_anchors, box_mask_dict = create_distinct_sublayer_boxes(size_boxes, size_layer=layer_size)
 
     # To make sure to be lower than any possible anchor coordinate
     last_y_anchor = -layer_size - 1
@@ -76,26 +78,35 @@ def _create_location_based_patches(
         last_y_anchor = anchor[1]
         # Calculate anchors of patches
         mask_specs = {"radius": r_p}
-        patches_anchors = [to_coordinates(distance, angle) for angle, distance in zip(radial_angle, radial_distance)]
+        patches_anchors = [
+            (np.asarray(anchor) + np.asarray(to_coordinates(angle, distance))).tolist()
+            for angle, distance in zip(radial_angle, radial_distance)
+        ]
 
-        # Iterate through all neurons, as patches are chosen for each neuron independently
-        for neuron in sub_layer:
-            neuron_patch_anchors = np.asarray(patches_anchors)[
-                np.random.choice(len(patches_anchors), size=num_patches, replace=False)
-            ]
-            patches = tuple()
-            for neuron_anchor in neuron_patch_anchors.tolist():
-                patches += tp.SelectNodesByMask(
+        patchy = []
+        for neuron_anchor in patches_anchors:
+            patchy.append(
+                tp.SelectNodesByMask(
                     layer,
                     neuron_anchor,
                     mask_obj=tp.CreateMask("circular", specs=mask_specs)
                 )
+            )
+        # Iterate through all neurons, as patches are chosen for each neuron independently
+        for neuron in sub_layer:
+            neuron_patches_list = np.asarray(patchy)[
+                np.random.choice(len(patches_anchors), size=num_patches, replace=False)
+            ]
+            neuron_patches = []
+            for p in neuron_patches_list:
+                neuron_patches.extend(p)
+
             # Define connection
             connect_dict = {
                 "rule": "pairwise_bernoulli",
                 "p": p_p
             }
-            nest.Connect([neuron], patches, connect_dict)
+            nest.Connect([neuron], neuron_patches, connect_dict)
 
     # Return last sublayer for debugging
     return debug_sub_layer
@@ -450,6 +461,7 @@ def create_shared_patches(
         size_boxes=0.5,
         num_patches=3,
         num_shared_patches=6,
+        p_p=None
 ):
     """
     Create shared patches for long-range connections
@@ -473,7 +485,8 @@ def create_shared_patches(
         size_boxes=size_boxes,
         num_patches=num_patches,
         num_shared_patches=num_shared_patches,
-        is_partially_overlapping=False
+        is_partially_overlapping=False,
+        p_p=p_p
     )
 
 
