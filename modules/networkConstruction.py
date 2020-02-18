@@ -16,6 +16,91 @@ GLOBAL_CONNECTIVITY = 0.0123
 R_MAX = 8.
 
 
+def _create_location_based_patches(
+        layer,
+        r_loc=0.5,
+        p_loc=0.7,
+        size_boxes=0.5,
+        num_patches=3,
+        num_shared_patches=6,
+        num_patches_replaced=3,
+        is_partially_overlapping=False
+):
+    """
+    Function to establish patchy connections for neurons that have a location based relationship, such that
+    they are in the same sublayer / box
+    :param layer: Layer in which the connections should be established
+    :param r_loc: Radius of local connections
+    :param p_loc: Probability of local connections
+    :param size_boxes: Size of a sublayer in which neurons share patches. The R_MAX / size_boxes
+    should be an integer value
+    :param num_patches: Number of patches per neuron
+    :param num_shared_patches: Number of patches per box that are shared between the neurons
+    :param num_patches_replaced: Number of patches that are replaced in x-direction (for partially overlapping patches)
+    :param is_partially_overlapping: Flag for partially overlapping patches
+    :return: Sublayer at size_boxes/2 for debugging purposes (plotting)
+    """
+    layer_size = nest.GetStatus(layer, "topology")[0]["extent"][0]
+    # Calculate parameters for the patches
+    r_p = r_loc / 2.
+    min_distance = r_loc + r_p
+    max_distance = layer_size / 2. - r_loc
+    p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches)
+
+    # Create sublayer boxes that share same patches
+    sublayer_anchors, box_mask_dict = create_distinct_sublayer_boxes(size_boxes)
+
+    # To make sure to be lower than any possible anchor coordinate
+    last_y_anchor = -layer_size - 1
+    debug_sub_layer = None
+    for anchor in sublayer_anchors:
+        sub_layer = tp.SelectNodesByMask(layer, anchor, mask_obj=tp.CreateMask("rectangular", specs=box_mask_dict))
+
+        if np.all(np.asarray(anchor) == size_boxes/2.):
+            debug_sub_layer = sub_layer
+
+        # Create pool of patches
+        # Calculate radial distance and the respective coordinates for patches
+        if not is_partially_overlapping or anchor[1] > last_y_anchor:
+            radial_distance = np.random.uniform(min_distance, max_distance, size=num_shared_patches).tolist()
+            radial_angle = np.random.uniform(0., 359., size=num_shared_patches).tolist()
+        else:
+            replaced_indices = np.random.choice(num_shared_patches, size=num_patches_replaced, replace=False)
+            np.asarray(radial_distance)[replaced_indices] = np.random.uniform(
+                min_distance,
+                max_distance,
+                size=num_patches_replaced
+            ).tolist()
+            np.asarray(radial_angle)[replaced_indices] = np.random.uniform(0., 359., size=num_patches_replaced).tolist()
+
+        last_y_anchor = anchor[1]
+        # Calculate anchors of patches
+        mask_specs = {"radius": r_p}
+        patches_anchors = [to_coordinates(distance, angle) for angle, distance in zip(radial_angle, radial_distance)]
+
+        # Iterate through all neurons, as patches are chosen for each neuron independently
+        for neuron in sub_layer:
+            neuron_patch_anchors = np.asarray(patches_anchors)[
+                np.random.choice(len(patches_anchors), size=num_patches, replace=False)
+            ]
+            patches = tuple()
+            for neuron_anchor in neuron_patch_anchors.tolist():
+                patches += tp.SelectNodesByMask(
+                    layer,
+                    neuron_anchor,
+                    mask_obj=tp.CreateMask("circular", specs=mask_specs)
+                )
+            # Define connection
+            connect_dict = {
+                "rule": "pairwise_bernoulli",
+                "p": p_p
+            }
+            nest.Connect([neuron], patches, connect_dict)
+
+    # Return last sublayer for debugging
+    return debug_sub_layer
+
+
 def get_local_connectivity(
         r_loc,
         p_loc
@@ -137,7 +222,8 @@ def create_torus_layer_uniform(
 def create_torus_layer_with_jitter(
         num_neurons=3600,
         jitter=0.03,
-        neuron_type="iaf_psc_alpha"
+        neuron_type="iaf_psc_alpha",
+        layer_size=R_MAX
 ):
     """
     Create a layer wrapped a torus to avoid boundary conditions. Neurons are placed on a grid with fluctuations
@@ -146,7 +232,7 @@ def create_torus_layer_with_jitter(
     :return: layer
     """
     # Create coordinates of neurons
-    mod_size = R_MAX - jitter*2
+    mod_size = layer_size - jitter*2
     step_size = mod_size / float(np.sqrt(num_neurons))
     coordinate_scale = np.arange(-mod_size / 2., mod_size / 2., step_size)
     grid = [[x, y] for y in coordinate_scale for x in coordinate_scale]
@@ -156,7 +242,7 @@ def create_torus_layer_with_jitter(
 
     # Create dict for neural layer that is wrapped as torus to avoid boundary effects
     torus_dict = {
-        "extent": [R_MAX, R_MAX],
+        "extent": [layer_size, layer_size],
         "positions": positions,
         "elements": neuron_type,
         "edge_wrap": True
@@ -220,6 +306,7 @@ def create_distant_np_connections(
         layer,
         r_loc=0.5,
         p_loc=0.7,
+        p_p = None,
         allow_multapses=False
 ):
     """
@@ -239,13 +326,14 @@ def create_distant_np_connections(
         }
     }
 
-    # Get possibility to establish a single long-range connection
-    p_lr = get_lr_connection_probability_np(r_loc, p_loc)
+    if p_p is None:
+        # Get possibility to establish a single long-range connection
+        p_p = get_lr_connection_probability_np(r_loc, p_loc)
 
     connection_dict = {
         "connection_type": "divergent",
         "mask": mask_dict,
-        "kernel": p_lr,
+        "kernel": p_p,
         "allow_autapses": False,
         "allow_multapses": allow_multapses,
         "allow_oversized_mask": True,
@@ -262,6 +350,7 @@ def create_random_patches(
         r_loc=0.5,
         p_loc=0.7,
         num_patches=3,
+        p_p=None
 ):
     """
     Create random long range patchy connections. To every neuron a single link is established instead of
@@ -273,23 +362,26 @@ def create_random_patches(
     :return Nodes of the layer for debugging purposes (plotting)
     """
     # Calculate the parameters for the patches
+    layer_size = nest.GetStatus(layer, "topology")[0]["extent"][0]
     r_p = r_loc / 2.
     min_distance = r_loc + r_p
-    max_distance = R_MAX / 2. - r_loc
-    p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches)
+    max_distance = layer_size / 2. - r_loc
+    if p_p is None:
+        p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches)
 
     # Iterate through all neurons, as all neurons have random patches
     nodes = nest.GetNodes(layer)[0]
     for neuron in nodes:
         # Calculate radial distance and the respective coordinates for patches
-        radial_distance = np.random.uniform(min_distance, max_distance, size=num_patches).tolist()
         radial_angle = np.random.uniform(0., 359., size=num_patches).tolist()
+        radial_distance = np.random.uniform(min_distance, max_distance, size=num_patches).tolist()
 
         # Calculate patch region
         mask_specs = {"radius": r_p}
-        anchors = [to_coordinates(distance, angle) for angle, distance in zip(radial_angle, radial_distance)]
+        anchors = [to_coordinates(angle, distance) for angle, distance in zip(radial_angle, radial_distance)]
         patches = tuple()
         for anchor in anchors:
+            anchor = (np.asarray(tp.GetPosition([neuron])[0]) + np.asarray(anchor)).tolist()
             patches += tp.SelectNodesByMask(layer, anchor, mask_obj=tp.CreateMask("circular", specs=mask_specs))
 
         # Define connection
@@ -309,7 +401,8 @@ def create_overlapping_patches(
         p_loc=0.7,
         distance=2.5,
         num_patches=3,
-        allow_multapses=False
+        allow_multapses=False,
+        p_p=None
 ):
     """
     Create long-range patchy connections with overlapping patches such that all neurons share almost the same
@@ -324,7 +417,8 @@ def create_overlapping_patches(
     """
     # Calculate parameters for pathces
     r_p = r_loc / 2.
-    p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p)
+    if p_p is None:
+        p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p)
 
     # Create overlapping patches as every neuron shares the same patch parameter
     for n in range(1, num_patches+1):
@@ -347,89 +441,6 @@ def create_overlapping_patches(
 
     # Return nodes of layer for debugging
     return nest.GetNodes(layer)[0]
-
-
-def create_location_based_patches(
-        layer,
-        r_loc=0.5,
-        p_loc=0.7,
-        size_boxes=0.5,
-        num_patches=3,
-        num_shared_patches=6,
-        num_patches_replaced=3,
-        is_partially_overlapping=False
-):
-    """
-    Function to establish patchy connections for neurons that have a location based relationship, such that
-    they are in the same sublayer / box
-    :param layer: Layer in which the connections should be established
-    :param r_loc: Radius of local connections
-    :param p_loc: Probaility of local connections
-    :param size_boxes: Size of a sublayer in which neurons share patches. The R_MAX / size_boxes
-    should be an integer value
-    :param num_patches: Number of patches per neuron
-    :param num_shared_patches: Number of patches per box that are shared between the neurons
-    :param num_patches_replaced: Number of patches that are replaced in x-direction (for partially overlapping patches)
-    :param is_partially_overlapping: Flag for partially overlapping patches
-    :return: Sublayer at size_boxes/2 for debugging purposes (plotting)
-    """
-    # Calculate parameters for the patches
-    r_p = r_loc / 2.
-    min_distance = r_loc + r_p
-    max_distance = R_MAX / 2. - r_loc
-    p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches)
-
-    # Create sublayer boxes that share same patches
-    sublayer_anchors, box_mask_dict = create_distinct_sublayer_boxes(size_boxes)
-
-    last_y_anchor = -R_MAX - 1
-    debug_sub_layer = None
-    for anchor in sublayer_anchors:
-        sub_layer = tp.SelectNodesByMask(layer, anchor, mask_obj=tp.CreateMask("rectangular", specs=box_mask_dict))
-
-        if np.all(np.asarray(anchor) == size_boxes/2.):
-            debug_sub_layer = sub_layer
-
-        # Create pool of patches
-        # Calculate radial distance and the respective coordinates for patches
-        if not is_partially_overlapping or anchor[1] > last_y_anchor:
-            radial_distance = np.random.uniform(min_distance, max_distance, size=num_shared_patches).tolist()
-            radial_angle = np.random.uniform(0., 359., size=num_shared_patches).tolist()
-        else:
-            replaced_indices = np.random.choice(num_shared_patches, size=num_patches_replaced, replace=False)
-            np.asarray(radial_distance)[replaced_indices] = np.random.uniform(
-                min_distance,
-                max_distance,
-                size=num_patches_replaced
-            ).tolist()
-            np.asarray(radial_angle)[replaced_indices] = np.random.uniform(0., 359., size=num_patches_replaced).tolist()
-
-        last_y_anchor = anchor[1]
-        # Calculate anchors of patches
-        mask_specs = {"radius": r_p}
-        patches_anchors = [to_coordinates(distance, angle) for angle, distance in zip(radial_angle, radial_distance)]
-
-        # Iterate through all neurons, as patches are chosen for each neuron independently
-        for neuron in sub_layer:
-            neuron_patch_anchors = np.asarray(patches_anchors)[
-                np.random.choice(len(patches_anchors), size=num_patches, replace=False)
-            ]
-            patches = tuple()
-            for neuron_anchor in neuron_patch_anchors.tolist():
-                patches += tp.SelectNodesByMask(
-                    layer,
-                    neuron_anchor,
-                    mask_obj=tp.CreateMask("circular", specs=mask_specs)
-                )
-            # Define connection
-            connect_dict = {
-                "rule": "pairwise_bernoulli",
-                "p": p_p
-            }
-            nest.Connect([neuron], patches, connect_dict)
-
-    # Return last sublayer for debugging
-    return debug_sub_layer
 
 
 def create_shared_patches(
@@ -455,7 +466,7 @@ def create_shared_patches(
     # are a subset of the patches of the sublayer
     assert num_patches <= num_shared_patches
 
-    return create_location_based_patches(
+    return _create_location_based_patches(
         layer=layer,
         r_loc=r_loc,
         p_loc=p_loc,
@@ -491,7 +502,7 @@ def create_partially_overlapping_patches(
     assert num_patches_replaced <= num_shared_patches
     assert num_patches <= num_shared_patches
 
-    return create_location_based_patches(
+    return _create_location_based_patches(
         layer=layer,
         r_loc=r_loc,
         p_loc=p_loc,
