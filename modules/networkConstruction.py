@@ -47,7 +47,7 @@ def _create_location_based_patches(
     min_distance = r_loc + r_p
     max_distance = layer_size / 2. - r_loc
     if p_p is None:
-        p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches)
+        p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches, layer_size=layer_size)
 
     # Create sublayer boxes that share same patches
     sublayer_anchors, box_mask_dict = create_distinct_sublayer_boxes(size_boxes, size_layer=layer_size)
@@ -114,7 +114,8 @@ def _create_location_based_patches(
 
 def get_local_connectivity(
         r_loc,
-        p_loc
+        p_loc,
+        layer_size=R_MAX
 ):
     """
     Calculate local connectivity
@@ -123,7 +124,7 @@ def get_local_connectivity(
     :return: local connectivity
     """
     inner_area = np.pi * r_loc**2
-    c_loc = p_loc * inner_area / float(R_MAX)**2
+    c_loc = p_loc * inner_area / float(layer_size)**2
     return c_loc, inner_area
 
 
@@ -131,7 +132,8 @@ def get_lr_connection_probability_patches(
         r_loc,
         p_loc,
         r_p,
-        num_patches=3
+        num_patches=3,
+        layer_size=R_MAX
 ):
     """
     Calculate the connection probability of long range patchy connections
@@ -141,16 +143,17 @@ def get_lr_connection_probability_patches(
     :param num_patches: Total number of patches
     :return: long range patchy connection probability
     """
-    c_loc, _ = get_local_connectivity(r_loc, p_loc)
+    c_loc, _ = get_local_connectivity(r_loc, p_loc, layer_size=layer_size)
     patchy_area = np.pi * r_p**2
     c_lr = GLOBAL_CONNECTIVITY - c_loc
 
-    return (c_lr * float(R_MAX)**2) / (num_patches * patchy_area)
+    return (c_lr * float(layer_size)**2) / (num_patches * patchy_area)
 
 
 def get_lr_connection_probability_np(
         r_loc,
-        p_loc
+        p_loc,
+        layer_size=R_MAX
 ):
     """
     Calculate long range connectivity probability according to Voges Paper
@@ -161,11 +164,11 @@ def get_lr_connection_probability_np(
 
     full_area = np.pi * R_MAX**2
     # Calculate local connectivity
-    c_loc, inner_area = get_local_connectivity(r_loc, p_loc)
+    c_loc, inner_area = get_local_connectivity(r_loc, p_loc, layer_size=layer_size)
     # Calculate long range connectivity
     c_lr = GLOBAL_CONNECTIVITY - c_loc
 
-    return c_lr / ((full_area - inner_area) / float(R_MAX)**2)
+    return c_lr / ((full_area - inner_area) / float(layer_size)**2)
 
 
 def create_distinct_sublayer_boxes(size_boxes, size_layer=R_MAX):
@@ -339,7 +342,7 @@ def create_distant_np_connections(
 
     if p_p is None:
         # Get possibility to establish a single long-range connection
-        p_p = get_lr_connection_probability_np(r_loc, p_loc)
+        p_p = get_lr_connection_probability_np(r_loc, p_loc, layer_size=layer_size)
 
     connection_dict = {
         "connection_type": "divergent",
@@ -378,7 +381,7 @@ def create_random_patches(
     min_distance = r_loc + r_p
     max_distance = layer_size / 2. - r_loc
     if p_p is None:
-        p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches)
+        p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches, layer_size=layer_size)
 
     # Iterate through all neurons, as all neurons have random patches
     nodes = nest.GetNodes(layer)[0]
@@ -426,10 +429,11 @@ def create_overlapping_patches(
     :param allow_multapses: Flag to allow multiple links between neurons
     :return: Neurons of the layer for debugging (plotting)
     """
+    layer_size = nest.GetStatus(layer, "topology")[0]["extent"][0]
     # Calculate parameters for pathces
     r_p = r_loc / 2.
     if p_p is None:
-        p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p)
+        p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, layer_size=layer_size)
 
     # Create overlapping patches as every neuron shares the same patch parameter
     for n in range(1, num_patches+1):
@@ -601,7 +605,7 @@ def create_stimulus_based_patches_random(
     min_distance = r_loc + r_p
     max_distance = size_layer / 2. # - r_p
     if p_p is None:
-        p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches)
+        p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches, layer_size=size_layer)
     node_ids = nest.GetNodes(layer)[0]
     mask_specs = {"radius": r_p}
 
