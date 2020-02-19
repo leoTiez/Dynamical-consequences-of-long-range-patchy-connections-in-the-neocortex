@@ -3,6 +3,7 @@ import unittest
 
 import modules.networkConstruction as nc
 import modules.createStimulus as cs
+import modules.thesisUtils as tu
 import numpy as np
 
 import nest.topology as tp
@@ -25,7 +26,7 @@ class NetworkConstructionTest(unittest.TestCase):
         self.size_layer = 2.
 
         self.input_stimulus = cs.image_with_spatial_correlation(size_img=(20, 20), radius=3, num_circles=80)
-        organise_on_grid = True
+        self.organise_on_grid = True
 
         self.torus_layer, self.spike_det, self.multi = nc.create_torus_layer_uniform(
             num_neurons=self.num_neurons,
@@ -49,7 +50,37 @@ class NetworkConstructionTest(unittest.TestCase):
 
         self.retina = nc.create_input_current_generator(
             self.input_stimulus,
-            organise_on_grid=organise_on_grid
+            organise_on_grid=self.organise_on_grid
+        )
+
+        self.receptors = nest.GetNodes(self.retina)[0]
+
+    def reset(self):
+        nest.ResetKernel()
+        self.torus_layer, self.spike_det, self.multi = nc.create_torus_layer_uniform(
+            num_neurons=self.num_neurons,
+            neuron_type=self.neuron_type,
+            rest_pot=self.rest_pot,
+            threshold_pot=self.threshold_pot,
+            time_const=self.time_const,
+            capacitance=self.capacitance,
+            size_layer=self.size_layer
+        )
+
+        self.torus_nodes = nest.GetNodes(self.torus_layer)[0]
+        self.min_id_torus = min(self.torus_nodes)
+
+        (self.tuning_to_neuron_map,
+         self.neuron_to_tuning_map,
+         self.tuning_weight_vector,
+         _) = nc.create_stimulus_tuning_map(
+            self.torus_layer,
+            num_stimulus_discr=self.num_stimulus_discr
+        )
+
+        self.retina = nc.create_input_current_generator(
+            self.input_stimulus,
+            organise_on_grid=self.organise_on_grid
         )
 
         self.receptors = nest.GetNodes(self.retina)[0]
@@ -174,13 +205,15 @@ class NetworkConstructionTest(unittest.TestCase):
     def test_create_local_circular_connections(self):
         r_loc = 0.3
         p_loc = 0.4
+
+        self.reset()
+
         nc.create_local_circular_connections(self.torus_layer, r_loc=r_loc, p_loc=p_loc)
         connect = nest.GetConnections(self.torus_layer)
         for c in connect:
             s = nest.GetStatus(c, "source")
             t = nest.GetStatus(c, "target")
             self.assertLessEqual(tp.Distance(s, t), r_loc)
-            nest.Disconnect(s, t)
 
     def test_create_stimulus_tuning_map(self):
         num_stimulus_discr = 4
@@ -210,6 +243,9 @@ class NetworkConstructionTest(unittest.TestCase):
     def test_create_stimulus_based_local_connections(self):
         r_loc = 0.2
         connect_dict = {"rule": "pairwise_bernoulli", "p": 0.8}
+
+        self.reset()
+
         nc.create_stimulus_based_local_connections(
             self.torus_layer,
             self.neuron_to_tuning_map,
@@ -224,39 +260,16 @@ class NetworkConstructionTest(unittest.TestCase):
             t = nest.GetStatus(c, "target")
             self.assertLessEqual(tp.Distance(s, t), r_loc)
             self.assertEqual(self.neuron_to_tuning_map[s], self.neuron_to_tuning_map[t])
-            nest.Disconnect(s, t)
 
     def test_create_stimulus_based_patches_random(self):
         num_patches = 2
-        r_loc = 0.5
-        p_loc = 0.7
-        connect_dict = None
-        p_p = None
-
-        # Without connection dict
-        nc.create_stimulus_based_patches_random(
-            self.torus_layer,
-            self.neuron_to_tuning_map,
-            self.tuning_to_neuron_map,
-            num_patches=num_patches,
-            r_loc=r_loc,
-            p_loc=p_loc,
-            p_p=p_p,
-            connect_dict=connect_dict,
-        )
-
-        connect = nest.GetConnections(self.torus_layer)
-        for c in connect:
-            s = nest.GetStatus(c, "source")
-            t = nest.GetStatus(c, "target")
-            self.assertLessEqual(tp.Distance(s, t), self.size_layer)
-            self.assertGreaterEqual(tp.Distance(s, t), r_loc)
-            self.assertEqual(self.neuron_to_tuning_map[s], self.neuron_to_tuning_map[t])
-            nest.Disconnect(s, t)
-
+        r_loc = 0.2
+        p_loc = 0.1
         # With connection dict
         connect_dict = {"rule": "pairwise_bernoulli", "p": 0.7}
 
+        self.reset()
+
         nc.create_stimulus_based_patches_random(
             self.torus_layer,
             self.neuron_to_tuning_map,
@@ -264,7 +277,6 @@ class NetworkConstructionTest(unittest.TestCase):
             num_patches=num_patches,
             r_loc=r_loc,
             p_loc=p_loc,
-            p_p=p_p,
             connect_dict=connect_dict,
         )
 
@@ -275,7 +287,6 @@ class NetworkConstructionTest(unittest.TestCase):
             self.assertLessEqual(tp.Distance(s, t), self.size_layer)
             self.assertGreaterEqual(tp.Distance(s, t), r_loc)
             self.assertEqual(self.neuron_to_tuning_map[s], self.neuron_to_tuning_map[t])
-            nest.Disconnect(s, t)
 
     def test_create_input_current_generator(self):
         input_stimulus = cs.image_with_spatial_correlation(size_img=(50, 50), radius=3, num_circles=80)
@@ -296,6 +307,8 @@ class NetworkConstructionTest(unittest.TestCase):
         rf_size = (10, 10)
         connect_dict = {"rule": "pairwise_bernoulli", "p": 1.}
         synaptic_strength = 1.
+
+        self.reset()
 
         positions = tp.GetPosition(self.torus_nodes)
         rf_centers = [
@@ -364,18 +377,19 @@ class NetworkConstructionTest(unittest.TestCase):
                         0,
                         "Synaptic weight is not set to zero although not correct stimulus. Actual value %s" % weight
                     )
-                nest.Disconnect([s], [n])
 
     def test_create_torus_layer_with_jitter(self):
         # Must be number that has a square root in N
         num_neurons = 144
         jitter = 0.01
         neuron_type = "iaf_psc_delta"
+        layer_size = 3.
 
         layer = nc.create_torus_layer_with_jitter(
             num_neurons=num_neurons,
             jitter=jitter,
-            neuron_type=neuron_type
+            neuron_type=neuron_type,
+            layer_size=layer_size
         )
 
         nodes = nest.GetNodes(layer)[0]
@@ -385,7 +399,7 @@ class NetworkConstructionTest(unittest.TestCase):
         for m in model:
             self.assertEqual(m, neuron_type, "Wrong neuron type set")
 
-        mod_size = nc.R_MAX - jitter * 2
+        mod_size = layer_size - jitter * 2
         step_size = mod_size / float(np.sqrt(num_neurons))
         coordinate_scale = np.arange(-mod_size / 2., mod_size / 2., step_size)
         grid = [[x, y] for y in coordinate_scale for x in coordinate_scale]
@@ -400,6 +414,8 @@ class NetworkConstructionTest(unittest.TestCase):
         r_loc = .2
         p_loc = .5
 
+        self.reset()
+
         nc.create_distant_np_connections(self.torus_layer, p_loc=p_loc, r_loc=r_loc)
 
         conn = nest.GetConnections(source=self.torus_nodes, target=self.torus_nodes)
@@ -409,6 +425,185 @@ class NetworkConstructionTest(unittest.TestCase):
             d = tp.Distance([s], [t])[0]
             self.assertLessEqual(d, self.size_layer / 2., "Distance is too large")
             self.assertGreaterEqual(d, r_loc, "Distance is too low")
+
+    def test_create_random_patches(self):
+        r_loc = 0.2
+        p_loc = 0.8
+        p_p = 0.6
+        num_patches = 2
+        d_p = r_loc
+
+        self.reset()
+
+        nc.create_random_patches(self.torus_layer, r_loc=r_loc, p_loc=p_loc, num_patches=num_patches, p_p=p_p)
+
+        for s in self.torus_nodes:
+            conn = nest.GetConnections(source=[s])
+            targets = [t for t in nest.GetStatus(conn, "target") if t in self.torus_nodes]
+            patches = []
+            for t in targets:
+                distance_s_t = tp.Distance([s], [t])[0]
+                self.assertGreaterEqual(distance_s_t, r_loc, "Target node is too close")
+                patch_not_existent = True
+                for idx, patch in enumerate(patches):
+                    patch_not_existent = False
+                    for p in patch:
+                        d = tp.Distance([t], [p])[0]
+                        if d > d_p:
+                            patch_not_existent = True
+                            break
+
+                    if not patch_not_existent:
+                        patches[idx].add(t)
+                        patch_not_existent = False
+                        break
+
+                if patch_not_existent:
+                    patches.append(set([t]))
+                self.assertLessEqual(len(patches), num_patches, "Created too many patches")
+
+    def test_create_overlapping_patches(self):
+        r_loc = 0.3
+        p_loc = 0.5
+        p_r = r_loc / 2.
+        distance = .7
+        num_patches = 2
+
+        self.reset()
+
+        nc.create_overlapping_patches(
+            self.torus_layer,
+            r_loc=r_loc,
+            p_loc=p_loc,
+            distance=distance,
+            num_patches=num_patches
+        )
+
+        anchors = [tu.to_coordinates(n * 360. / float(num_patches), distance) for n in range(1, num_patches + 1)]
+
+        for s in self.torus_nodes:
+            pos_s = tp.GetPosition([s])[0]
+            patch_centers = (np.asarray(anchors) + np.asarray(pos_s)).tolist()
+            conn = nest.GetConnections(source=[s])
+            targets = [t for t in nest.GetStatus(conn, "target") if t in self.torus_nodes]
+            for t in targets:
+                d = tp.Distance([s], [t])[0]
+                self.assertGreaterEqual(d, distance - p_r, "Established connection is too short")
+                self.assertLessEqual(d, distance + p_r, "Established connection is too long")
+                d_to_centers = list(tp.Distance(patch_centers, [t]))
+                self.assertTrue(
+                    np.any(np.asarray(d_to_centers) <= p_r),
+                    "Node is too far from any patch center"
+                )
+
+    def test_create_shared_patches(self):
+        r_loc = 0.1
+        p_loc = 0.9
+        p_p = 0.6
+        d_p = r_loc
+        size_boxes = 0.2
+        num_patches = 2
+        num_shared_patches = 3
+
+        self.reset()
+
+        nc.create_shared_patches(
+            self.torus_layer,
+            r_loc=r_loc,
+            p_loc=p_loc,
+            size_boxes=size_boxes,
+            num_patches=num_patches,
+            num_shared_patches=num_shared_patches,
+            p_p=p_p
+        )
+
+        sublayer_anchors, box_mask = nc.create_distinct_sublayer_boxes(size_boxes, size_layer=self.size_layer)
+
+        for anchor in sublayer_anchors:
+            box_nodes = tp.SelectNodesByMask(
+                self.torus_layer,
+                anchor,
+                mask_obj=tp.CreateMask("rectangular", specs=box_mask)
+            )
+
+            box_patches = []
+            for s in box_nodes:
+                conn = nest.GetConnections(source=[s])
+                targets = [t for t in nest.GetStatus(conn, "target") if t in self.torus_nodes]
+                patch_idx = set()
+                for t in targets:
+                    distance_anchor_t = tp.Distance([anchor], [t])[0]
+                    self.assertGreaterEqual(distance_anchor_t, r_loc, "Target node is too close to anchor")
+                    patch_not_existent = True
+                    for idx, patch in enumerate(box_patches):
+                        patch_not_existent = False
+                        ds = tp.Distance([t], list(patch))
+                        if np.any(np.asarray(ds) > d_p):
+                            patch_not_existent = True
+                            continue
+
+                        if not patch_not_existent:
+                            patch_idx.add(idx)
+                            box_patches[idx].add(t)
+                            patch_not_existent = False
+                            break
+
+                        self.assertLessEqual(len(patch_idx), num_patches, "Created too many patches per neuron")
+
+                    if patch_not_existent:
+                        box_patches.append({t})
+
+                    self.assertLessEqual(len(box_patches), num_shared_patches, "Created too many patches per box")
+
+    def test_create_partially_overlapping_patches(self):
+        r_loc = 0.1
+        p_loc = 0.9
+        p_p = 0.6
+        d_p = r_loc
+        size_boxes = 0.2
+        num_patches = 2
+        num_shared_patches = 3
+        num_replaced = 1
+
+        self.reset()
+
+        sublayer_anchors, box_mask = nc.create_distinct_sublayer_boxes(size_boxes, size_layer=self.size_layer)
+
+        for anchor in sublayer_anchors:
+            box_nodes = tp.SelectNodesByMask(
+                self.torus_layer,
+                anchor,
+                mask_obj=tp.CreateMask("rectangular", specs=box_mask)
+            )
+
+            box_patches = []
+            for s in box_nodes:
+                conn = nest.GetConnections(source=[s])
+                targets = [t for t in nest.GetStatus(conn, "target") if t in self.torus_nodes]
+                patch_idx = set()
+                for t in targets:
+                    distance_anchor_t = tp.Distance([anchor], [t])[0]
+                    self.assertGreaterEqual(distance_anchor_t, r_loc, "Target node is too close to anchor")
+                    patch_not_existent = True
+                    for idx, patch in enumerate(box_patches):
+                        patch_not_existent = False
+                        ds = tp.Distance([t], list(patch))
+                        if np.any(np.asarray(ds) > d_p):
+                            patch_not_existent = True
+                            continue
+
+                        if not patch_not_existent:
+                            patch_idx.add(idx)
+                            box_patches[idx].add(t)
+                            patch_not_existent = False
+                            break
+
+                        self.assertLessEqual(len(patch_idx), num_patches, "Created too many patches per neuron")
+
+                    if patch_not_existent:
+                        box_patches.append({t})
+
+                    self.assertLessEqual(len(box_patches), num_shared_patches, "Created too many patches per box")
 
 
 if __name__ == '__main__':
