@@ -15,7 +15,7 @@ The required Python modules that can be downloaded via pip are compiled in the
 `requirements.txt` file and can be installed via
 
 ```bash
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 ## Install the Barranca neuron model
@@ -43,11 +43,35 @@ Afterwards the customised `nestmlmodule` can be dynamically linked to the script
 nest.Install("nestmlmodules")
 ``` 
 
+To make the project executable it's crucial to add the project's directory to the PYHTONPATH. Thus,
+you can either add it permanently in you `~/.bashrc` file through appending the following line
+
+```bash
+export PYTHONPATH="${PYTHONPATH}:/path/to/module"
+```
+and running
+
+```bash
+source ~./bashrc
+```
+
+or temporarily via
+
+```bash
+export PYTHONPATH=$PYTHONPATH:/path/to/module
+```
+
+where `/path/to/module` is respectively replaced by the actual path to the project's directory. 
+## Coding style and naming
+All scripts follow the standard Python coding style. It uses the conventional naming for variables 
+and files with one exception: main files start with a capital letter, whereas module files start
+with a lower case letter. The aim is to simplify the navigation through the project directories.
+
 ## Execution
 There are two main files that implement proposals of the two papers [1] and [2]. The script 
 `VogesNetwork.py` implements the network setups proposed in [2]. Run the script via the command
 ```bash
-python VogesNetwork.py
+python3 VogesNetwork.py
 ```
 There are five different networks implemented. To try out different networks change the parameter
 `use_lr_connection_type` passed to the main function.
@@ -55,7 +79,7 @@ There are five different networks implemented. To try out different networks cha
 The script `CSCodeingNetworkBarranca.py` implements the stimulus response reconstruction based on 
 the neural response that was described in [1]. Run the script via
 ```bash
-CSCodingNetworkBarranca.py
+pyhton3 CSCodingNetworkBarranca.py
 ``` 
 If you want to compute the mutual information (MI) of input and reconstructed stimulus over a number of
 stimuli set the flag `use_mi=True` that is passed as a parameter to the main function.

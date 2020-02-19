@@ -25,6 +25,14 @@ def mutual_information_hist(input_data, reconstruction_data):
     return np.sum(joint_xy_p[non_zero_indices] * np.log(joint_xy_p[non_zero_indices] / mult_xy_p[non_zero_indices]))
 
 
+def set_values_in_adjacency_matrix(connect_values, adj_mat, min_src, min_target, ignore_weights=True):
+    for n in connect_values:
+        if ignore_weights or (not ignore_weights and nest.GetStatus([n], "weight")[0] > 0):
+            adj_mat[n[0] - min_src, n[1] - min_target] = 1
+
+    return adj_mat
+
+
 def create_adjacency_matrix(src_nodes, target_nodes):
     """
     Creates the adjacency matrix A for the connections between source and target nodes. A_ij = 1 if there is a
@@ -33,10 +41,12 @@ def create_adjacency_matrix(src_nodes, target_nodes):
     :param target_nodes: Target nodes
     :return: Adjacency matrix
     """
-    connect_values = nest.GetConnections(src_nodes, target_nodes)
-    adjacency_mat = np.zeros((int(len(src_nodes)), int(len(target_nodes))))
-    for n in connect_values:
-        adjacency_mat[n[0] - min(src_nodes), n[1] - min(target_nodes)] = 1
+    connect_values = nest.GetConnections(source=src_nodes)
+    connect_values = [
+        connection for connection in connect_values if nest.GetStatus([connection], "target")[0] in target_nodes
+    ]
+    adjacency_mat = np.zeros((int(len(src_nodes)), int(len(target_nodes))), dtype='uint8')
+    adjacency_mat = set_values_in_adjacency_matrix(connect_values, adjacency_mat, min(src_nodes), min(target_nodes))
     return adjacency_mat
 
 
@@ -81,4 +91,6 @@ def get_firing_rates(spike_train, nodes, simulation_time):
     firing_rates = np.zeros(len(nodes))
     for value, number in spike_count.items():
         firing_rates[int(value) - min(nodes)] = number / float(simulation_time / 1000.)
+
+    return firing_rates
 
