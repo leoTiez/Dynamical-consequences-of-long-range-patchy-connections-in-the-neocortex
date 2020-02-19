@@ -168,7 +168,7 @@ def create_network(
     # Set sensory-to-sensory weights
     if VERBOSITY > 0:
         print("\n#####################\tSet synaptic weights for sensory to sensory neurons")
-    set_synaptic_strenght(torus_layer_nodes, adj_sens_sens_mat, cap_s=cap_s)
+    set_synaptic_strength(torus_layer_nodes, adj_sens_sens_mat, cap_s=cap_s)
 
     return receptor_layer, torus_layer, adj_rec_sens_mat, adj_sens_sens_mat, tuning_weight_vector, spike_detect
 
