@@ -63,6 +63,8 @@ def stimulus_reconstruction(
     :param threshold_pot: Threshold potential in mV
     :param rest_pot: resting potential in mV
     :param stimulus_size: number of the input stimulus values
+    :param tuning_weight_vector: The weight vector for the neurons with stimulus preference, e.g. feature class / #class
+    :param verbosity: Boolean parameter to set whether to show output from solver
     :return:
     """
     # Use that for the Kronecker product inv(A kron B) == inv(A) kron inv(B)
@@ -98,6 +100,13 @@ def direct_stimulus_reconstruction(
         rec_sens_adj_mat,
         tuning_weight_vector
 ):
+    """
+    Reconstruction of stimulus based on the knowledge of stimulus tuning of neurons
+    :param firing_rates: Firing rates of the neurons
+    :param rec_sens_adj_mat: Adjacency matrix from receptors to sensory neurons
+    :param tuning_weight_vector: The weight vector for the neurons with stimulus preference, e.g. feature class / #class
+    :return: Reconstructed stimulus
+    """
     reconstruction = np.zeros(rec_sens_adj_mat.shape[0])
     sorted_rates = sorted(zip(firing_rates, range(firing_rates.size)), key=lambda l: l[0])
     for _, idx in sorted_rates:
