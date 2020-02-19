@@ -7,6 +7,13 @@ import matplotlib.pyplot as plt
 
 
 def convert_image_to_orientation_map(image, magnitude_threshold=50, num_orientation_ranges=8):
+    """
+    Convert the edges of an image to a an orientation color map
+    :param image: The actual image
+    :param magnitude_threshold: The threshold that determines an edge
+    :param num_orientation_ranges: Number of classes that are discriminated
+    :return: The image with only the edges colored
+    """
     # Derivatives
     deriv_x = cv2.Sobel(image, cv2.CV_32F, 1, 0)
     deriv_y = cv2.Sobel(image, cv2.CV_32F, 0, 1)
@@ -40,6 +47,13 @@ def convert_image_to_orientation_map(image, magnitude_threshold=50, num_orientat
 
 
 def create_image_bar(orientation, bar_width=5, size=(50, 50)):
+    """
+    Create image with a single bar
+    :param orientation: Orientation of the bar
+    :param bar_width: width of the bar
+    :param size: Size of the image
+    :return: Image with bar
+    """
     img = np.zeros(size, dtype='uint8')
     center = (size[0] // 2, size[1] // 2)
     dimx, dimy = size
@@ -59,6 +73,14 @@ def create_image_bar(orientation, bar_width=5, size=(50, 50)):
 
 
 def image_with_spatial_correlation(num_circles=50, radius=5, size_img=(50, 50), background_noise=True):
+    """
+    Create image with circles such that there is a spatial correlation of pixels
+    :param num_circles: Number of circles
+    :param radius: Radius of each circle
+    :param size_img: Size of the image
+    :param background_noise: Flag for creating background noise. If False, the background is black
+    :return: Image with circles for spatial correlation of color
+    """
     if background_noise:
         image = np.random.randint(0, 255, size_img).astype('float')
     else:
@@ -77,6 +99,9 @@ def image_with_spatial_correlation(num_circles=50, radius=5, size_img=(50, 50), 
 
 
 def test_main():
+    """
+    Test main
+    """
     image = load_image("monkey50.png")
     orient_map = convert_image_to_orientation_map(image)
     plt.imshow(orient_map, cmap='gray')
