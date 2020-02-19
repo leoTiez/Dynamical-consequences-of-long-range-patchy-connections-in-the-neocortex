@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import unittest
 
 import modules.thesisUtils as tu
