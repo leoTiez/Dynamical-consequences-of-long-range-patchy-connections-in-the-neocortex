@@ -121,6 +121,7 @@ def get_local_connectivity(
     Calculate local connectivity
     :param r_loc: radius of local connections
     :param p_loc: probability of establishing local connections
+    :param layer_size: Size of the layer
     :return: local connectivity
     """
     inner_area = np.pi * r_loc**2
@@ -141,6 +142,7 @@ def get_lr_connection_probability_patches(
     :param p_loc: probability of establishing local connections
     :param r_p: patchy radius
     :param num_patches: Total number of patches
+    :param layer_size: Size of the layer
     :return: long range patchy connection probability
     """
     c_loc, _ = get_local_connectivity(r_loc, p_loc, layer_size=layer_size)
@@ -159,6 +161,7 @@ def get_lr_connection_probability_np(
     Calculate long range connectivity probability according to Voges Paper
     :param r_loc: local radius
     :param p_loc: local connectivity probability
+    :param layer_size: size of the layer
     :return: long range connectivity probability
     """
 
@@ -172,6 +175,12 @@ def get_lr_connection_probability_np(
 
 
 def create_distinct_sublayer_boxes(size_boxes, size_layer=R_MAX):
+    """
+    Create sublayers with distinct set of neurons
+    :param size_boxes: Size of a single box
+    :param size_layer: Size of the layer
+    :return: The central points of the boxes (one for each box), dictionary with the mask for the sublayer (one for all)
+    """
     # Create sublayer boxes that share same patches
     sublayer_anchors = [[x * size_boxes + size_boxes / 2., y * size_boxes + size_boxes / 2.]
                         for y in range(-int(size_layer / (2. * float(size_boxes))),
@@ -199,6 +208,12 @@ def create_torus_layer_uniform(
     """
     Create a layer wrapped a torus to avoid boundary conditions. Neurons are placed uniformly
     :param num_neurons: Number of neurons in the layer
+    :param neuron_type: Type of the neuron. So far iaf psc delta and iaf psc alpha neurons are supported
+    :param rest_pot: Resting potential of the neurons
+    :param threshold_pot: Threshold potential of the neurons
+    :param time_const: Time constant of the neurons
+    :param capacitance: Capacitance of the neurons
+    :param size_layer: Size of the layer
     :return: neural layer
     """
     # Calculate positions
@@ -222,6 +237,7 @@ def create_torus_layer_uniform(
 
     else:
         raise ValueError("The passed neuron type %s is not supported" % neuron_type)
+
     # Create layer
     torus_layer = tp.CreateLayer(torus_dict)
     sensory_nodes = nest.GetNodes(torus_layer)[0]
@@ -243,6 +259,8 @@ def create_torus_layer_with_jitter(
     Create a layer wrapped a torus to avoid boundary conditions. Neurons are placed on a grid with fluctuations
     :param num_neurons: Number of neurons in layer
     :param jitter: amount of jitter
+    :param neuron_type: Type of the neurons. All neuron models are supported
+    :param layer_size: Size of the layer
     :return: layer
     """
     # Create coordinates of neurons
@@ -284,6 +302,9 @@ def create_local_circular_connections(
     :param p_loc: probability of establishing local connections
     :param allow_autapses: Flag to allow self-connections
     :param allow_multapses: Flag to allow multiple connections between neurons
+    :param plot: Flag for plotting connections
+    :param save_plot: Flag for saving the plot. If not plotted the parameter is ignored
+    :param color_mask: Color/orientation map for neurons. If not plotted the parameter is ignored
     """
 
     # Define mask
@@ -326,9 +347,11 @@ def create_distant_np_connections(
     """
     Create long distance connections without any patches
     :param layer: Layer in which the connections should be established
-    :param r_loc: radius for local connections needed to calculate the long range connection probability
-    :param p_loc: probability for local connections needed to calculate the long range connection probability
-    :param allow_multapses: allow multiple connections between neurons
+    :param r_loc: Radius for local connections needed to calculate the long range connection probability
+    :param p_loc: Probability for local connections needed to calculate the long range connection probability
+    :param p_p: Probability to establish long-range patchy connections. If none, prob. is calculated according to Voges
+                paper
+    :param allow_multapses: Allow multiple connections between neurons
     :return Neurons of the layer for debugging (plotting)
     """
     layer_size = nest.GetStatus(list(layer), "topology")[0]["extent"][0]
@@ -373,6 +396,8 @@ def create_random_patches(
     :param r_loc: Radius for local connections
     :param p_loc: Probability for local connections
     :param num_patches: Number of patches that should be created
+    :param p_p: Probability to establish long-range patchy connections. If none, prob. is calculated according to Voges
+                paper
     :return Nodes of the layer for debugging purposes (plotting)
     """
     # Calculate the parameters for the patches
@@ -427,6 +452,8 @@ def create_overlapping_patches(
     :param distance: Distance of patches
     :param num_patches: Number of patches
     :param allow_multapses: Flag to allow multiple links between neurons
+    :param p_p: Probability to establish long-range patchy connections. If none, prob. is calculated according to Voges
+                paper
     :return: Neurons of the layer for debugging (plotting)
     """
     layer_size = nest.GetStatus(layer, "topology")[0]["extent"][0]
@@ -476,6 +503,8 @@ def create_shared_patches(
     links to
     :param num_patches: Number of patches per neuron
     :param num_shared_patches: Number of patches per sublayer
+    :param p_p: Probability to establish long-range patchy connections. If none, prob. is calculated according to Voges
+                paper
     :return: Neurons of sublayer anchored at size_boxes/2 for debugging (plotting)
     """
     # Number of patches per neuron must be lower or equal to the number of patches per box, as the patches of a neuron
@@ -503,7 +532,6 @@ def create_partially_overlapping_patches(
         num_shared_patches=6,
         num_patches_replaced=3,
         p_p=None
-
 ):
     """
     Create partially overlapping patches for long-range connections
@@ -515,6 +543,8 @@ def create_partially_overlapping_patches(
     :param num_patches: Number of patches per neuron
     :param num_shared_patches: Number of patches per sublayer
     :param num_patches_replaced: Number of patches that are replaced for every box in x-direction
+    :param p_p: Probability to establish long-range patchy connections. If none, prob. is calculated according to Voges
+                paper
     :return: Neurons of the sublayer anchored at box_size/2 for debugging (plotting)
     """
     assert num_patches_replaced <= num_shared_patches
@@ -543,6 +573,17 @@ def create_stimulus_based_local_connections(
         save_plot=False,
         color_mask=None
 ):
+    """
+    Create local connections only to neurons with same stimulus feature preference
+    :param layer: Layer with neurons
+    :param neuron_to_tuning_map: Dictionary mapping from neurons to their respective tuning preference
+    :param tuning_to_neuron_map: Dictionary mapping from tuning preference to all neurons with that preference
+    :param r_loc: Radius within which local connections can be established
+    :param connect_dict: Conenction dictionary specifying the connection parameter
+    :param plot: Flag for plotting
+    :param save_plot: Flag for saving the plot. If plot is False this parameter is ignored
+    :param color_mask: Color/orientation map for plotting. If plot is False this parameter is ignored
+    """
     if connect_dict is None:
         connect_dict = {
             "rule": "pairwise_bernoulli",
@@ -593,6 +634,21 @@ def create_stimulus_based_patches_random(
         save_plot=False,
         color_mask=None
 ):
+    """
+    Create patchy connections based on tuning preference
+    :param layer: Layer with neurons
+    :param neuron_to_tuning_map: Dictionary mapping from neurons to their respective tuning preference
+    :param tuning_to_neuron_map: Dictionary mapping from tuning preference to all neurons with that preference
+    :param num_patches: Number of patches that are created
+    :param r_loc: Radius for local connections
+    :param p_loc: Probability for local connections. If p_p or the connect dict is not None this parameter is ignored
+    :param p_p: Probability for patchy connections
+    :param r_p: Patchy radius. If None it is half of the local radius
+    :param connect_dict: Dictionary specifying the connections that are to establish
+    :param plot: Flag for plotting
+    :param save_plot: Flag for saving the plot. If plot is set to False this parameter is ignored
+    :param color_mask: Color/orientation map. If plot is set to False this parameter is ignored
+    """
     size_layer = nest.GetStatus(layer, "topology")[0]["extent"][0]
     # Calculate parameters for the patches
     if connect_dict is None and p_p is None:
@@ -657,12 +713,19 @@ def create_stimulus_based_patches_random(
                 )
 
 
-def set_synaptic_strenght(
+def set_synaptic_strength(
         nodes,
         adj_mat,
         cap_s=1.,
         divide_by_num_connect=False
 ):
+    """
+    Set the synaptic strength. It can be made dependent on number of established connections if needed
+    :param nodes: Nodes for which the connections should be adapted
+    :param adj_mat: Adjacency matrix for the connections
+    :param cap_s: Weight for the connections
+    :param divide_by_num_connect: Flag for dividing the weight through the number of established connections
+    """
     num_connec = adj_mat.sum()
     if num_connec == 0:
         return
@@ -680,6 +743,7 @@ def create_input_current_generator(
     Create direct current generator to simulate input stimulus. The pixel values of the image are transformed
     to an integer value representing the intensity in Ampere A
     :param input_stimulus: Grayscale input stimulus with integer values between 0 and 256
+    :param organise_on_grid: Flag for organising current generators on a grid to represent receptors
     :return: Tuple with ids for the dc generator devices
     """
     assert np.all(input_stimulus < 256) and np.all(input_stimulus >= 0)
@@ -783,6 +847,17 @@ def create_stimulus_tuning_map(
         save_plot=False,
         plot_name=None
 ):
+    """
+    Create the stimulus tuning map for neurons
+    :param layer: Layer of neurons
+    :param num_stimulus_discr: Number of stimuli feature classes that are to discriminate
+    :param stimulus_per_row: Number of how often a stimulus should be represented per row
+    :param plot: Flag for plotting
+    :param save_plot: Flag for saving the plot. If plot is set to False this parameter is ignored
+    :param plot_name: Name of the saved plot file. If plot is set to False this parameter is ignored
+    :return: Map from stimulus feature class to neuron, map form neuron to stimulus feature class, vector with weights
+            for their respective class, e.g. class of neurons / # classes
+    """
     size_layer = nest.GetStatus(layer, "topology")[0]["extent"][0]
     # Assume quadratic layer size
     box_size = size_layer / float(stimulus_per_row * num_stimulus_discr)
@@ -850,6 +925,14 @@ def check_in_stimulus_tuning(
         stimulus_tuning,
         tuning_discr_steps
 ):
+    """
+    Function to check whether a certain neuron reacts on a certain stimulus (e.g. stimulus is within the stimulus
+    feature class)
+    :param input_stimulus: The input stimulus
+    :param stimulus_tuning: The tuning of the neuron (identifier for the class)
+    :param tuning_discr_steps: The number of discriminated stimulus features
+    :return: True if neuron reacts, False otherwise
+    """
     return stimulus_tuning * tuning_discr_steps <= input_stimulus / 1e12 < (stimulus_tuning + 1) * tuning_discr_steps
 
 
@@ -867,6 +950,24 @@ def create_connections_rf(
         plot_point=10,
         retina_size=(100, 100)
 ):
+    """
+    Create receptive fields for sensory neurons and establishes connections
+    :param src_layer: Source layer, i.e. the retina layer with receptors
+    :param target_layer: Target layer, i.e. the layer with sensory neurons
+    :param rf_centers: The centers of the receptive fields
+    :param neuron_to_tuning_map: The map from neuron to stimulus tuning
+    :param rf_size: The size of a receptive field
+    :param connect_dict: Dictionary defining the connection values. If None default values are used
+    :param synaptic_strength: Synaptic weight for the connections
+    :param ignore_weights: Flag for creating the adjacency matrix. If set to True, all connections are considered in
+                             the matrix, whereas if it is set to False, only connections with non-zero weight
+                             are considered
+    :param plot_src_target: Flag for plotting
+    :param save_plot: Flag for saving the plot. If plot_src_target is False this parameter is ignored
+    :param plot_point: Number determining after how many established connections the plot is made
+    :param retina_size: Size of the retina / input layer
+    :return: Adjacency matrix from receptors to sensory nodes
+    """
     target_node_ids = nest.GetNodes(target_layer)[0]
     src_node_ids = nest.GetNodes(src_layer)[0]
 
