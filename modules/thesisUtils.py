@@ -59,6 +59,15 @@ def plot_connections(
         plot_name=None,
         color_mask=None
 ):
+    """
+    Plotting function for connections between nodes for visualisation and debugging purposes
+    :param src_nodes: Source nodes
+    :param target_nodes: Target nodes
+    :param layer_size: Size of the layer
+    :param save_plot: Flag for saving the plot
+    :param plot_name: Name of the saved plot file. Is not taken into account if save_plot is False
+    :param color_mask: Color mask for the color/orientation map of neurons. If none it is not taken into account
+    """
     plt.axis((-layer_size/2., layer_size/2., -layer_size/2., layer_size/2.))
     source_positions = tp.GetPosition(src_nodes)
     x_source, y_source = zip(*source_positions)
