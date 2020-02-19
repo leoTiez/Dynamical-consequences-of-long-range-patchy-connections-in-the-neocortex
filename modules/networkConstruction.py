@@ -502,6 +502,7 @@ def create_partially_overlapping_patches(
         num_patches=3,
         num_shared_patches=6,
         num_patches_replaced=3,
+        p_p=None
 
 ):
     """
@@ -527,8 +528,8 @@ def create_partially_overlapping_patches(
         num_patches=num_patches,
         num_shared_patches=num_shared_patches,
         num_patches_replaced=num_patches_replaced,
-        is_partially_overlapping=True
-
+        is_partially_overlapping=True,
+        p_p=p_p
     )
 
 
@@ -603,8 +604,8 @@ def create_stimulus_based_patches_random(
         r_p = r_loc / 2.
 
     min_distance = r_loc + r_p
-    max_distance = size_layer / 2. # - r_p
-    if p_p is None:
+    max_distance = size_layer / 2. - r_p
+    if p_p is None and connect_dict is None:
         p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches, layer_size=size_layer)
     node_ids = nest.GetNodes(layer)[0]
     mask_specs = {"radius": r_p}
