@@ -6,7 +6,7 @@ import numpy as np
 from scipy.fft import idct, fft2, fftfreq
 
 
-def observations_from_linear_model(
+def _observations_from_linear_model(
         firing_rates,
         sensor_connect_mat,
         connection_strength,
@@ -69,7 +69,7 @@ def stimulus_reconstruction(
     cosine_tranform = idct(np.identity(int(np.sqrt(stimulus_size))), norm="ortho", axis=0)
     kron_cosine = np.kron(cosine_tranform, cosine_tranform)
     # Compute transformed observations based on the linearisation of the model for the L1 optimisation procedure
-    observations = observations_from_linear_model(
+    observations = _observations_from_linear_model(
         firing_rates=firing_rates,
         time_const=time_const,
         threshold_pot=threshold_pot,
@@ -105,6 +105,8 @@ def direct_stimulus_reconstruction(
         reduced_vector[idx] = firing_rates[idx]
         reconstruction += rec_sens_adj_mat.dot(tuning_weight_vector * reduced_vector)
 
+    reconstruction /= reconstruction.max()
+    reconstruction *= 255
     return reconstruction.reshape(int(np.sqrt(reconstruction.size)), int(np.sqrt(reconstruction.size)))
 
 
