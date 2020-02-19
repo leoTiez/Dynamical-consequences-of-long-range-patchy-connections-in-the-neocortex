@@ -43,11 +43,29 @@ Afterwards the customised `nestmlmodule` can be dynamically linked to the script
 nest.Install("nestmlmodules")
 ``` 
 
+To make the project executable it's crucial to add the project's directory to the PYHTONPATH. Thus,
+you can either add it permanently in you `~/.bashrc` file through appending the following line
+
+```bash
+export PYTHONPATH="${PYTHONPATH}:/path/to/module"
+```
+and running
+
+```bash
+source ~./bashrc
+```
+
+or temporarily via
+
+```bash
+export PYTHONPATH=$PYTHONPATH:/path/to/module
+```
+
+where `/path/to/module` is respectively replaced by the actual path to the project's directory. 
 ## Coding style and naming
 All scripts follow the standard Python coding style. It uses the conventional naming for variables 
 and files with one exception: main files start with a capital letter, whereas module files start
 with a lower case letter. The aim is to simplify the navigation through the project directories.
-
 
 ## Execution
 There are two main files that implement proposals of the two papers [1] and [2]. The script 
