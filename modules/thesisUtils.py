@@ -82,15 +82,24 @@ def plot_connections(
             plt.plot([s[0], t[0]], [s[1], t[1]], color="k")
 
     if color_mask is not None:
-        for mask in color_mask:
-            area_rect = patches.Rectangle(
-                mask["lower_left"],
-                width=mask["width"],
-                height=mask["height"],
-                color=mask["color"],
-                alpha=0.2
+        if not type(color_mask) == np.ndarray:
+            for mask in color_mask:
+                area_rect = patches.Rectangle(
+                    mask["lower_left"],
+                    width=mask["width"],
+                    height=mask["height"],
+                    color=mask["color"],
+                    alpha=0.2
+                )
+                plt.gca().add_patch(area_rect)
+        else:
+            plt.imshow(
+                color_mask,
+                origin=(color_mask.shape[0] // 2, color_mask.shape[1] // 2),
+                extent=(-layer_size / 2., layer_size / 2., -layer_size / 2., layer_size / 2.),
+                cmap='tab10',
+                alpha=0.4
             )
-            plt.gca().add_patch(area_rect)
     if plot_name is None:
         plot_name = "connections.png"
     if save_plot:
@@ -100,4 +109,19 @@ def plot_connections(
     else:
         plt.show()
 
+
+def coordinates_to_cmap_index(layer_size, position, spacing):
+    y = np.floor(((layer_size / 2.) + position[0]) / spacing).astype('int')
+    x = np.floor(((layer_size / 2.) + position[1]) / spacing).astype('int')
+
+    return x, y
+
+def dot_product_perlin(x_grid, y_grid, x, y, gradients):
+    x_weight = x - x_grid
+    y_weight = y - y_grid
+    return x_weight * gradients[x_grid, y_grid][0] + y_weight * gradients[x_grid, y_grid][1]
+
+
+def lerp_perlin(a, b, weight):
+    return (1. - weight) * a + weight * b
 

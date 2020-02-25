@@ -4,7 +4,9 @@ from modules.networkAnalysis import *
 
 import warnings
 import numpy as np
+import scipy.interpolate as ip
 import matplotlib.patches as patches
+from matplotlib import cm
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 
@@ -92,6 +94,7 @@ def _create_location_based_patches(
                     mask_obj=tp.CreateMask("circular", specs=mask_specs)
                 )
             )
+
         # Iterate through all neurons, as patches are chosen for each neuron independently
         for neuron in sub_layer:
             neuron_patches_list = np.asarray(patchy)[
@@ -594,8 +597,7 @@ def create_stimulus_based_local_connections(
     for node in node_ids:
         stimulus_tuning = neuron_to_tuning_map[node]
         similar_tuned_neurons = tuning_to_neuron_map[stimulus_tuning]
-        same_stimulus_area = list(filter(lambda l: node in l, similar_tuned_neurons))[0]
-        same_stimulus_area = list(filter(lambda n: n != node, same_stimulus_area))
+        same_stimulus_area = list(filter(lambda n: n != node, similar_tuned_neurons))
         connect_partners = [
             connect_p for connect_p in same_stimulus_area
             if tp.Distance([connect_p], [node])[0] < r_loc
@@ -669,13 +671,9 @@ def create_stimulus_based_patches_random(
     for neuron in node_ids:
         stimulus_tuning = neuron_to_tuning_map[neuron]
         same_tuning_nodes = tuning_to_neuron_map[stimulus_tuning]
-        if len(same_tuning_nodes) > 1:
-            same_tuning_nodes = [area for area in same_tuning_nodes if neuron not in area]
         patch_center_nodes = []
         while len(patch_center_nodes) < num_patches:
-            area_idx = np.random.choice(len(same_tuning_nodes))
-            area = same_tuning_nodes[area_idx]
-            patch_center = np.random.choice(area)
+            patch_center = np.random.choice(same_tuning_nodes)
             if min_distance <= tp.Distance([neuron], [int(patch_center)])[0] < max_distance:
                 patch_center_nodes.append(tp.GetPosition([int(patch_center)])[0])
 
@@ -839,6 +837,72 @@ def create_connections_random(
     nest.Connect(src_nodes, target_nodes, conn_spec=connect_dict, syn_spec=synapse_dict)
 
 
+def create_perlin_stimulus_map(
+        layer,
+        num_stimulus_discr=4,
+        resolution=(10, 10),
+        spacing=0.1,
+        plot=False,
+        save_plot=False,
+        plot_name=None
+):
+    size_layer = nest.GetStatus(layer, "topology")[0]["extent"][0]
+    nodes = nest.GetNodes(layer)[0]
+    min_idx = min(nodes)
+
+    tuning_to_neuron_map = {stimulus: [] for stimulus in range(num_stimulus_discr)}
+    neuron_to_tuning_map = {}
+    tuning_weight_vector = np.zeros(len(nodes))
+
+    grid_nodes_range = np.arange(0, size_layer, spacing)
+    stimulus_grid_range_x = np.arange(0, resolution[0])
+    stimulus_grid_range_y = np.arange(0, resolution[1])
+    V = np.random.rand(stimulus_grid_range_x.size, stimulus_grid_range_y.size)
+
+    ipol = ip.RectBivariateSpline(stimulus_grid_range_x, stimulus_grid_range_y, V)
+    color_map = ipol(grid_nodes_range, grid_nodes_range)
+    color_map = np.round(color_map * (num_stimulus_discr - 1)).astype('int')
+
+    if plot:
+        plt.imshow(
+            color_map,
+            origin=(stimulus_grid_range_x.size//2, stimulus_grid_range_y.size//2),
+            extent=(-size_layer/2., size_layer/2., -size_layer/2., size_layer/2.),
+            cmap='tab10',
+            alpha=0.4
+        )
+
+    for n in nodes:
+        p = tp.GetPosition([n])[0]
+        # Grid positions
+        x_grid, y_grid = coordinates_to_cmap_index(size_layer, p, spacing)
+
+        stim_class = color_map[x_grid, y_grid]
+
+        tuning_to_neuron_map[stim_class].append(n)
+        neuron_to_tuning_map[n] = stim_class
+        tuning_weight_vector[n - min_idx] = (stim_class + 1) / num_stimulus_discr
+
+        if plot:
+            plt.plot(
+                p[0],
+                p[1],
+                marker='o',
+                markerfacecolor=list(mcolors.TABLEAU_COLORS.items())[stim_class][0],
+                markeredgewidth=0
+            )
+
+    if plot:
+        if not save_plot:
+            plt.show()
+        else:
+            curr_dir = os.getcwd()
+            if plot_name is None:
+                plot_name = "stimulus_tuning_map.png"
+            plt.savefig(curr_dir + "/figures/" + plot_name)
+    return tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map
+
+
 def create_stimulus_tuning_map(
         layer,
         num_stimulus_discr=4,
@@ -878,7 +942,7 @@ def create_stimulus_tuning_map(
         if num % num_stimulus_discr == num_stimulus_discr - 1:
             shift = 0 if shift == num_stimulus_discr // 2 else num_stimulus_discr // 2
         # Note that every value is a list of tuples
-        tuning_to_neuron_map[stimulus_tuning].append(stimulus_area)
+        tuning_to_neuron_map[stimulus_tuning].extend(stimulus_area)
         for neuron in stimulus_area:
             tuning_weight_vector[neuron - min_idx] = stimulus_tuning / (num_stimulus_discr - 1)
         neuron_to_tuning_sub = {neuron: stimulus_tuning for neuron in stimulus_area}
@@ -889,7 +953,7 @@ def create_stimulus_tuning_map(
             "lower_left": (anchor[0] + box_mask_dict["lower_left"][0], anchor[1] + box_mask_dict["lower_left"][1]),
             "width": box_mask_dict["upper_right"][0] - box_mask_dict["lower_left"][0],
             "height": box_mask_dict["upper_right"][1] - box_mask_dict["lower_left"][1],
-            "color":color
+            "color": color
         })
 
         if plot:
