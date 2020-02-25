@@ -110,6 +110,12 @@ def plot_connections(
         plt.show()
 
 
+def coordinates_to_cmap_index(layer_size, position, spacing):
+    y = np.floor(((layer_size / 2.) + position[0]) / spacing).astype('int')
+    x = np.floor(((layer_size / 2.) + position[1]) / spacing).astype('int')
+
+    return x, y
+
 def dot_product_perlin(x_grid, y_grid, x, y, gradients):
     x_weight = x - x_grid
     y_weight = y - y_grid
@@ -118,3 +124,4 @@ def dot_product_perlin(x_grid, y_grid, x, y, gradients):
 
 def lerp_perlin(a, b, weight):
     return (1. - weight) * a + weight * b
+
