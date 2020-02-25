@@ -101,3 +101,11 @@ def plot_connections(
         plt.show()
 
 
+def dot_product_perlin(x_grid, y_grid, x, y, gradients):
+    x_weight = x - x_grid
+    y_weight = y - y_grid
+    return x_weight * gradients[x_grid, y_grid][0] + y_weight * gradients[x_grid, y_grid][1]
+
+
+def lerp_perlin(a, b, weight):
+    return (1. - weight) * a + weight * b
