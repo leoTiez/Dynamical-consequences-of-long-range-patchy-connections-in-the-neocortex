@@ -94,6 +94,7 @@ def _create_location_based_patches(
                     mask_obj=tp.CreateMask("circular", specs=mask_specs)
                 )
             )
+
         # Iterate through all neurons, as patches are chosen for each neuron independently
         for neuron in sub_layer:
             neuron_patches_list = np.asarray(patchy)[
@@ -874,8 +875,7 @@ def create_perlin_stimulus_map(
     for n in nodes:
         p = tp.GetPosition([n])[0]
         # Grid positions
-        y_grid = int(((size_layer/2.) + p[0]) / spacing)
-        x_grid = int(((size_layer/2.) + p[1]) / spacing)
+        x_grid, y_grid = coordinates_to_cmap_index(size_layer, p, spacing)
 
         stim_class = color_map[x_grid, y_grid]
 
