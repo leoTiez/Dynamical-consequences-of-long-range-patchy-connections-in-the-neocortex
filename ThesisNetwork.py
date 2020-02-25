@@ -190,7 +190,8 @@ def main_matrix_dynamics():
         input_stimulus,
         cap_s=cap_s,
         receptor_connect_strength=receptor_connect_strength,
-        ignore_weights_adj=False
+        ignore_weights_adj=False,
+        use_stimulus_local=False
     )
 
     # Sufficient to use only 255 as we don't use the neurons themselves
@@ -236,7 +237,8 @@ def main_lr(use_patchy=True):
         cap_s=cap_s,
         receptor_connect_strength=receptor_connect_strength,
         use_patchy=use_patchy,
-        ignore_weights_adj=ignore_weights_adj
+        ignore_weights_adj=ignore_weights_adj,
+        use_stimulus_local=False
     )
 
     torus_layer_nodes = nest.GetNodes(torus_layer)[0]
