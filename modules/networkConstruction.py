@@ -596,8 +596,7 @@ def create_stimulus_based_local_connections(
     for node in node_ids:
         stimulus_tuning = neuron_to_tuning_map[node]
         similar_tuned_neurons = tuning_to_neuron_map[stimulus_tuning]
-        same_stimulus_area = list(filter(lambda l: node in l, similar_tuned_neurons))[0]
-        same_stimulus_area = list(filter(lambda n: n != node, same_stimulus_area))
+        same_stimulus_area = list(filter(lambda n: n != node, similar_tuned_neurons))
         connect_partners = [
             connect_p for connect_p in same_stimulus_area
             if tp.Distance([connect_p], [node])[0] < r_loc
@@ -671,13 +670,9 @@ def create_stimulus_based_patches_random(
     for neuron in node_ids:
         stimulus_tuning = neuron_to_tuning_map[neuron]
         same_tuning_nodes = tuning_to_neuron_map[stimulus_tuning]
-        if len(same_tuning_nodes) > 1:
-            same_tuning_nodes = [area for area in same_tuning_nodes if neuron not in area]
         patch_center_nodes = []
         while len(patch_center_nodes) < num_patches:
-            area_idx = np.random.choice(len(same_tuning_nodes))
-            area = same_tuning_nodes[area_idx]
-            patch_center = np.random.choice(area)
+            patch_center = np.random.choice(same_tuning_nodes)
             if min_distance <= tp.Distance([neuron], [int(patch_center)])[0] < max_distance:
                 patch_center_nodes.append(tp.GetPosition([int(patch_center)])[0])
 
@@ -947,7 +942,7 @@ def create_stimulus_tuning_map(
         if num % num_stimulus_discr == num_stimulus_discr - 1:
             shift = 0 if shift == num_stimulus_discr // 2 else num_stimulus_discr // 2
         # Note that every value is a list of tuples
-        tuning_to_neuron_map[stimulus_tuning].append(stimulus_area)
+        tuning_to_neuron_map[stimulus_tuning].extend(stimulus_area)
         for neuron in stimulus_area:
             tuning_weight_vector[neuron - min_idx] = stimulus_tuning / (num_stimulus_discr - 1)
         neuron_to_tuning_sub = {neuron: stimulus_tuning for neuron in stimulus_area}
