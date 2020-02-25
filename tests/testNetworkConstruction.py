@@ -605,6 +605,41 @@ class NetworkConstructionTest(unittest.TestCase):
 
                     self.assertLessEqual(len(box_patches), num_shared_patches, "Created too many patches per box")
 
+    def test_create_perlin_stimulus_map(self):
+        self.reset()
+
+        num_stimulus_discr = 4
+        resolution = (15, 15)
+        spacing = 0.1
+        plot = True
+        save_plot = False
+
+        tuning_to_neuron, neuron_to_tuning, weight_vector, color_map = nc.create_perlin_stimulus_map(
+            self.torus_layer,
+            num_stimulus_discr=num_stimulus_discr,
+            resolution=resolution,
+            spacing=spacing,
+            plot=plot,
+            save_plot=save_plot
+        )
+
+        for n in self.torus_nodes:
+            self.assertIn(n, tuning_to_neuron[neuron_to_tuning[n]], "Neuron is not assigned to the correct tuning list")
+            self.assertEqual(
+                weight_vector[n - self.min_id_torus],
+                (neuron_to_tuning[n] + 1) / num_stimulus_discr,
+                "Did not set the correct stimulus weight"
+            )
+            p = tp.GetPosition([n])[0]
+            x_grid = int(((self.size_layer/2.) + p[0]) / spacing)
+            y_grid = int(((self.size_layer/2.) + p[1]) / spacing)
+            self.assertEqual(
+                color_map[x_grid, y_grid],
+                neuron_to_tuning[n],
+                "Color map and tuning preference doesn't match"
+            )
+
+
 
 if __name__ == '__main__':
     unittest.main()
