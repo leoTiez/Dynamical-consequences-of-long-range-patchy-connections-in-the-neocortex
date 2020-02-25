@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import nest
 
 
-VERBOSITY = 0
+VERBOSITY = 4
 nest.set_verbosity("M_ERROR")
 
 
@@ -68,11 +68,11 @@ def create_network(
     # Create stimulus tuning map
     if VERBOSITY > 0:
         print("\n#####################\tCreate stimulus tuning map")
-    tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map = create_stimulus_tuning_map(
+    tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map = create_perlin_stimulus_map(
         torus_layer,
         num_stimulus_discr=num_stimulus_discr,
         plot=plot_tuning_map,
-        stimulus_per_row=stimulus_per_row,
+        resolution=(20, 20),
         save_plot=save_plots
     )
 
@@ -334,9 +334,9 @@ def main_mi():
 
 
 if __name__ == '__main__':
-    # np.random.seed(0)
-    main_mi()
-    # main_lr()
+    np.random.seed(0)
+    # main_mi()
+    main_lr()
     # main_matrix_dynamics()
 
 
