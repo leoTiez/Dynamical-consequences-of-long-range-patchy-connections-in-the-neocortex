@@ -96,7 +96,7 @@ def plot_connections(
             plt.imshow(
                 color_mask,
                 origin=(color_mask.shape[0] // 2, color_mask.shape[1] // 2),
-                extent=(-layer_size / 2., layer_size / 2., -layer_size / 2., layer / 2.),
+                extent=(-layer_size / 2., layer_size / 2., -layer_size / 2., layer_size / 2.),
                 cmap='tab10',
                 alpha=0.4
             )
