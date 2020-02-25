@@ -4,7 +4,9 @@ from modules.networkAnalysis import *
 
 import warnings
 import numpy as np
+import scipy.interpolate as ip
 import matplotlib.patches as patches
+from matplotlib import cm
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 
@@ -842,8 +844,8 @@ def create_connections_random(
 def create_perlin_stimulus_map(
         layer,
         num_stimulus_discr=4,
-        resolution=(8, 8),
-        multiplyer=10,
+        resolution=(10, 10),
+        spacing=0.1,
         plot=False,
         save_plot=False,
         plot_name=None
@@ -856,47 +858,53 @@ def create_perlin_stimulus_map(
     neuron_to_tuning_map = {}
     tuning_weight_vector = np.zeros(len(nodes))
 
-    angles_choice = np.arange(0, 360/float(num_stimulus_discr), num_stimulus_discr)
+    grid_nodes_range = np.arange(0, size_layer, spacing)
+    stimulus_grid_range_x = np.arange(0, resolution[0])
+    stimulus_grid_range_y = np.arange(0, resolution[1])
+    V = np.random.rand(stimulus_grid_range_x.size, stimulus_grid_range_y.size)
 
-    # Gradients
-    angles = np.random.choice(angles_choice, size=resolution)
-    gradients = np.dstack((np.cos(angles), np.sin(angles)))
+    ipol = ip.RectBivariateSpline(stimulus_grid_range_x, stimulus_grid_range_y, V)
+    color_map = ipol(grid_nodes_range, grid_nodes_range)
+    color_map = np.round(color_map * (num_stimulus_discr - 1)).astype('int')
 
-    d = (multiplyer, multiplyer)
-    grid_nodes = np.mgrid[0:resolution[0]*multiplyer, 0:resolution[1]*multiplyer]
-    grid_mesh = np.mgrid[0:resolution[0], 0:resolution[1]]
-    gg_mesh = grid_mesh.repeat(d[0], 0).repeat(d[1], 1)
-    n_00 = dot_product_perlin(gg_mesh[0], gg_mesh[1], grid_nodes[0], grid_nodes[1], gradients)
-    n_01 = dot_product_perlin(gg_mesh[0]+1, gg_mesh[1], grid_nodes[0], grid_nodes[1], gradients)
-    n_10 = dot_product_perlin(gg_mesh[0], gg_mesh[1]+1, grid_nodes[0], grid_nodes[1], gradients)
-    n_11 = dot_product_perlin(gg_mesh[0]+1, gg_mesh[1]+1, grid_nodes[0], grid_nodes[1], gradients)
+    if plot:
+        plt.imshow(
+            color_map,
+            origin=(stimulus_grid_range_x.size//2, stimulus_grid_range_y.size//2),
+            extent=(-size_layer/2., size_layer/2., -size_layer/2., size_layer/2.),
+            cmap='tab10',
+            alpha=0.4
+        )
 
-    interpol_x0 = lerp_perlin(n_00, n_01, grid_nodes[0] - grid_nodes[0] // resolution[0])
-    interpol_x1 = lerp_perlin(n_10, n_11, grid_nodes[0] - grid_nodes[0] // resolution[0])
-    color_map  = lerp_perlin(interpol_x0, interpol_x1, grid_nodes[1] - grid_nodes[1] // resolution[1])
     for n in nodes:
         p = tp.GetPosition([n])[0]
         # Grid positions
-        x_grid = int(p[0])
-        x_grid_next = x_grid + 1
-        y_grid = int(p[1])
-        y_grid_next = y_grid + 1
+        y_grid = int(((size_layer/2.) + p[0]) / spacing)
+        x_grid = int(((size_layer/2.) + p[1]) / spacing)
 
-        n_0 = dot_product_perlin(x_grid, y_grid, p[0], p[1], gradients)
-        n_1 = dot_product_perlin(x_grid_next, y_grid, p[0], p[1], gradients)
-        interpol_x0 = lerp_perlin(n_0, n_1, p[0] - x_grid)
+        stim_class = color_map[x_grid, y_grid]
 
-        n_0 = dot_product_perlin(x_grid, y_grid_next, p[0], p[1], gradients)
-        n_1 = dot_product_perlin(x_grid_next, y_grid_next, p[0], p[1], gradients)
-        interpol_x1 = lerp_perlin(n_0, n_1, p[0] - x_grid)
-
-        value = lerp_perlin(interpol_x0, interpol_x1, p[1] - y_grid)
-
-        stim_class = int(np.round(((value + 1) / 2.) * num_stimulus_discr))
-        tuning_to_neuron_map[stim_class] = n
+        tuning_to_neuron_map[stim_class].append(n)
         neuron_to_tuning_map[n] = stim_class
         tuning_weight_vector[n - min_idx] = (stim_class + 1) / num_stimulus_discr
 
+        if plot:
+            plt.plot(
+                p[0],
+                p[1],
+                marker='o',
+                markerfacecolor=list(mcolors.TABLEAU_COLORS.items())[stim_class][0],
+                markeredgewidth=0
+            )
+
+    if plot:
+        if not save_plot:
+            plt.show()
+        else:
+            curr_dir = os.getcwd()
+            if plot_name is None:
+                plot_name = "stimulus_tuning_map.png"
+            plt.savefig(curr_dir + "/figures/" + plot_name)
     return tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map
 
 
