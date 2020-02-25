@@ -839,6 +839,67 @@ def create_connections_random(
     nest.Connect(src_nodes, target_nodes, conn_spec=connect_dict, syn_spec=synapse_dict)
 
 
+def create_perlin_stimulus_map(
+        layer,
+        num_stimulus_discr=4,
+        resolution=(8, 8),
+        multiplyer=10,
+        plot=False,
+        save_plot=False,
+        plot_name=None
+):
+    size_layer = nest.GetStatus(layer, "topology")[0]["extent"][0]
+    nodes = nest.GetNodes(layer)[0]
+    min_idx = min(nodes)
+
+    tuning_to_neuron_map = {stimulus: [] for stimulus in range(num_stimulus_discr)}
+    neuron_to_tuning_map = {}
+    tuning_weight_vector = np.zeros(len(nodes))
+
+    angles_choice = np.arange(0, 360/float(num_stimulus_discr), num_stimulus_discr)
+
+    # Gradients
+    angles = np.random.choice(angles_choice, size=resolution)
+    gradients = np.dstack((np.cos(angles), np.sin(angles)))
+
+    d = (multiplyer, multiplyer)
+    grid_nodes = np.mgrid[0:resolution[0]*multiplyer, 0:resolution[1]*multiplyer]
+    grid_mesh = np.mgrid[0:resolution[0], 0:resolution[1]]
+    gg_mesh = grid_mesh.repeat(d[0], 0).repeat(d[1], 1)
+    n_00 = dot_product_perlin(gg_mesh[0], gg_mesh[1], grid_nodes[0], grid_nodes[1], gradients)
+    n_01 = dot_product_perlin(gg_mesh[0]+1, gg_mesh[1], grid_nodes[0], grid_nodes[1], gradients)
+    n_10 = dot_product_perlin(gg_mesh[0], gg_mesh[1]+1, grid_nodes[0], grid_nodes[1], gradients)
+    n_11 = dot_product_perlin(gg_mesh[0]+1, gg_mesh[1]+1, grid_nodes[0], grid_nodes[1], gradients)
+
+    interpol_x0 = lerp_perlin(n_00, n_01, grid_nodes[0] - grid_nodes[0] // resolution[0])
+    interpol_x1 = lerp_perlin(n_10, n_11, grid_nodes[0] - grid_nodes[0] // resolution[0])
+    color_map  = lerp_perlin(interpol_x0, interpol_x1, grid_nodes[1] - grid_nodes[1] // resolution[1])
+    for n in nodes:
+        p = tp.GetPosition([n])[0]
+        # Grid positions
+        x_grid = int(p[0])
+        x_grid_next = x_grid + 1
+        y_grid = int(p[1])
+        y_grid_next = y_grid + 1
+
+        n_0 = dot_product_perlin(x_grid, y_grid, p[0], p[1], gradients)
+        n_1 = dot_product_perlin(x_grid_next, y_grid, p[0], p[1], gradients)
+        interpol_x0 = lerp_perlin(n_0, n_1, p[0] - x_grid)
+
+        n_0 = dot_product_perlin(x_grid, y_grid_next, p[0], p[1], gradients)
+        n_1 = dot_product_perlin(x_grid_next, y_grid_next, p[0], p[1], gradients)
+        interpol_x1 = lerp_perlin(n_0, n_1, p[0] - x_grid)
+
+        value = lerp_perlin(interpol_x0, interpol_x1, p[1] - y_grid)
+
+        stim_class = int(np.round(((value + 1) / 2.) * num_stimulus_discr))
+        tuning_to_neuron_map[stim_class] = n
+        neuron_to_tuning_map[n] = stim_class
+        tuning_weight_vector[n - min_idx] = (stim_class + 1) / num_stimulus_discr
+
+    return tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map
+
+
 def create_stimulus_tuning_map(
         layer,
         num_stimulus_discr=4,
@@ -889,7 +950,7 @@ def create_stimulus_tuning_map(
             "lower_left": (anchor[0] + box_mask_dict["lower_left"][0], anchor[1] + box_mask_dict["lower_left"][1]),
             "width": box_mask_dict["upper_right"][0] - box_mask_dict["lower_left"][0],
             "height": box_mask_dict["upper_right"][1] - box_mask_dict["lower_left"][1],
-            "color":color
+            "color": color
         })
 
         if plot:
