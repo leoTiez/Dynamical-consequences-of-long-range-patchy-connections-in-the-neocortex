@@ -82,15 +82,24 @@ def plot_connections(
             plt.plot([s[0], t[0]], [s[1], t[1]], color="k")
 
     if color_mask is not None:
-        for mask in color_mask:
-            area_rect = patches.Rectangle(
-                mask["lower_left"],
-                width=mask["width"],
-                height=mask["height"],
-                color=mask["color"],
-                alpha=0.2
+        if not type(color_mask) == np.ndarray:
+            for mask in color_mask:
+                area_rect = patches.Rectangle(
+                    mask["lower_left"],
+                    width=mask["width"],
+                    height=mask["height"],
+                    color=mask["color"],
+                    alpha=0.2
+                )
+                plt.gca().add_patch(area_rect)
+        else:
+            plt.imshow(
+                color_mask,
+                origin=(color_mask.shape[0] // 2, color_mask.shape[1] // 2),
+                extent=(-layer_size / 2., layer_size / 2., -layer_size / 2., layer / 2.),
+                cmap='tab10',
+                alpha=0.4
             )
-            plt.gca().add_patch(area_rect)
     if plot_name is None:
         plot_name = "connections.png"
     if save_plot:
