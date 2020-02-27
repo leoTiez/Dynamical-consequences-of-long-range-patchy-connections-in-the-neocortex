@@ -18,6 +18,15 @@ GLOBAL_CONNECTIVITY = 0.0123
 R_MAX = 8.
 
 
+def _custom_cmap(num_stimulus_discr=4):
+    cmap = plt.get_cmap('tab10')
+    new_cmap = mcolors.LinearSegmentedColormap.from_list(
+        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=0.0, b=(1/num_stimulus_discr)+0.1),
+        cmap(np.linspace(0.0, (1/num_stimulus_discr)+0.1, 100)))
+    return new_cmap
+
+
+
 def _create_location_based_patches(
         layer,
         r_loc=0.5,
@@ -286,6 +295,39 @@ def create_torus_layer_with_jitter(
     # Create layer
     torus_layer = tp.CreateLayer(torus_dict)
     return torus_layer
+
+
+def create_random_connections(
+        layer,
+        prob=0.7,
+        allow_autapses=False,
+        allow_multapses=False,
+        plot=False,
+        save_plot=False,
+        color_mask=None
+):
+    # Define connection parameters
+    connection_dict = {
+        "connection_type": "divergent",
+        "kernel": prob,
+        "allow_autapses": allow_autapses,
+        "allow_multapses": allow_multapses,
+        "synapse_model": "static_synapse"
+    }
+
+    tp.ConnectLayers(layer, layer, connection_dict)
+
+    if plot:
+        node = nest.GetNodes(layer)[0]
+        node_conn = nest.GetConnections([node])
+        target_nodes = nest.GetStatus(node_conn, "targets")
+        plot_connections(
+            [node],
+            target_nodes,
+            color_mask=color_mask,
+            save_plot=save_plot,
+            plot_name="random_connections.png"
+        )
 
 
 def create_local_circular_connections(
@@ -837,6 +879,65 @@ def create_connections_random(
     nest.Connect(src_nodes, target_nodes, conn_spec=connect_dict, syn_spec=synapse_dict)
 
 
+def create_random_stimulus_map(
+        layer,
+        num_stimulus_discr=4,
+        spacing=0.1,
+        plot=False,
+        save_plot=False,
+        plot_name=None
+):
+    size_layer = nest.GetStatus(layer, "topology")[0]["extent"][0]
+    nodes = nest.GetNodes(layer)[0]
+    min_idx = min(nodes)
+
+    size_cm = int(size_layer/float(spacing))
+    color_map = np.random.choice(num_stimulus_discr, size=(size_cm, size_cm))
+
+    tuning_to_neuron_map = {stimulus: [] for stimulus in range(num_stimulus_discr)}
+    neuron_to_tuning_map = {}
+    tuning_weight_vector = np.zeros(len(nodes))
+
+    if plot:
+        plt.imshow(
+            color_map,
+            origin=(size_cm//2, size_cm//2),
+            extent=(-size_layer/2., size_layer/2., -size_layer/2., size_layer/2.),
+            cmap=_custom_cmap(num_stimulus_discr),
+            alpha=0.4
+        )
+
+    for n in nodes:
+        p = tp.GetPosition([n])[0]
+        # Grid positions
+        x_grid, y_grid = coordinates_to_cmap_index(size_layer, p, spacing)
+
+        stim_class = color_map[x_grid, y_grid]
+
+        tuning_to_neuron_map[stim_class].append(n)
+        neuron_to_tuning_map[n] = stim_class
+        tuning_weight_vector[n - min_idx] = (stim_class + 1) / num_stimulus_discr
+
+        if plot:
+            plt.plot(
+                p[0],
+                p[1],
+                marker='o',
+                markerfacecolor=list(mcolors.TABLEAU_COLORS.items())[stim_class][0],
+                markeredgewidth=0
+            )
+
+    if plot:
+        if not save_plot:
+            plt.show()
+        else:
+            curr_dir = os.getcwd()
+            if plot_name is None:
+                plot_name = "random_tuning_map.png"
+            plt.savefig(curr_dir + "/figures/" + plot_name)
+    return tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map
+
+
 def create_perlin_stimulus_map(
         layer,
         num_stimulus_discr=4,
@@ -868,7 +969,7 @@ def create_perlin_stimulus_map(
             color_map,
             origin=(stimulus_grid_range_x.size//2, stimulus_grid_range_y.size//2),
             extent=(-size_layer/2., size_layer/2., -size_layer/2., size_layer/2.),
-            cmap='tab10',
+            cmap=_custom_cmap(num_stimulus_discr),
             alpha=0.4
         )
 
