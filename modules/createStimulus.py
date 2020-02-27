@@ -72,7 +72,13 @@ def create_image_bar(orientation, bar_width=5, size=(50, 50)):
     return img
 
 
-def image_with_spatial_correlation(num_circles=50, radius=5, size_img=(50, 50), background_noise=True):
+def image_with_spatial_correlation(
+        num_circles=50,
+        radius=5,
+        size_img=(50, 50),
+        background_noise=False,
+        shuffle=False
+):
     """
     Create image with circles such that there is a spatial correlation of pixels
     :param num_circles: Number of circles
@@ -95,6 +101,8 @@ def image_with_spatial_correlation(num_circles=50, radius=5, size_img=(50, 50), 
             intensity = np.random.choice(range(10, 255))
         image = cv2.circle(image, (x, y), radius=radius, color=int(intensity), thickness=-1)
 
+    if shuffle:
+        np.random.shuffle(image)
     return image
 
 
