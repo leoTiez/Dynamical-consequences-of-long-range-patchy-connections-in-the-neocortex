@@ -209,11 +209,13 @@ class NetworkConstructionTest(unittest.TestCase):
         self.reset()
 
         nc.create_local_circular_connections(self.torus_layer, r_loc=r_loc, p_loc=p_loc)
-        connect = nest.GetConnections(self.torus_layer)
+        connect = nest.GetConnections(self.torus_nodes)
         for c in connect:
-            s = nest.GetStatus(c, "source")
-            t = nest.GetStatus(c, "target")
-            self.assertLessEqual(tp.Distance(s, t), r_loc)
+            s = nest.GetStatus([c], "source")[0]
+            t = nest.GetStatus([c], "target")[0]
+            if t in self.torus_nodes:
+                d = tp.Distance([s], [t])[0]
+                self.assertLessEqual(d, r_loc)
 
     def test_create_stimulus_tuning_map(self):
         num_stimulus_discr = 4
@@ -279,13 +281,15 @@ class NetworkConstructionTest(unittest.TestCase):
             connect_dict=connect_dict,
         )
 
-        connect = nest.GetConnections(self.torus_layer)
+        connect = nest.GetConnections(self.torus_nodes)
         for c in connect:
-            s = nest.GetStatus(c, "source")
-            t = nest.GetStatus(c, "target")
-            self.assertLessEqual(tp.Distance(s, t), self.size_layer)
-            self.assertGreaterEqual(tp.Distance(s, t), r_loc)
-            self.assertEqual(self.neuron_to_tuning_map[s], self.neuron_to_tuning_map[t])
+            s = nest.GetStatus([c], "source")[0]
+            t = nest.GetStatus([c], "target")[0]
+            if t in self.torus_nodes:
+                d = tp.Distance([s], [t])[0]
+                self.assertLessEqual(d, self.size_layer)
+                self.assertGreaterEqual(d, r_loc)
+                self.assertEqual(self.neuron_to_tuning_map[s], self.neuron_to_tuning_map[t])
 
     def test_create_input_current_generator(self):
         input_stimulus = cs.image_with_spatial_correlation(size_img=(50, 50), radius=3, num_circles=80)
@@ -412,12 +416,14 @@ class NetworkConstructionTest(unittest.TestCase):
     def test_create_distant_np_connections(self):
         r_loc = .2
         p_loc = .5
+        p_p = 0.5
 
         self.reset()
 
-        nc.create_distant_np_connections(self.torus_layer, p_loc=p_loc, r_loc=r_loc)
+        nc.create_distant_np_connections(self.torus_layer, p_loc=p_loc, r_loc=r_loc, p_p=p_p)
 
-        conn = nest.GetConnections(source=self.torus_nodes, target=self.torus_nodes)
+        conn = nest.GetConnections(source=self.torus_nodes)
+        conn = [c for c in conn if nest.GetStatus([c], "target")[0] in self.torus_nodes]
         for c in conn:
             s = nest.GetStatus([c], "source")[0]
             t = nest.GetStatus([c], "target")[0]
@@ -467,7 +473,7 @@ class NetworkConstructionTest(unittest.TestCase):
         p_r = r_loc / 2.
         distance = .7
         num_patches = 2
-
+        p_p = 0.3
         self.reset()
 
         nc.create_overlapping_patches(
@@ -475,7 +481,8 @@ class NetworkConstructionTest(unittest.TestCase):
             r_loc=r_loc,
             p_loc=p_loc,
             distance=distance,
-            num_patches=num_patches
+            num_patches=num_patches,
+            p_p=p_p
         )
 
         anchors = [tu.to_coordinates(n * 360. / float(num_patches), distance) for n in range(1, num_patches + 1)]
@@ -498,7 +505,7 @@ class NetworkConstructionTest(unittest.TestCase):
     def test_create_shared_patches(self):
         r_loc = 0.1
         p_loc = 0.9
-        p_p = 0.6
+        p_p = 0.3
         d_p = r_loc + 0.1
         size_boxes = 0.2
         num_patches = 2
@@ -528,6 +535,9 @@ class NetworkConstructionTest(unittest.TestCase):
 
             box_patches = []
             for s in box_nodes:
+                self.assertNotIn(s, all_nodes, "Boxes are not mutually distinct")
+                all_nodes.append(s)
+
                 conn = nest.GetConnections(source=[s])
                 targets = [t for t in nest.GetStatus(conn, "target") if t in self.torus_nodes]
                 patch_idx = set()
@@ -553,20 +563,34 @@ class NetworkConstructionTest(unittest.TestCase):
                     if patch_not_existent:
                         box_patches.append({t})
 
-                    # TODO Fix test
-                    # self.assertLessEqual(len(box_patches), num_shared_patches, "Created too many patches per box")
+                    # Chose num shared patches + 1, as it can happen that patches are very close to each other
+                    # -x-x-x- ==> If all patches (x) are right next to each other the algorithm can accidentally
+                    # see the spaces in between (-) as patch as well. Then the maximum is one more than the
+                    # num of shared patches
+                    self.assertLessEqual(len(box_patches), num_shared_patches + 1, "Created too many patches per box")
 
     def test_create_partially_overlapping_patches(self):
         r_loc = 0.1
-        p_loc = 0.9
-        p_p = 0.6
+        p_loc = 0.7
         d_p = r_loc
         size_boxes = 0.2
         num_patches = 2
         num_shared_patches = 3
-        num_replaced = 1
+        num_patches_replaced = 3
+        p_p = 0.3
 
         self.reset()
+
+        nc.create_partially_overlapping_patches(
+            self.torus_layer,
+            r_loc=r_loc,
+            p_loc=p_loc,
+            size_boxes=size_boxes,
+            num_patches=num_patches,
+            num_shared_patches=num_shared_patches,
+            num_patches_replaced=num_patches_replaced,
+            p_p=p_p
+        )
 
         sublayer_anchors, box_mask = nc.create_distinct_sublayer_boxes(size_boxes, size_layer=self.size_layer)
 
@@ -604,7 +628,11 @@ class NetworkConstructionTest(unittest.TestCase):
                     if patch_not_existent:
                         box_patches.append({t})
 
-                    self.assertLessEqual(len(box_patches), num_shared_patches, "Created too many patches per box")
+                    # Chose num shared patches + 1, as it can happen that patches are very close to each other
+                    # -x-x-x- ==> If all patches (x) are right next to each other the algorithm can accidentally
+                    # see the spaces in between (-) as patch as well. Then the maximum is one more than the
+                    # num of shared patches
+                    self.assertLessEqual(len(box_patches), num_shared_patches+1, "Created too many patches per box")
 
     def test_a_create_perlin_stimulus_map(self):
         self.reset()
@@ -638,7 +666,6 @@ class NetworkConstructionTest(unittest.TestCase):
                 neuron_to_tuning[n],
                 "Color map and tuning preference doesn't match"
             )
-
 
 
 if __name__ == '__main__':
