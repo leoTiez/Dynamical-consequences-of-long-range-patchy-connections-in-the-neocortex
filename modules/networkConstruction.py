@@ -6,7 +6,6 @@ import warnings
 import numpy as np
 import scipy.interpolate as ip
 import matplotlib.patches as patches
-from matplotlib import cm
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 
@@ -16,15 +15,6 @@ import nest
 # Define global constants
 GLOBAL_CONNECTIVITY = 0.0123
 R_MAX = 8.
-
-
-def _custom_cmap(num_stimulus_discr=4):
-    cmap = plt.get_cmap('tab10')
-    new_cmap = mcolors.LinearSegmentedColormap.from_list(
-        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=0.0, b=(1/num_stimulus_discr)+0.1),
-        cmap(np.linspace(0.0, (1/num_stimulus_discr)+0.1, 100)))
-    return new_cmap
-
 
 
 def _create_location_based_patches(
@@ -318,15 +308,18 @@ def create_random_connections(
     tp.ConnectLayers(layer, layer, connection_dict)
 
     if plot:
-        node = nest.GetNodes(layer)[0]
-        node_conn = nest.GetConnections([node])
-        target_nodes = nest.GetStatus(node_conn, "targets")
+        layer_size = nest.GetStatus(layer, "topology")[0]["extent"][0]
+        nodes = nest.GetNodes(layer)[0]
+        node = nodes[0]
+        node_conn = nest.GetConnections([node], target=nodes)
+        target_nodes = nest.GetStatus(node_conn, "target")
         plot_connections(
             [node],
             target_nodes,
+            layer_size=layer_size,
             color_mask=color_mask,
             save_plot=save_plot,
-            plot_name="random_connections.png"
+            plot_name="random_local_connections.png"
         )
 
 
@@ -370,12 +363,15 @@ def create_local_circular_connections(
     tp.ConnectLayers(layer, layer, connection_dict)
 
     if plot:
-        node = nest.GetNodes(layer)[0]
-        node_conn = nest.GetConnections([node])
-        target_nodes = nest.GetStatus(node_conn, "targets")
+        layer_size = nest.GetStatus(layer, "topology")[0]["extent"][0]
+        nodes = nest.GetNodes(layer)[0]
+        node = nodes[0]
+        node_conn = nest.GetConnections(source=[node], target=nodes)
+        target_nodes = nest.GetStatus(node_conn, "target")
         plot_connections(
             [node],
             target_nodes,
+            layer_size=layer_size,
             color_mask=color_mask,
             save_plot=save_plot,
             plot_name="circular_local_connections.png"
@@ -432,7 +428,10 @@ def create_random_patches(
         r_loc=0.5,
         p_loc=0.7,
         num_patches=3,
-        p_p=None
+        p_p=None,
+        plot=True,
+        save_plot=False,
+        color_mask=None
 ):
     """
     Create random long range patchy connections. To every neuron a single link is established instead of
@@ -475,6 +474,19 @@ def create_random_patches(
         }
         nest.Connect([neuron], patches, connect_dict)
 
+    if plot:
+        nodes = nest.GetNodes(layer)[0]
+        node = nodes[0]
+        node_conn = nest.GetConnections(source=[node], target=nodes)
+        target_nodes = nest.GetStatus(node_conn, "target")
+        plot_connections(
+            [node],
+            target_nodes,
+            layer_size=layer_size,
+            color_mask=color_mask,
+            save_plot=save_plot,
+            plot_name="random_lr_patches.png"
+        )
     # Return nodes of layer for debugging
     return nest.GetNodes(layer)[0]
 
@@ -657,10 +669,10 @@ def create_stimulus_based_local_connections(
                 plot_connections(
                     [node],
                     local_targets,
+                    layer_size=layer_size,
                     save_plot=save_plot,
-                    plot_name="local_connections.png",
+                    plot_name="stimulus_dependent_local_connections.png",
                     color_mask=color_mask,
-                    layer_size=layer_size
                 )
 
 
@@ -714,10 +726,18 @@ def create_stimulus_based_patches_random(
         stimulus_tuning = neuron_to_tuning_map[neuron]
         same_tuning_nodes = tuning_to_neuron_map[stimulus_tuning]
         patch_center_nodes = []
-        while len(patch_center_nodes) < num_patches:
-            patch_center = np.random.choice(same_tuning_nodes)
+        np.random.shuffle(same_tuning_nodes)
+        for patch_center in same_tuning_nodes:
             if min_distance <= tp.Distance([neuron], [int(patch_center)])[0] < max_distance:
                 patch_center_nodes.append(tp.GetPosition([int(patch_center)])[0])
+            if len(patch_center_nodes) >= num_patches:
+                break
+
+        if len(patch_center_nodes) < num_patches:
+            warnings.warn(
+                "Did not find enough patches for neuron %s: found only %s instead of %s"
+                % (neuron, len(patch_center_nodes), num_patches)
+            )
 
         lr_patches = tuple()
         for neuron_anchor in patch_center_nodes:
@@ -749,7 +769,7 @@ def create_stimulus_based_patches_random(
                     size_layer,
                     color_mask=color_mask,
                     save_plot=save_plot,
-                    plot_name="lr-patchy-connections.png"
+                    plot_name="stimulus_dependent_lr_patchy_connections.png"
                 )
 
 
@@ -790,7 +810,8 @@ def create_input_current_generator(
 
     num_receptors = input_stimulus.size
     # Multiply value with 1e12, as the generator expects values in pA
-    current_dict = [{"amplitude": float(amplitude * 1e12)} for amplitude in input_stimulus.reshape(-1)]
+    current_dict = [{"amplitude": float(amplitude * 1e12)} for amplitude in input_stimulus.reshape(-1)] # TODO
+    # current_dict = [{"amplitude": float(amplitude)} for amplitude in input_stimulus.reshape(-1)]
     if not organise_on_grid:
         dc_generator = nest.Create("dc_generator", n=int(num_receptors), params=current_dict)
     else:
@@ -903,7 +924,7 @@ def create_random_stimulus_map(
             color_map,
             origin=(size_cm//2, size_cm//2),
             extent=(-size_layer/2., size_layer/2., -size_layer/2., size_layer/2.),
-            cmap=_custom_cmap(num_stimulus_discr),
+            cmap=custom_cmap(num_stimulus_discr),
             alpha=0.4
         )
 
@@ -961,15 +982,23 @@ def create_perlin_stimulus_map(
     V = np.random.rand(stimulus_grid_range_x.size, stimulus_grid_range_y.size)
 
     ipol = ip.RectBivariateSpline(stimulus_grid_range_x, stimulus_grid_range_y, V)
-    color_map = ipol(grid_nodes_range, grid_nodes_range)
-    color_map = np.round(color_map * (num_stimulus_discr - 1)).astype('int')
+    c_map = ipol(grid_nodes_range, grid_nodes_range)
+    step_size = (c_map.max() - c_map.min()) / num_stimulus_discr
+    c_map -= c_map.min()
+    color_map = -1 * np.ones(c_map.shape, dtype='int')
+    for stim_class in range(num_stimulus_discr):
+        color_map[
+            np.where(np.logical_and(c_map >= stim_class*step_size, c_map < (stim_class+1) * step_size))
+        ] = int(stim_class)
+
+    color_map[c_map == c_map.max()] = num_stimulus_discr - 1
 
     if plot:
         plt.imshow(
             color_map,
             origin=(stimulus_grid_range_x.size//2, stimulus_grid_range_y.size//2),
             extent=(-size_layer/2., size_layer/2., -size_layer/2., size_layer/2.),
-            cmap=_custom_cmap(num_stimulus_discr),
+            cmap=custom_cmap(num_stimulus_discr),
             alpha=0.4
         )
 
@@ -1067,7 +1096,7 @@ def create_stimulus_tuning_map(
                 width=color_map[-1]["width"],
                 height=color_map[-1]["height"],
                 color=color_map[-1]["color"],
-                alpha=0.2
+                alpha=0.4
             )
             plt.gca().add_patch(area_rect)
             plt.plot()
@@ -1098,7 +1127,8 @@ def check_in_stimulus_tuning(
     :param tuning_discr_steps: The number of discriminated stimulus features
     :return: True if neuron reacts, False otherwise
     """
-    return stimulus_tuning * tuning_discr_steps <= input_stimulus / 1e12 < (stimulus_tuning + 1) * tuning_discr_steps
+    return stimulus_tuning * tuning_discr_steps <= input_stimulus / 1e12 < (stimulus_tuning + 1) * tuning_discr_steps # TODO
+    # return stimulus_tuning * tuning_discr_steps <= input_stimulus < (stimulus_tuning + 1) * tuning_discr_steps
 
 
 def create_connections_rf(
@@ -1210,5 +1240,6 @@ def create_connections_rf(
             ignore_weights=ignore_weights
         )
 
-    nest.SetStatus(src_node_ids, {"amplitude": 255e12})
+    nest.SetStatus(src_node_ids, {"amplitude": 255e12}) # TODO
+    # nest.SetStatus(src_node_ids, {"amplitude": 255.})
     return adj_mat
