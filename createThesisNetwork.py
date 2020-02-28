@@ -9,37 +9,59 @@ import nest
 
 nest.set_verbosity("M_ERROR")
 
+NETWORK_TYPE = {
+    "random": 1,
+    "local_radial": 2,
+    "local_stimulus": 3,
+    "local_radial_lr_random": 4,
+    "local_radial_lr_patchy": 5,
+    "local_stimulus_lr_patchy": 6
+}
+
 
 def create_network(
         input_stimulus,
         cap_s=1.,
         receptor_connect_strength=1.,
+        network_type="local_radial_lr_patchy",
         ignore_weights_adj=False,
-        use_patchy=True,
-        use_stimulus_local=True,
         verbosity=0,
 ):
+    # #################################################################################################################
+    # Get network type
+    # #################################################################################################################
+    try:
+        network_value = NETWORK_TYPE[network_type.lower()]
+    except KeyError:
+        raise KeyError("Network type %s is not supported" % network_type.lower())
+
     # #################################################################################################################
     # Define values
     # #################################################################################################################
     # Not necessary to divide by 10, as sparsity is obtained by tuning preference ?
-    num_sensory = input_stimulus.size  # // 10
+    num_sensory = input_stimulus.size // 5
     num_stimulus_discr = 4
     num_patches = 3
-    rf_size = (input_stimulus.shape[0] / 3., input_stimulus.shape[1] / 3.)
-    patchy_connect_dict = {"rule": "pairwise_bernoulli", "p": 0.2}
-    rf_connect_dict = {"rule": "pairwise_bernoulli", "p": 0.4}
-    local_connect_dict = {"rule": "pairwise_bernoulli", "p": 0.7}
-    p_loc = 0.5
-    pot_threshold = 1e3
-    capacitance = 1e12
+    p_loc = 0.6
+    p_rf = 0.4
+    p_lr = 0.2
+    p_random = 0.2
+    rf_size = (input_stimulus.shape[0] / 2., input_stimulus.shape[1] / 2.)
+    patchy_connect_dict = {"rule": "pairwise_bernoulli", "p": p_lr}
+    rf_connect_dict = {"rule": "pairwise_bernoulli", "p": p_rf}
+    local_connect_dict = {"rule": "pairwise_bernoulli", "p": p_loc}
+    pot_threshold = 1e3 # TODO
+    # pot_threshold = 1.
+    capacitance = 1e12 # TODO
+    # capacitance = 1.
     layer_size = 3.
+    r_loc = 0.5
 
     plot_rf_relation = False if verbosity < 4 else True
     plot_tuning_map = False if verbosity < 4 else True
     plot_local_connections = False if verbosity < 4 else True
     plot_patchy_connections = False if verbosity < 4 else True
-    save_plots = True
+    save_plots = False
 
     # #################################################################################################################
     # Create nodes and orientation map
@@ -62,13 +84,22 @@ def create_network(
     # Create stimulus tuning map
     if verbosity > 0:
         print("\n#####################\tCreate stimulus tuning map")
-    tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map = create_perlin_stimulus_map(
-        torus_layer,
-        num_stimulus_discr=num_stimulus_discr,
-        plot=plot_tuning_map,
-        resolution=(20, 20),
-        save_plot=save_plots
-    )
+
+    if network_value == 1:
+        tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map = create_random_stimulus_map(
+            torus_layer,
+            num_stimulus_discr=num_stimulus_discr,
+            plot=plot_tuning_map,
+            save_plot=save_plots
+        )
+    else:
+        tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map = create_perlin_stimulus_map(
+            torus_layer,
+            num_stimulus_discr=num_stimulus_discr,
+            plot=plot_tuning_map,
+            resolution=(100, 100),
+            save_plot=save_plots
+        )
 
     if verbosity > 0:
         print("\n#####################\tCreate central points for receptive fields")
@@ -98,48 +129,71 @@ def create_network(
         save_plot=save_plots
     )
 
-    if verbosity > 0:
-        print("\n#####################\tCreate local connections")
-    if not use_patchy:
-        if use_stimulus_local:
-            local_connect_dict = {"rule": "pairwise_bernoulli", "p": 1.}
-        else:
-            p_loc = 1.
-
-    # Create local connections
-    if use_stimulus_local:
-        create_stimulus_based_local_connections(
-            torus_layer,
-            neuron_to_tuning_map,
-            tuning_to_neuron_map,
-            connect_dict=local_connect_dict,
-            plot=plot_local_connections,
-            color_mask=color_map,
-            save_plot=save_plots
-        )
-    else:
-        create_local_circular_connections(
-            torus_layer,
-            p_loc=p_loc,
-            plot=plot_local_connections,
-            color_mask=color_map,
-            save_plot=save_plots
-        )
-
-    # Create long-range patchy connections
-    if use_patchy:
+    if network_value == 1:
         if verbosity > 0:
-            print("\n#####################\tCreate long-range patchy connections")
-        create_stimulus_based_patches_random(
+            print("\n#####################\tCreate random connections")
+        create_random_connections(
             torus_layer,
-            neuron_to_tuning_map,
-            tuning_to_neuron_map,
-            connect_dict=patchy_connect_dict,
-            num_patches=num_patches,
-            plot=plot_patchy_connections,
+            prob=p_random,
+            plot=plot_local_connections,
             save_plot=save_plots,
             color_mask=color_map
         )
+
+    else:
+        if verbosity > 0:
+            print("\n#####################\tCreate local connections")
+        # Create local connections
+        if network_value in [3, 6]:
+            create_stimulus_based_local_connections(
+                torus_layer,
+                neuron_to_tuning_map,
+                tuning_to_neuron_map,
+                connect_dict=local_connect_dict,
+                r_loc=r_loc,
+                plot=plot_local_connections,
+                color_mask=color_map,
+                save_plot=save_plots
+            )
+        elif network_value in [2, 4, 5]:
+            create_local_circular_connections(
+                torus_layer,
+                p_loc=p_loc,
+                r_loc=r_loc,
+                plot=plot_local_connections,
+                color_mask=color_map,
+                save_plot=save_plots
+            )
+
+        # Create long-range patchy connections
+        if network_value in [5, 6]:
+            if verbosity > 0:
+                print("\n#####################\tCreate long-range patchy stimulus dependent connections")
+            create_stimulus_based_patches_random(
+                torus_layer,
+                neuron_to_tuning_map,
+                tuning_to_neuron_map,
+                r_loc=r_loc,
+                connect_dict=patchy_connect_dict,
+                num_patches=num_patches,
+                plot=plot_patchy_connections,
+                save_plot=save_plots,
+                color_mask=color_map
+            )
+
+        if network_value == 4:
+            if verbosity > 0:
+                print("\n#####################\tCreate long-range patchy random connections")
+            create_random_patches(
+                torus_layer,
+                r_loc=r_loc,
+                p_loc=p_loc,
+                p_p=patchy_connect_dict["p"],
+                num_patches=num_patches,
+                plot=plot_patchy_connections,
+                save_plot=save_plots,
+                color_mask=color_map
+            )
 
     if verbosity > 3:
         connect = nest.GetConnections([torus_layer_nodes[0]])
@@ -162,7 +216,7 @@ def create_network(
     # Set sensory-to-sensory weights
     if verbosity > 0:
         print("\n#####################\tSet synaptic weights for sensory to sensory neurons")
-    set_synaptic_strength(torus_layer_nodes, adj_sens_sens_mat, cap_s=cap_s)
+    set_synaptic_strength(torus_layer_nodes, adj_sens_sens_mat, cap_s=cap_s)  # TODO invesigate effect of s
 
     return receptor_layer, torus_layer, adj_rec_sens_mat, adj_sens_sens_mat, tuning_weight_vector, spike_detect
 
