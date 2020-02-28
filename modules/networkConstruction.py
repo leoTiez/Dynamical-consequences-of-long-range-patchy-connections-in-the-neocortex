@@ -977,12 +977,13 @@ def create_perlin_stimulus_map(
     tuning_weight_vector = np.zeros(len(nodes))
 
     grid_nodes_range = np.arange(0, size_layer, spacing)
-    stimulus_grid_range_x = np.arange(0, resolution[0])
-    stimulus_grid_range_y = np.arange(0, resolution[1])
+    stimulus_grid_range_x = np.linspace(0, size_layer, resolution[0])
+    stimulus_grid_range_y = np.linspace(0, size_layer, resolution[1])
     V = np.random.rand(stimulus_grid_range_x.size, stimulus_grid_range_y.size)
 
     ipol = ip.RectBivariateSpline(stimulus_grid_range_x, stimulus_grid_range_y, V)
     c_map = ipol(grid_nodes_range, grid_nodes_range)
+
     step_size = (c_map.max() - c_map.min()) / num_stimulus_discr
     c_map -= c_map.min()
     color_map = -1 * np.ones(c_map.shape, dtype='int')
