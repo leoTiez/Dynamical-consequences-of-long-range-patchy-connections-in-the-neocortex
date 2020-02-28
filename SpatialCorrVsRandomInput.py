@@ -4,7 +4,7 @@
 from modules.stimulusReconstruction import fourier_trans, direct_stimulus_reconstruction
 from modules.createStimulus import *
 from modules.networkAnalysis import *
-from createThesisNetwork import create_network
+from createThesisNetwork import create_network, NETWORK_TYPE
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,19 +12,21 @@ import matplotlib.pyplot as plt
 import nest
 
 
-VERBOSITY = 4
+VERBOSITY = 0
 nest.set_verbosity("M_ERROR")
 
 
-def main_lr(use_patchy=True, shuffle_input=False):
+def main_lr(network_type, shuffle_input=False):
     # load input stimulus
     input_stimulus = image_with_spatial_correlation(
         size_img=(50, 50),
         num_circles=5,
-        radius=15,
-        background_noise=False,
+        radius=10,
+        background_noise=shuffle_input,
         shuffle=shuffle_input
     )
+
+    input_stimulus = create_image_bar(0, )
     stimulus_fft = fourier_trans(input_stimulus)
     if VERBOSITY > 2:
         plt.imshow(input_stimulus, cmap='gray')
@@ -38,7 +40,7 @@ def main_lr(use_patchy=True, shuffle_input=False):
     use_mask = False
     plot_only_eigenspectrum = False
     ignore_weights_adj = True
-    cap_s = 20.     # Increased to reduce the effect of the input and to make it easier to investigate the dynamical
+    cap_s = 1.     # Increased to reduce the effect of the input and to make it easier to investigate the dynamical
                     # consequences of local / lr patchy connections
     receptor_connect_strength = 1.
 
@@ -51,9 +53,8 @@ def main_lr(use_patchy=True, shuffle_input=False):
         input_stimulus,
         cap_s=cap_s,
         receptor_connect_strength=receptor_connect_strength,
-        use_patchy=use_patchy,
         ignore_weights_adj=ignore_weights_adj,
-        use_stimulus_local=False,
+        network_type=network_type,
         verbosity=VERBOSITY
     )
 
@@ -88,10 +89,6 @@ def main_lr(use_patchy=True, shuffle_input=False):
         average_firing_rate = np.mean(firing_rates)
         print("\n#####################\tAverage firing rate: %s \n" % average_firing_rate)
 
-    if VERBOSITY > 2:
-        plt.imshow(firing_rates.reshape(25, 10))
-        plt.show()
-
     # #################################################################################################################
     # Reconstruct stimulus
     # #################################################################################################################
@@ -125,20 +122,25 @@ def main_lr(use_patchy=True, shuffle_input=False):
 
 def main_mi():
     # Define parameters outside  the loop
-    use_patchy_flags = [True, False]
-    num_trials = 100
-    for use_patchy in use_patchy_flags:
-        input_stimuli = []
-        reconstructed_stimuli = []
-        for _ in range(num_trials):
-            input_stimulus, reconstruction, _ = main_lr(use_patchy)
-            input_stimuli.append(input_stimulus.reshape(-1))
-            reconstructed_stimuli.append(reconstruction.reshape(-1))
+    num_trials = 5
+    shuffle = [True, False]
+    for network_type in list(NETWORK_TYPE.keys()):
+        for shuffle_flag in shuffle:
+            input_stimuli = []
+            reconstructed_stimuli = []
+            for _ in range(num_trials):
+                nest.ResetKernel()
+                input_stimulus, reconstruction, _ = main_lr(network_type, shuffle_input=shuffle_flag)
+                input_stimuli.append(input_stimulus.reshape(-1))
+                reconstructed_stimuli.append(reconstruction.reshape(-1))
 
-        mutual_information = mutual_information_hist(input_stimuli, reconstructed_stimuli)
-        connection_type = "patchy connections" if use_patchy else "local connections"
-        print("\n#####################\tMutual Information MI for %s: %s \n" % (connection_type, mutual_information))
+            mutual_information = mutual_information_hist(input_stimuli, reconstructed_stimuli)
+            shuffle_string = "random input" if shuffle_flag else "input with spatial correlation"
+            print("\n#####################\tMutual Information MI for network type %s and %s: %s \n"
+                  % (network_type, shuffle_string, mutual_information))
 
 
 if __name__ == '__main__':
+    # main_lr("local_radial_lr_patchy")
     main_mi()
+
