@@ -5,8 +5,17 @@ from scipy.fft import idct
 from PIL import Image
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib.colors as mcolors
 
 import nest.topology as tp
+
+
+def custom_cmap(num_stimulus_discr=4):
+    cmap = plt.get_cmap('tab10')
+    new_cmap = mcolors.LinearSegmentedColormap.from_list(
+        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=0.0, b=(1/num_stimulus_discr)+0.1),
+        cmap(np.linspace(0.0, (1/num_stimulus_discr)+0.1, 100)))
+    return new_cmap
 
 
 def degree_to_rad(deg):
@@ -89,7 +98,7 @@ def plot_connections(
                     width=mask["width"],
                     height=mask["height"],
                     color=mask["color"],
-                    alpha=0.2
+                    alpha=0.4
                 )
                 plt.gca().add_patch(area_rect)
         else:
@@ -97,7 +106,7 @@ def plot_connections(
                 color_mask,
                 origin=(color_mask.shape[0] // 2, color_mask.shape[1] // 2),
                 extent=(-layer_size / 2., layer_size / 2., -layer_size / 2., layer_size / 2.),
-                cmap='tab10',
+                cmap=custom_cmap(color_mask.max()+1),
                 alpha=0.4
             )
     if plot_name is None:
@@ -115,6 +124,7 @@ def coordinates_to_cmap_index(layer_size, position, spacing):
     x = np.floor(((layer_size / 2.) + position[1]) / spacing).astype('int')
 
     return x, y
+
 
 def dot_product_perlin(x_grid, y_grid, x, y, gradients):
     x_weight = x - x_grid
