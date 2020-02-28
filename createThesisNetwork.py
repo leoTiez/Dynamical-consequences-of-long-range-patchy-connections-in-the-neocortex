@@ -39,7 +39,7 @@ def create_network(
     # Define values
     # #################################################################################################################
     # Not necessary to divide by 10, as sparsity is obtained by tuning preference ?
-    num_sensory = input_stimulus.size // 5
+    num_sensory = input_stimulus.size
     num_stimulus_discr = 4
     num_patches = 3
     p_loc = 0.6
@@ -56,6 +56,8 @@ def create_network(
     # capacitance = 1.
     layer_size = 3.
     r_loc = 0.5
+    spacing_perlin = 0.01
+    resolution_perlin = (10, 10)
 
     plot_rf_relation = False if verbosity < 4 else True
     plot_tuning_map = False if verbosity < 4 else True
@@ -97,7 +99,8 @@ def create_network(
             torus_layer,
             num_stimulus_discr=num_stimulus_discr,
             plot=plot_tuning_map,
-            resolution=(100, 100),
+            spacing=spacing_perlin,
+            resolution=resolution_perlin,
             save_plot=save_plots
         )
 
