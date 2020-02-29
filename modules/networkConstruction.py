@@ -797,7 +797,8 @@ def set_synaptic_strength(
 
 def create_input_current_generator(
         input_stimulus,
-        organise_on_grid=False
+        organise_on_grid=False,
+        multiplier=1.
 ):
     """
     Create direct current generator to simulate input stimulus. The pixel values of the image are transformed
@@ -810,8 +811,7 @@ def create_input_current_generator(
 
     num_receptors = input_stimulus.size
     # Multiply value with 1e12, as the generator expects values in pA
-    current_dict = [{"amplitude": float(amplitude * 1e12)} for amplitude in input_stimulus.reshape(-1)] # TODO
-    # current_dict = [{"amplitude": float(amplitude)} for amplitude in input_stimulus.reshape(-1)]
+    current_dict = [{"amplitude": float(amplitude) * multiplier} for amplitude in input_stimulus.reshape(-1)]
     if not organise_on_grid:
         dc_generator = nest.Create("dc_generator", n=int(num_receptors), params=current_dict)
     else:
@@ -1118,7 +1118,8 @@ def create_stimulus_tuning_map(
 def check_in_stimulus_tuning(
         input_stimulus,
         stimulus_tuning,
-        tuning_discr_steps
+        tuning_discr_steps,
+        multiplier=1.
 ):
     """
     Function to check whether a certain neuron reacts on a certain stimulus (e.g. stimulus is within the stimulus
@@ -1128,8 +1129,7 @@ def check_in_stimulus_tuning(
     :param tuning_discr_steps: The number of discriminated stimulus features
     :return: True if neuron reacts, False otherwise
     """
-    return stimulus_tuning * tuning_discr_steps <= input_stimulus / 1e12 < (stimulus_tuning + 1) * tuning_discr_steps # TODO
-    # return stimulus_tuning * tuning_discr_steps <= input_stimulus < (stimulus_tuning + 1) * tuning_discr_steps
+    return stimulus_tuning * tuning_discr_steps <= input_stimulus / multiplier < (stimulus_tuning + 1) * tuning_discr_steps
 
 
 def create_connections_rf(
@@ -1140,6 +1140,7 @@ def create_connections_rf(
         rf_size=(5, 5),
         connect_dict=None,
         synaptic_strength=1.,
+        multiplier=1.,
         ignore_weights=True,
         plot_src_target=False,
         save_plot=False,
@@ -1241,6 +1242,5 @@ def create_connections_rf(
             ignore_weights=ignore_weights
         )
 
-    nest.SetStatus(src_node_ids, {"amplitude": 255e12}) # TODO
-    # nest.SetStatus(src_node_ids, {"amplitude": 255.})
+    nest.SetStatus(src_node_ids, {"amplitude": 255. * multiplier})
     return adj_mat
