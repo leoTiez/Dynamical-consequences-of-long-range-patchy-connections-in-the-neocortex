@@ -46,7 +46,7 @@ def convert_image_to_orientation_map(image, magnitude_threshold=50, num_orientat
     return orient_map
 
 
-def create_image_bar(orientation, bar_width=5, size=(50, 50)):
+def create_image_bar(orientation, bar_width=5, size=(50, 50), shuffle=False):
     """
     Create image with a single bar
     :param orientation: Orientation of the bar
@@ -69,6 +69,9 @@ def create_image_bar(orientation, bar_width=5, size=(50, 50)):
         bar_width
     )
 
+    if shuffle:
+        np.random.shuffle(img.reshape(-1))
+        img = img.reshape(size)
     return img
 
 
@@ -102,7 +105,9 @@ def image_with_spatial_correlation(
         image = cv2.circle(image, (x, y), radius=radius, color=int(intensity), thickness=-1)
 
     if shuffle:
-        np.random.shuffle(image)
+        np.random.shuffle(image.reshape(-1))
+        image = image.reshape(size_img)
+
     return image
 
 
