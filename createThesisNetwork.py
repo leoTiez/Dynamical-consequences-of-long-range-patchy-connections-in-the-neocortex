@@ -42,20 +42,19 @@ def create_network(
     num_sensory = input_stimulus.size
     num_stimulus_discr = 4
     num_patches = 3
-    p_loc = 0.6
-    p_rf = 0.4
+    p_loc = 0.5
+    p_rf = 0.05
     p_lr = 0.2
     p_random = 0.2
-    rf_size = (input_stimulus.shape[0] / 2., input_stimulus.shape[1] / 2.)
+    rf_size = (input_stimulus.shape[0] / 4., input_stimulus.shape[1] / 4.)
     patchy_connect_dict = {"rule": "pairwise_bernoulli", "p": p_lr}
     rf_connect_dict = {"rule": "pairwise_bernoulli", "p": p_rf}
     local_connect_dict = {"rule": "pairwise_bernoulli", "p": p_loc}
-    pot_threshold = 1e3 # TODO
-    # pot_threshold = 1.
-    capacitance = 1e12 # TODO
-    # capacitance = 1.
+    pot_threshold = -55.
+    pot_reset = -70.
+    capacitance = 80.
     layer_size = 3.
-    r_loc = 0.5
+    r_loc = 0.3
     spacing_perlin = 0.01
     resolution_perlin = (10, 10)
 
@@ -78,6 +77,7 @@ def create_network(
         num_sensory,
         threshold_pot=pot_threshold,
         capacitance=capacitance,
+        rest_pot=pot_reset,
         size_layer=layer_size
     )
     torus_layer_nodes = nest.GetNodes(torus_layer)[0]
@@ -219,7 +219,7 @@ def create_network(
     # Set sensory-to-sensory weights
     if verbosity > 0:
         print("\n#####################\tSet synaptic weights for sensory to sensory neurons")
-    set_synaptic_strength(torus_layer_nodes, adj_sens_sens_mat, cap_s=cap_s)  # TODO invesigate effect of s
+    set_synaptic_strength(torus_layer_nodes, adj_sens_sens_mat, cap_s=cap_s)
 
     return receptor_layer, torus_layer, adj_rec_sens_mat, adj_sens_sens_mat, tuning_weight_vector, spike_detect
 
