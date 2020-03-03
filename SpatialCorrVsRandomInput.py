@@ -157,6 +157,8 @@ def main_error():
             shuffle_string = "random input" if shuffle_flag else "input with spatial correlation"
             print("\n#####################\tMean Error for network type %s and %s: %s \n"
                   % (network_type, shuffle_string, mean_error))
+
+
 if __name__ == '__main__':
     # np.random.seed(0)
     # main_lr("local_radial_lr_patchy")
