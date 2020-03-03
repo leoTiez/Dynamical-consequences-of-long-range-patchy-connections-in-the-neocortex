@@ -198,6 +198,55 @@ def create_distinct_sublayer_boxes(size_boxes, size_layer=R_MAX):
     return sublayer_anchors, box_mask_dict
 
 
+def create_torus_layer_with_inh(
+        num_neurons=3600,
+        neuron_type="iaf_psc_delta",
+        exc_inh_ratio=1/5.,
+        rest_pot=0.,
+        threshold_pot=1e3,
+        time_const=20.,
+        capacitance=1e12,
+        size_layer=R_MAX
+):
+    torus_layer, spikedetector, multimeter = create_torus_layer_uniform(
+        num_neurons=num_neurons,
+        neuron_type=neuron_type,
+        rest_pot=rest_pot,
+        threshold_pot=threshold_pot,
+        time_const=time_const,
+        capacitance=capacitance,
+        size_layer=size_layer
+    )
+
+    num_inh = int(num_neurons * exc_inh_ratio)
+    positions_inh = np.random.uniform(- size_layer / 2., size_layer / 2., size=(num_inh, 2)).tolist()
+    torus_dict_inh = {
+        "extent": [size_layer, size_layer],
+        "positions": positions_inh,
+        "elements": neuron_type,
+        "edge_wrap": True
+    }
+
+    if neuron_type is "iaf_psc_delta" or neuron_type is "iaf_psc_alpha":
+        neuron_dict = {
+            "V_m": rest_pot,
+            "E_L": rest_pot,
+            "C_m": capacitance,
+            "tau_m": time_const,
+            "V_th": threshold_pot,
+            "V_reset": rest_pot
+        }
+
+    else:
+        raise ValueError("The passed neuron type %s is not supported" % neuron_type)
+
+    torus_layer_inh = tp.CreateLayer(torus_dict_inh)
+    sensory_nodes_inh = nest.GetNodes(torus_layer_inh)[0]
+    nest.SetStatus(sensory_nodes_inh, neuron_dict)
+
+    return (torus_layer, torus_layer_inh), spikedetector, multimeter
+
+
 def create_torus_layer_uniform(
         num_neurons=3600,
         neuron_type="iaf_psc_delta",
@@ -227,6 +276,7 @@ def create_torus_layer_uniform(
         "elements": neuron_type,
         "edge_wrap": True
     }
+
     if neuron_type is "iaf_psc_delta" or neuron_type is "iaf_psc_alpha":
         neuron_dict = {
             "V_m": rest_pot,
@@ -248,6 +298,7 @@ def create_torus_layer_uniform(
     multimeter = nest.Create("multimeter", params={"withtime": True, "record_from": ["V_m"]})
     nest.Connect(sensory_nodes, spikedetector)
     nest.Connect(multimeter, sensory_nodes)
+
     return torus_layer, spikedetector, multimeter
 
 
@@ -321,6 +372,28 @@ def create_random_connections(
             save_plot=save_plot,
             plot_name="random_local_connections.png"
         )
+
+
+def create_inh_exc_connections(
+        layer_exc,
+        layer_inh,
+        prob=0.1,
+        weight=-1.,
+        allow_autapses=False,
+        allow_multapses=False
+):
+    connection_dict = {
+        "connection_type": "divergent",
+        "kernel": prob,
+        "allow_autapses": allow_autapses,
+        "allow_multapses": allow_multapses,
+        "synapse_model": "static_synapse"
+    }
+
+    tp.ConnectLayers(layer_inh, layer_exc, connection_dict)
+    inh_nodes = nest.GetNodes(layer_inh)[0]
+    conn = nest.GetConnections(source=inh_nodes)
+    nest.SetStatus(conn, {"weight": weight})
 
 
 def create_local_circular_connections(
@@ -1141,6 +1214,7 @@ def create_connections_rf(
         connect_dict=None,
         synaptic_strength=1.,
         multiplier=1.,
+        no_tuning=False,
         ignore_weights=True,
         plot_src_target=False,
         save_plot=False,
@@ -1193,54 +1267,56 @@ def create_connections_rf(
         rf_list.append(list(src_pos))
 
         nest.Connect(src_nodes, [target_node], connect_dict)
-        connections = nest.GetConnections(source=src_nodes, target=[target_node])
-        connected_src_nodes = nest.GetStatus(connections, "source")
-        synapse_declaration = [
-            {"weight": 0. if not check_in_stimulus_tuning(
-                nest.GetStatus([receptor], "amplitude")[0],
-                neuron_to_tuning_map[target_node],
-                tuning_discr_step) else synaptic_strength
-             } for receptor in connected_src_nodes]
 
-        if plot_src_target:
-            if counter == plot_point:
-                target_layer_size = nest.GetStatus(target_layer, "topology")[0]["extent"][0]
+        if not no_tuning:
+            connections = nest.GetConnections(source=src_nodes, target=[target_node])
+            connected_src_nodes = nest.GetStatus(connections, "source")
+            synapse_declaration = [
+                {"weight": 0. if not check_in_stimulus_tuning(
+                    nest.GetStatus([receptor], "amplitude")[0],
+                    neuron_to_tuning_map[target_node],
+                    tuning_discr_step) else synaptic_strength
+                 } for receptor in connected_src_nodes]
 
-                fig, ax = plt.subplots(1, 2, sharex='none', sharey='none')
-                ax[0].axis((-retina_size[1]/2., retina_size[1]/2., -retina_size[0]/2., retina_size[0]/2.))
-                for rf in rf_list:
-                    # De-zip to get x and y values separately
-                    x_pixel, y_pixel = zip(*rf)
-                    ax[0].plot(x_pixel, y_pixel, '.')
-                ax[0].set_xlabel("Retina tissue in X")
-                ax[0].set_ylabel("Retina tissue in Y")
+            if plot_src_target:
+                if counter == plot_point:
+                    target_layer_size = nest.GetStatus(target_layer, "topology")[0]["extent"][0]
 
-                target_positions = tp.GetPosition(list(target_node_ids[max(counter - plot_point, 0): counter + 1]))
-                # Iterate over values to have matching colors
-                for x, y in target_positions:
-                    ax[1].plot(x, y, 'o')
-                ax[1].set_xlabel("V1 tissue in X")
-                ax[1].set_ylabel("V1 tissue in Y")
-                ax[1].set_xlim([-target_layer_size / 2., target_layer_size / 2.])
-                ax[1].set_ylim([-target_layer_size / 2., target_layer_size / 2.])
+                    fig, ax = plt.subplots(1, 2, sharex='none', sharey='none')
+                    ax[0].axis((-retina_size[1]/2., retina_size[1]/2., -retina_size[0]/2., retina_size[0]/2.))
+                    for rf in rf_list:
+                        # De-zip to get x and y values separately
+                        x_pixel, y_pixel = zip(*rf)
+                        ax[0].plot(x_pixel, y_pixel, '.')
+                    ax[0].set_xlabel("Retina tissue in X")
+                    ax[0].set_ylabel("Retina tissue in Y")
 
-                if save_plot:
-                    curr_dir = os.getcwd()
-                    plt.savefig(curr_dir + "/figures/receptive_fields.png")
-                    plt.close()
-                else:
-                    plt.show()
+                    target_positions = tp.GetPosition(list(target_node_ids[max(counter - plot_point, 0): counter + 1]))
+                    # Iterate over values to have matching colors
+                    for x, y in target_positions:
+                        ax[1].plot(x, y, 'o')
+                    ax[1].set_xlabel("V1 tissue in X")
+                    ax[1].set_ylabel("V1 tissue in Y")
+                    ax[1].set_xlim([-target_layer_size / 2., target_layer_size / 2.])
+                    ax[1].set_ylim([-target_layer_size / 2., target_layer_size / 2.])
 
-        counter += 1
+                    if save_plot:
+                        curr_dir = os.getcwd()
+                        plt.savefig(curr_dir + "/figures/receptive_fields.png")
+                        plt.close()
+                    else:
+                        plt.show()
 
-        nest.SetStatus(connections, synapse_declaration)
-        adj_mat = set_values_in_adjacency_matrix(
-            connections,
-            adj_mat,
-            min_id_src,
-            min_id_target,
-            ignore_weights=ignore_weights
-        )
+            counter += 1
+
+            nest.SetStatus(connections, synapse_declaration)
+            adj_mat = set_values_in_adjacency_matrix(
+                connections,
+                adj_mat,
+                min_id_src,
+                min_id_target,
+                ignore_weights=ignore_weights
+            )
 
     nest.SetStatus(src_node_ids, {"amplitude": 255. * multiplier})
     return adj_mat
