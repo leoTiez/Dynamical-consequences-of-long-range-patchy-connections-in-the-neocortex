@@ -27,8 +27,8 @@ def mutual_information_hist(input_data, reconstruction_data):
 
 def error_distance(input_data, reconstructed_data):
     # Normalise stimuli
-    input_data /= input_data.max()
-    reconstructed_data /= reconstructed_data.max()
+    input_data = input_data.astype('float') / float(input_data.max())
+    reconstructed_data = reconstructed_data.astype('float') / float(reconstructed_data.max())
 
     error = np.linalg.norm(input_data - reconstructed_data)
     normalised_error = error / np.linalg.norm(input_data)
