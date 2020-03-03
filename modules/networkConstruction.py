@@ -1174,7 +1174,7 @@ def create_connections_rf(
         "upper_right": [rf_size[1] / 2., rf_size[0] / 2.]
     }
     num_tuning_discr = max(neuron_to_tuning_map.values()) + 1
-    tuning_discr_step = 255 / float(num_tuning_discr)
+    tuning_discr_step = 256 / float(num_tuning_discr)
     min_id_target = min(target_node_ids)
     min_id_src = min(src_node_ids)
     adj_mat = np.zeros((len(src_node_ids), len(target_node_ids)), dtype='uint8')
