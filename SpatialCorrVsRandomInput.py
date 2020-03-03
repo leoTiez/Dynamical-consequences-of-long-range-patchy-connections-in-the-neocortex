@@ -18,15 +18,15 @@ nest.set_verbosity("M_ERROR")
 
 def main_lr(network_type, shuffle_input=False):
     # load input stimulus
-    # input_stimulus = image_with_spatial_correlation(
-    #     size_img=(50, 50),
-    #     num_circles=5,
-    #     radius=10,
-    #     background_noise=shuffle_input,
-    #     shuffle=shuffle_input
-    # )
+    input_stimulus = image_with_spatial_correlation(
+        size_img=(50, 50),
+        num_circles=5,
+        radius=10,
+        background_noise=shuffle_input,
+        shuffle=shuffle_input
+    )
 
-    input_stimulus = create_image_bar(0, shuffle=shuffle_input)
+    # input_stimulus = create_image_bar(0, shuffle=shuffle_input)
     # input_stimulus = load_image("nfl-sunflower50.jpg")
     stimulus_fft = fourier_trans(input_stimulus)
     if VERBOSITY > 2:
@@ -162,6 +162,6 @@ def main_error():
 if __name__ == '__main__':
     # np.random.seed(0)
     # main_lr("local_radial_lr_patchy")
-    # main_mi()
-    main_error()
+    main_mi()
+    # main_error()
 
