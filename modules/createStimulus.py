@@ -80,8 +80,7 @@ def image_with_spatial_correlation(
         radius=5,
         size_img=(50, 50),
         background_noise=False,
-        shuffle=False,
-        seed_circles=True
+        shuffle=False
 ):
     """
     Create image with circles such that there is a spatial correlation of pixels
@@ -92,7 +91,7 @@ def image_with_spatial_correlation(
     :return: Image with circles for spatial correlation of color
     """
     if background_noise:
-        image = np.random.randint(0, 255, size_img).astype('float')
+        image = np.random.randint(0, 256, size_img).astype('float')
     else:
         image = np.zeros(size_img)
     rng = np.random.RandomState(1)
@@ -101,9 +100,9 @@ def image_with_spatial_correlation(
 
     for x, y in zip(x_coordinates, y_coordinates):
         if background_noise:
-            intensity = rng.choice(range(0, 255))
+            intensity = rng.choice(range(0, 256))
         else:
-            intensity = rng.choice(range(10, 255))
+            intensity = rng.choice(range(10, 256))
         image = cv2.circle(image, (x, y), radius=radius, color=int(intensity), thickness=-1)
 
     if shuffle:
