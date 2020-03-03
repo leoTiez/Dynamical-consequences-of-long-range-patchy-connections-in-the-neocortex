@@ -25,6 +25,16 @@ def mutual_information_hist(input_data, reconstruction_data):
     return np.sum(joint_xy_p[non_zero_indices] * np.log(joint_xy_p[non_zero_indices] / mult_xy_p[non_zero_indices]))
 
 
+def error_distance(input_data, reconstructed_data):
+    # Normalise stimuli
+    input_data /= input_data.max()
+    reconstructed_data /= reconstructed_data.max()
+
+    error = np.linalg.norm(input_data - reconstructed_data)
+    normalised_error = error / np.linalg.norm(input_data)
+    return normalised_error
+
+
 def set_values_in_adjacency_matrix(connect_values, adj_mat, min_src, min_target, ignore_weights=True):
     for n in connect_values:
         if ignore_weights or (not ignore_weights and nest.GetStatus([n], "weight")[0] > 0):
