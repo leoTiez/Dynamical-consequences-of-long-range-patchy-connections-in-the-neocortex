@@ -984,7 +984,7 @@ def create_perlin_stimulus_map(
     ipol = ip.RectBivariateSpline(stimulus_grid_range_x, stimulus_grid_range_y, V)
     c_map = ipol(grid_nodes_range, grid_nodes_range)
 
-    step_size = (c_map.max() - c_map.min()) / num_stimulus_discr
+    step_size = np.abs(c_map.max() - c_map.min()) / num_stimulus_discr
     c_map -= c_map.min()
     color_map = -1 * np.ones(c_map.shape, dtype='int')
     for stim_class in range(num_stimulus_discr):
@@ -1012,7 +1012,7 @@ def create_perlin_stimulus_map(
 
         tuning_to_neuron_map[stim_class].append(n)
         neuron_to_tuning_map[n] = stim_class
-        tuning_weight_vector[n - min_idx] = (stim_class + 1) / num_stimulus_discr
+        tuning_weight_vector[n - min_idx] = stim_class / float(num_stimulus_discr - 1)
 
         if plot:
             plt.plot(
@@ -1075,7 +1075,7 @@ def create_stimulus_tuning_map(
         # Note that every value is a list of tuples
         tuning_to_neuron_map[stimulus_tuning].extend(stimulus_area)
         for neuron in stimulus_area:
-            tuning_weight_vector[neuron - min_idx] = stimulus_tuning / (num_stimulus_discr - 1)
+            tuning_weight_vector[neuron - min_idx] = stimulus_tuning / float(num_stimulus_discr - 1)
         neuron_to_tuning_sub = {neuron: stimulus_tuning for neuron in stimulus_area}
         neuron_to_tuning_map = {**neuron_to_tuning_map, **neuron_to_tuning_sub}
 
