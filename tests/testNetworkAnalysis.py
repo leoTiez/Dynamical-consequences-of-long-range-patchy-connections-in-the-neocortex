@@ -107,6 +107,13 @@ class NetworkAnalysisTest(unittest.TestCase):
 
         self.assertEqual(mi, 0., "MI not computed correctly")
 
+        input_data = np.random.randint(0, 256, size=(30, 30))
+        recon_data = input_data.copy() * 40
+
+        mi_self = na.mutual_information_hist(input_data, input_data)
+        mi_scaled = na.mutual_information_hist(input_data, recon_data)
+        self.assertEqual(mi_scaled, mi_self, "MI not same if rescaled")
+
 
 if __name__ == '__main__':
     unittest.main()
