@@ -43,9 +43,10 @@ def create_network(
     num_stimulus_discr = 4
     num_patches = 3
     p_loc = 0.5
-    p_rf = 0.05
+    p_rf = 0.3
     p_lr = 0.2
-    p_random = 0.2
+    p_random = 0.05
+    p_inh = 0.1
     rf_size = (input_stimulus.shape[0] / 4., input_stimulus.shape[1] / 4.)
     patchy_connect_dict = {"rule": "pairwise_bernoulli", "p": p_lr}
     rf_connect_dict = {"rule": "pairwise_bernoulli", "p": p_rf}
@@ -73,7 +74,7 @@ def create_network(
 
     if verbosity > 0:
         print("\n#####################\tCreate sensory layer")
-    torus_layer, spike_detect, _ = create_torus_layer_uniform(
+    (torus_layer, torus_layer_inh), spike_detect, _ = create_torus_layer_with_inh(
         num_sensory,
         threshold_pot=pot_threshold,
         capacitance=capacitance,
@@ -210,6 +211,24 @@ def create_network(
             plot_name="all_connections.png",
             color_mask=color_map
         )
+
+    if verbosity > 0:
+        print("\n#####################\tCreate inhibitory connections")
+    create_inh_exc_connections(layer_exc=torus_layer, layer_inh=torus_layer_inh, prob=p_inh)
+    create_connections_rf(
+        receptor_layer,
+        torus_layer_inh,
+        rf_center_map,
+        neuron_to_tuning_map,
+        no_tuning=True,
+        connect_dict=rf_connect_dict,
+        rf_size=rf_size,
+        ignore_weights=ignore_weights_adj,
+        plot_src_target=plot_rf_relation,
+        retina_size=input_stimulus.shape,
+        synaptic_strength=receptor_connect_strength,
+        save_plot=save_plots
+    )
 
     # Create sensory-to-sensory matrix
     if verbosity > 0:
