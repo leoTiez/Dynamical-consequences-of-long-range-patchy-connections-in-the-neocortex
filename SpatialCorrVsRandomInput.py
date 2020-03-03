@@ -27,6 +27,7 @@ def main_lr(network_type, shuffle_input=False):
     # )
 
     input_stimulus = create_image_bar(0, shuffle=shuffle_input)
+    # input_stimulus = load_image("nfl-sunflower50.jpg")
     stimulus_fft = fourier_trans(input_stimulus)
     if VERBOSITY > 2:
         plt.imshow(input_stimulus, cmap='gray')
@@ -140,8 +141,25 @@ def main_mi():
                   % (network_type, shuffle_string, mutual_information))
 
 
+def main_error():
+    num_trials = 1
+    # shuffle = [True, False]
+    shuffle = [False]
+    for network_type in list(NETWORK_TYPE.keys()):
+        for shuffle_flag in shuffle:
+            errors = []
+            for _ in range(num_trials):
+                nest.ResetKernel()
+                input_stimulus, reconstruction, _ = main_lr(network_type, shuffle_input=shuffle_flag)
+                errors.append(error_distance(input_stimulus, reconstruction))
+
+            mean_error = np.mean(np.asarray(errors))
+            shuffle_string = "random input" if shuffle_flag else "input with spatial correlation"
+            print("\n#####################\tMean Error for network type %s and %s: %s \n"
+                  % (network_type, shuffle_string, mean_error))
 if __name__ == '__main__':
     # np.random.seed(0)
     # main_lr("local_radial_lr_patchy")
-    main_mi()
+    # main_mi()
+    main_error()
 
