@@ -114,8 +114,6 @@ def direct_stimulus_reconstruction(
         reduced_vector[idx] = firing_rates[idx]
         reconstruction += rec_sens_adj_mat.dot(tuning_weight_vector * reduced_vector)
 
-    reconstruction /= reconstruction.max()
-    reconstruction *= 255
     return reconstruction.reshape(int(np.sqrt(reconstruction.size)), int(np.sqrt(reconstruction.size)))
 
 
