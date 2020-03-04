@@ -1202,20 +1202,21 @@ def check_in_stimulus_tuning(
     :param tuning_discr_steps: The number of discriminated stimulus features
     :return: True if neuron reacts, False otherwise
     """
-    return stimulus_tuning * tuning_discr_steps <= input_stimulus / multiplier < (stimulus_tuning + 1) * tuning_discr_steps
+    return np.logical_and(
+        stimulus_tuning * tuning_discr_steps <= input_stimulus / multiplier,
+        input_stimulus / multiplier < (stimulus_tuning + 1) * tuning_discr_steps
+    )
 
 
 def create_connections_rf(
-        src_layer,
+        image,
         target_layer,
         rf_centers,
         neuron_to_tuning_map,
-        rf_size=(5, 5),
+        rf_size=(10, 10),
         connect_dict=None,
-        synaptic_strength=1.,
         multiplier=1.,
         no_tuning=False,
-        ignore_weights=True,
         plot_src_target=False,
         save_plot=False,
         plot_point=10,
@@ -1240,18 +1241,16 @@ def create_connections_rf(
     :return: Adjacency matrix from receptors to sensory nodes
     """
     target_node_ids = nest.GetNodes(target_layer)[0]
-    src_node_ids = nest.GetNodes(src_layer)[0]
 
     # Follow the nest convention [columns, rows]
     mask_specs = {
-        "lower_left": [-rf_size[1] / 2., -rf_size[0] / 2.],
-        "upper_right": [rf_size[1] / 2., rf_size[0] / 2.]
+        "lower_left": [-rf_size[1] // 2, -rf_size[0] // 2],
+        "upper_right": [rf_size[1] // 2, rf_size[0] // 2]
     }
     num_tuning_discr = max(neuron_to_tuning_map.values()) + 1
     tuning_discr_step = 256 / float(num_tuning_discr)
     min_id_target = min(target_node_ids)
-    min_id_src = min(src_node_ids)
-    adj_mat = np.zeros((len(src_node_ids), len(target_node_ids)), dtype='uint8')
+    adj_mat = np.zeros((image.size, len(target_node_ids)), dtype='uint8')
 
     if connect_dict is None:
         connect_dict = {
@@ -1261,62 +1260,87 @@ def create_connections_rf(
 
     counter = 0
     rf_list = []
+    index_values = np.arange(0, image.size, 1).astype('int').reshape(image.shape)
     for target_node, rf_center in zip(target_node_ids, rf_centers):
-        src_nodes = tp.SelectNodesByMask(src_layer, rf_center, mask_obj=tp.CreateMask("rectangular", specs=mask_specs))
-        src_pos = tp.GetPosition(src_nodes)
-        rf_list.append(list(src_pos))
+        upper_left = (np.asarray(rf_center) + np.asarray(mask_specs["lower_left"])).astype('int')
+        lower_right = (np.asarray(rf_center) + np.asarray(mask_specs["upper_right"])).astype('int')
 
-        nest.Connect(src_nodes, [target_node], connect_dict)
+        upper_left = np.minimum(np.maximum(upper_left, 0), image.shape[0])
+        lower_right = np.minimum(np.maximum(lower_right, 0), image.shape[0])
+        rf = image[
+             upper_left[0]:lower_right[0],
+             upper_left[1]:lower_right[1]
+             ]
 
+        indices = index_values[
+                  upper_left[0]:lower_right[0],
+                  upper_left[1]:lower_right[1]
+                  ]
+
+        rf_list.append((upper_left, lower_right[0] - upper_left[0], lower_right[1] - upper_left[1]))
+
+        # Establish connections
+        connections = np.random.binomial(1, connect_dict["p"], size=rf.size)
+        indices = indices[connections.astype('bool').reshape(rf.shape)]
+        rf = rf[connections.astype('bool').reshape(rf.shape)]
+        amplitude = np.zeros(rf.shape)
         if not no_tuning:
-            connections = nest.GetConnections(source=src_nodes, target=[target_node])
-            connected_src_nodes = nest.GetStatus(connections, "source")
-            synapse_declaration = [
-                {"weight": 0. if not check_in_stimulus_tuning(
-                    nest.GetStatus([receptor], "amplitude")[0],
-                    neuron_to_tuning_map[target_node],
-                    tuning_discr_step) else synaptic_strength
-                 } for receptor in connected_src_nodes]
+            amplitude[
+                np.where(
+                    check_in_stimulus_tuning(
+                        rf,
+                        neuron_to_tuning_map[target_node],
+                        tuning_discr_step
+                    )
+                )
+            ] = 255.
+        else:
+            amplitude[:] = 255.
 
+        current_dict = {"amplitude": float(amplitude.sum()) * multiplier}
+        dc_generator = nest.Create("dc_generator", n=1, params=current_dict)[0]
+        nest.Connect([dc_generator], [target_node])
+
+        adj_mat[indices.reshape(-1), target_node - min_id_target] = 1
+
+        if counter == plot_point:
             if plot_src_target:
-                if counter == plot_point:
-                    target_layer_size = nest.GetStatus(target_layer, "topology")[0]["extent"][0]
+                target_layer_size = nest.GetStatus(target_layer, "topology")[0]["extent"][0]
 
-                    fig, ax = plt.subplots(1, 2, sharex='none', sharey='none')
-                    ax[0].axis((-retina_size[1]/2., retina_size[1]/2., -retina_size[0]/2., retina_size[0]/2.))
-                    for rf in rf_list:
-                        # De-zip to get x and y values separately
-                        x_pixel, y_pixel = zip(*rf)
-                        ax[0].plot(x_pixel, y_pixel, '.')
-                    ax[0].set_xlabel("Retina tissue in X")
-                    ax[0].set_ylabel("Retina tissue in Y")
+                fig, ax = plt.subplots(1, 2, sharex='none', sharey='none')
+                ax[0].axis((0, retina_size[1], 0, retina_size[0]))
 
-                    target_positions = tp.GetPosition(list(target_node_ids[max(counter - plot_point, 0): counter + 1]))
-                    # Iterate over values to have matching colors
-                    for x, y in target_positions:
-                        ax[1].plot(x, y, 'o')
-                    ax[1].set_xlabel("V1 tissue in X")
-                    ax[1].set_ylabel("V1 tissue in Y")
-                    ax[1].set_xlim([-target_layer_size / 2., target_layer_size / 2.])
-                    ax[1].set_ylim([-target_layer_size / 2., target_layer_size / 2.])
+                color_list = list(mcolors.TABLEAU_COLORS.items())
+                for num, rf in enumerate(rf_list):
+                    # De-zip to get x and y values separately
+                    color = color_list[num % len(color_list)]
+                    area_rect = patches.Rectangle(
+                        rf[0],
+                        width=rf[1],
+                        height=rf[2],
+                        color=color[0],
+                        alpha=0.4
+                    )
+                    ax[0].add_patch(area_rect)
+                ax[0].set_xlabel("Retina tissue in X")
+                ax[0].set_ylabel("Retina tissue in Y")
 
-                    if save_plot:
-                        curr_dir = os.getcwd()
-                        plt.savefig(curr_dir + "/figures/receptive_fields.png")
-                        plt.close()
-                    else:
-                        plt.show()
+                target_positions = tp.GetPosition(list(target_node_ids[max(counter - plot_point, 0): counter + 1]))
+                # Iterate over values to have matching colors
+                for x, y in target_positions:
+                    ax[1].plot(x, y, 'o')
+                ax[1].set_xlabel("V1 tissue in X")
+                ax[1].set_ylabel("V1 tissue in Y")
+                ax[1].set_xlim([-target_layer_size / 2., target_layer_size / 2.])
+                ax[1].set_ylim([-target_layer_size / 2., target_layer_size / 2.])
 
-            counter += 1
+                if save_plot:
+                    curr_dir = os.getcwd()
+                    plt.savefig(curr_dir + "/figures/receptive_fields.png")
+                    plt.close()
+                else:
+                    plt.show()
 
-            nest.SetStatus(connections, synapse_declaration)
-            adj_mat = set_values_in_adjacency_matrix(
-                connections,
-                adj_mat,
-                min_id_src,
-                min_id_target,
-                ignore_weights=ignore_weights
-            )
+        counter += 1
 
-    nest.SetStatus(src_node_ids, {"amplitude": 255. * multiplier})
     return adj_mat
