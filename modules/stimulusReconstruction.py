@@ -108,7 +108,8 @@ def direct_stimulus_reconstruction(
     :return: Reconstructed stimulus
     """
     reconstruction = rec_sens_adj_mat.dot(tuning_weight_vector * firing_rates)
-
+    reconstruction /= reconstruction.max()
+    reconstruction *= 255
     return reconstruction.reshape(int(np.sqrt(reconstruction.size)), int(np.sqrt(reconstruction.size)))
 
 
