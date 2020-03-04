@@ -340,19 +340,23 @@ def create_torus_layer_with_jitter(
 def create_random_connections(
         layer,
         prob=0.7,
+        cap_s=1.,
         allow_autapses=False,
         allow_multapses=False,
         plot=False,
         save_plot=False,
         color_mask=None
 ):
+    # Create new random synapse model
+
+    nest.CopyModel("static_synapse", "rand", {"weight": cap_s})
     # Define connection parameters
     connection_dict = {
         "connection_type": "divergent",
         "kernel": prob,
         "allow_autapses": allow_autapses,
         "allow_multapses": allow_multapses,
-        "synapse_model": "static_synapse"
+        "synapse_model": "rand"
     }
 
     tp.ConnectLayers(layer, layer, connection_dict)
@@ -385,6 +389,8 @@ def create_inh_exc_connections(
         allow_autapses=False,
         allow_multapses=False
 ):
+    # Create inhibitory synapse model
+    nest.CopyModel("static_synapse", "inh", {"weight": weight})
     # Use distance dependent gaussian decay
     connection_dict = {
         "connection_type": "divergent",
@@ -392,7 +398,7 @@ def create_inh_exc_connections(
         "kernel": {"gaussian": {"c": shift, "p_center": p_center, "sigma": sigma, "mean": mean}},
         "allow_autapses": allow_autapses,
         "allow_multapses": allow_multapses,
-        "synapse_model": "static_synapse"
+        "synapse_model": "inh"
     }
 
     # Establish connection inhibitory to excitatory neurons
@@ -411,6 +417,7 @@ def create_local_circular_connections(
         layer,
         r_loc=0.5,
         p_loc=0.7,
+        cap_s=1.,
         allow_autapses=False,
         allow_multapses=False,
         plot=False,
@@ -428,6 +435,8 @@ def create_local_circular_connections(
     :param save_plot: Flag for saving the plot. If not plotted the parameter is ignored
     :param color_mask: Color/orientation map for neurons. If not plotted the parameter is ignored
     """
+    # Create new synapse model
+    nest.CopyModel("static_synapse", "local", {"weight": cap_s})
 
     # Define mask
     mask_dict = {
@@ -441,7 +450,7 @@ def create_local_circular_connections(
         "kernel": p_loc,
         "allow_autapses": allow_autapses,
         "allow_multapses": allow_multapses,
-        "synapse_model": "static_synapse"
+        "synapse_model": "local"
     }
 
     tp.ConnectLayers(layer, layer, connection_dict)
@@ -512,6 +521,7 @@ def create_random_patches(
         r_loc=0.5,
         p_loc=0.7,
         num_patches=3,
+        cap_s=1.,
         p_p=None,
         plot=True,
         save_plot=False,
@@ -554,7 +564,8 @@ def create_random_patches(
         # Define connection
         connect_dict = {
             "rule": "pairwise_bernoulli",
-            "p": p_p
+            "p": p_p,
+            "weight": cap_s
         }
         nest.Connect([neuron], patches, connect_dict)
 
@@ -709,6 +720,7 @@ def create_stimulus_based_local_connections(
         neuron_to_tuning_map,
         tuning_to_neuron_map,
         r_loc=0.5,
+        cap_s=1.,
         connect_dict=None,
         plot=False,
         save_plot=False,
@@ -728,7 +740,8 @@ def create_stimulus_based_local_connections(
     if connect_dict is None:
         connect_dict = {
             "rule": "pairwise_bernoulli",
-            "p": 0.7
+            "p": 0.7,
+            "weight": cap_s
         }
 
     node_ids = nest.GetNodes(layer)[0]
@@ -768,6 +781,7 @@ def create_stimulus_based_patches_random(
         r_loc=0.5,
         p_loc=0.7,
         p_p=0.7,
+        cap_s=1.,
         r_p=None,
         connect_dict=None,
         plot=False,
@@ -800,7 +814,7 @@ def create_stimulus_based_patches_random(
         r_p = r_loc / 2.
 
     min_distance = r_loc + r_p
-    max_distance = size_layer / 2. - r_p
+    max_distance = np.sqrt(size_layer**2 + size_layer**2) / 2. - r_p
     if p_p is None and connect_dict is None:
         p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches, layer_size=size_layer)
     node_ids = nest.GetNodes(layer)[0]
@@ -809,13 +823,30 @@ def create_stimulus_based_patches_random(
     for neuron in node_ids:
         stimulus_tuning = neuron_to_tuning_map[neuron]
         same_tuning_nodes = tuning_to_neuron_map[stimulus_tuning]
-        patch_center_nodes = []
-        np.random.shuffle(same_tuning_nodes)
-        for patch_center in same_tuning_nodes:
-            if min_distance <= tp.Distance([neuron], [int(patch_center)])[0] < max_distance:
-                patch_center_nodes.append(tp.GetPosition([int(patch_center)])[0])
-            if len(patch_center_nodes) >= num_patches:
-                break
+        distances = tp.Distance([neuron], same_tuning_nodes)
+        stimulus_nodes_d_sorted = sorted(zip(same_tuning_nodes, distances), key=lambda stn: stn[1], reverse=True)
+        patchy_candidates_distance = list(filter(
+            lambda pc: min_distance <= pc[1] < max_distance,
+            stimulus_nodes_d_sorted
+        ))
+
+        patchy_candidates, _ = zip(*patchy_candidates_distance)
+
+        # TODO is sorting by angle needed at some point?
+        # pos_n = tp.GetPosition([neuron])[0]
+        # pos_patchy_candidates = tp.GetPosition(patchy_candidates)
+        # angles = np.arctan2(
+        #     np.asarray(pos_patchy_candidates)[:, 1] - pos_n[1],
+        #     np.asarray(pos_patchy_candidates)[:, 0] - pos_n[0]
+        # ).reshape(-1) / np.pi * 180.
+        # patchy_candidates_angles = sorted(zip(patchy_candidates, angles), key=lambda stn: stn[1], reverse=True)
+        # patchy_candidates, _ = zip(*patchy_candidates_angles)
+
+        patch_center_nodes = np.random.choice(
+            list(patchy_candidates),
+            size=np.minimum(len(patchy_candidates), num_patches)
+        ).tolist()
+        pos_patch_centers = tp.GetPosition(patch_center_nodes)
 
         if len(patch_center_nodes) < num_patches:
             warnings.warn(
@@ -824,7 +855,7 @@ def create_stimulus_based_patches_random(
             )
 
         lr_patches = tuple()
-        for neuron_anchor in patch_center_nodes:
+        for neuron_anchor in pos_patch_centers:
             lr_patches += tp.SelectNodesByMask(
                 layer,
                 neuron_anchor,
@@ -837,7 +868,8 @@ def create_stimulus_based_patches_random(
         if connect_dict is None:
             connect_dict = {
                 "rule": "pairwise_bernoulli",
-                "p": p_p
+                "p": p_p,
+                "weight": cap_s
             }
         nest.Connect([neuron], lr_patches, connect_dict)
 
@@ -1073,6 +1105,8 @@ def create_perlin_stimulus_map(
     color_map[c_map == c_map.max()] = num_stimulus_discr - 1
 
     if plot:
+        stimulus_grid_range_x = np.linspace(0, size_layer, resolution[0])
+        stimulus_grid_range_y = np.linspace(0, size_layer, resolution[1])
         plt.imshow(
             color_map,
             origin=(stimulus_grid_range_x.size//2, stimulus_grid_range_y.size//2),
