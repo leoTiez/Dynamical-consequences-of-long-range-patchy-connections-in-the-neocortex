@@ -39,7 +39,7 @@ def create_network(
     # Define values
     # #################################################################################################################
     # Not necessary to divide by 10, as sparsity is obtained by tuning preference ?
-    num_sensory = input_stimulus.size
+    num_sensory = int(1e4)
     num_stimulus_discr = 4
     num_patches = 3
     p_loc = 0.5
@@ -54,10 +54,10 @@ def create_network(
     pot_threshold = -55.
     pot_reset = -70.
     capacitance = 80.
-    layer_size = 3.
-    r_loc = 0.3
+    layer_size = 8.
+    r_loc = 0.5
     spacing_perlin = 0.01
-    resolution_perlin = (10, 10)
+    resolution_perlin = (20, 20)
 
     plot_rf_relation = False if verbosity < 4 else True
     plot_tuning_map = False if verbosity < 4 else True
@@ -243,5 +243,5 @@ def create_network(
             print("\n#####################\tSet synaptic weights for sensory to sensory neurons")
         set_synaptic_strength(torus_layer_nodes, adj_sens_sens_mat, cap_s=cap_s, divide_by_num_connect=True)
 
-    return torus_layer, adj_rec_sens_mat, adj_sens_sens_mat, tuning_weight_vector, spike_detect
+    return torus_layer, adj_rec_sens_mat, adj_sens_sens_mat, tuning_weight_vector, spike_detect, color_map
 
