@@ -824,10 +824,9 @@ def create_stimulus_based_patches_random(
         stimulus_tuning = neuron_to_tuning_map[neuron]
         same_tuning_nodes = tuning_to_neuron_map[stimulus_tuning]
         distances = tp.Distance([neuron], same_tuning_nodes)
-        stimulus_nodes_d_sorted = sorted(zip(same_tuning_nodes, distances), key=lambda stn: stn[1], reverse=True)
         patchy_candidates_distance = list(filter(
             lambda pc: min_distance <= pc[1] < max_distance,
-            stimulus_nodes_d_sorted
+            zip(same_tuning_nodes, distances)
         ))
 
         patchy_candidates, _ = zip(*patchy_candidates_distance)
