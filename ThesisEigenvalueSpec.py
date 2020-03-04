@@ -41,7 +41,8 @@ def main_eigenvalue_spec(network_type, shuffle_input=False):
      adj_rec_sens_mat,
      adj_sens_sens_mat,
      tuning_weight_vector,
-     spike_detect) = create_network(
+     spike_detect,
+     _) = create_network(
         input_stimulus,
         sens_adj_mat_needed=True,
         cap_s=cap_s,
