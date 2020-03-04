@@ -31,6 +31,7 @@ def main_matrix_dynamics(network_type="local_radial_lr_patchy"):
 
     (_, adj_rec_sens_mat, adj_sens_sens_mat, _, _) = create_network(
         input_stimulus,
+        sens_adj_mat_needed=True,
         cap_s=cap_s,
         network_type=network_type,
         verbosity=VERBOSITY

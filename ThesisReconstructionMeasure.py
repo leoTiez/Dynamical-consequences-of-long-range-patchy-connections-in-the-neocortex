@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import nest
 
 
-VERBOSITY = 0
+VERBOSITY = 1
 nest.set_verbosity("M_ERROR")
 
 
@@ -38,13 +38,12 @@ def main_lr(network_type, shuffle_input=False):
     # #################################################################################################################
     simulation_time = 1000.
     use_mask = False
-    plot_only_eigenspectrum = False
     cap_s = 1.     # Increased to reduce the effect of the input and to make it easier to investigate the dynamical
                     # consequences of local / lr patchy connections
 
     (torus_layer,
      adj_rec_sens_mat,
-     adj_sens_sens_mat,
+     _,
      tuning_weight_vector,
      spike_detect) = create_network(
         input_stimulus,
@@ -54,14 +53,6 @@ def main_lr(network_type, shuffle_input=False):
     )
 
     torus_layer_nodes = nest.GetNodes(torus_layer)[0]
-    if plot_only_eigenspectrum:
-        _, _ = eigenvalue_analysis(
-            adj_sens_sens_mat,
-            plot=True,
-            save_plot=False,
-            fig_name="thesis_network_non-zero_connections.png"
-        )
-        return
 
     # #################################################################################################################
     # Simulate and retrieve resutls
