@@ -18,15 +18,15 @@ nest.set_verbosity("M_ERROR")
 
 def main_lr(network_type, shuffle_input=False):
     # load input stimulus
-    # input_stimulus = image_with_spatial_correlation(
-    #     size_img=(50, 50),
-    #     num_circles=5,
-    #     radius=10,
-    #     background_noise=shuffle_input,
-    #     shuffle=shuffle_input
-    # )
+    input_stimulus = image_with_spatial_correlation(
+        size_img=(50, 50),
+        num_circles=5,
+        radius=10,
+        background_noise=shuffle_input,
+        shuffle=shuffle_input
+    )
 
-    input_stimulus = create_image_bar(0, shuffle=shuffle_input)
+    # input_stimulus = create_image_bar(0, shuffle=shuffle_input)
     # input_stimulus = load_image("nfl-sunflower50.jpg")
     stimulus_fft = fourier_trans(input_stimulus)
     if VERBOSITY > 2:
@@ -36,25 +36,19 @@ def main_lr(network_type, shuffle_input=False):
     # #################################################################################################################
     # Define values
     # #################################################################################################################
-    num_receptor = input_stimulus.size
     simulation_time = 1000.
     use_mask = False
     plot_only_eigenspectrum = False
-    ignore_weights_adj = True
     cap_s = 1.     # Increased to reduce the effect of the input and to make it easier to investigate the dynamical
                     # consequences of local / lr patchy connections
-    receptor_connect_strength = 1.
 
-    (receptor_layer,
-     torus_layer,
+    (torus_layer,
      adj_rec_sens_mat,
      adj_sens_sens_mat,
      tuning_weight_vector,
      spike_detect) = create_network(
         input_stimulus,
         cap_s=cap_s,
-        receptor_connect_strength=receptor_connect_strength,
-        ignore_weights_adj=ignore_weights_adj,
         network_type=network_type,
         verbosity=VERBOSITY
     )
@@ -160,8 +154,8 @@ def main_error():
 
 
 if __name__ == '__main__':
-    # np.random.seed(0)
-    # main_lr("local_radial_lr_patchy")
+    np.random.seed(0)
+    main_lr("local_radial_lr_patchy")
     # main_mi()
-    main_error()
+    # main_error()
 

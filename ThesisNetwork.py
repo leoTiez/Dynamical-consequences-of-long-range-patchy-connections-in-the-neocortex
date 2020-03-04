@@ -17,7 +17,7 @@ VERBOSITY = 4
 nest.set_verbosity("M_ERROR")
 
 
-def main_matrix_dynamics():
+def main_matrix_dynamics(network_type="local_radial_lr_patchy"):
     input_stimulus = image_with_spatial_correlation(size_img=(50, 50), num_circles=5, background_noise=False)
     if VERBOSITY > 2:
         plt.imshow(input_stimulus, cmap='gray')
@@ -26,16 +26,13 @@ def main_matrix_dynamics():
     # Define values
     # #################################################################################################################
     cap_s = 1.
-    receptor_connect_strength = 1.
-    plot_arrangement_rows = 10
-    plot_arrangement_columns = 10
+    plot_arrangement_rows = 5
+    plot_arrangement_columns = 5
 
-    (_, _, adj_rec_sens_mat, adj_sens_sens_mat, _, _) = create_network(
+    (_, adj_rec_sens_mat, adj_sens_sens_mat, _, _) = create_network(
         input_stimulus,
         cap_s=cap_s,
-        receptor_connect_strength=receptor_connect_strength,
-        ignore_weights_adj=False,
-        use_stimulus_local=False,
+        network_type=network_type,
         verbosity=VERBOSITY
     )
 
@@ -46,7 +43,7 @@ def main_matrix_dynamics():
     fig.set_figheight(10)
     fig.set_figwidth(20)
     for ax in axes.reshape(-1):
-        ax.imshow(sensory_activity.reshape((10, 25)), cmap='gray')
+        ax.imshow(sensory_activity.reshape((50, 50)))
         sensory_activity = adj_sens_sens_mat.T.dot(sensory_activity)
 
     plt.show()
@@ -54,6 +51,6 @@ def main_matrix_dynamics():
 
 if __name__ == '__main__':
     np.random.seed(0)
-    main_matrix_dynamics()
+    main_matrix_dynamics(network_type="local_radial_lr_patchy")
 
 

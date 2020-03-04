@@ -4,7 +4,6 @@ from modules.networkAnalysis import *
 
 import warnings
 import numpy as np
-import scipy.interpolate as ip
 import matplotlib.patches as patches
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -198,6 +197,55 @@ def create_distinct_sublayer_boxes(size_boxes, size_layer=R_MAX):
     return sublayer_anchors, box_mask_dict
 
 
+def create_torus_layer_with_inh(
+        num_neurons=3600,
+        neuron_type="iaf_psc_delta",
+        exc_inh_ratio=1/5.,
+        rest_pot=0.,
+        threshold_pot=1e3,
+        time_const=20.,
+        capacitance=1e12,
+        size_layer=R_MAX
+):
+    torus_layer, spikedetector, multimeter = create_torus_layer_uniform(
+        num_neurons=num_neurons,
+        neuron_type=neuron_type,
+        rest_pot=rest_pot,
+        threshold_pot=threshold_pot,
+        time_const=time_const,
+        capacitance=capacitance,
+        size_layer=size_layer
+    )
+
+    num_inh = int(num_neurons * exc_inh_ratio)
+    positions_inh = np.random.uniform(- size_layer / 2., size_layer / 2., size=(num_inh, 2)).tolist()
+    torus_dict_inh = {
+        "extent": [size_layer, size_layer],
+        "positions": positions_inh,
+        "elements": neuron_type,
+        "edge_wrap": True
+    }
+
+    if neuron_type is "iaf_psc_delta" or neuron_type is "iaf_psc_alpha":
+        neuron_dict = {
+            "V_m": rest_pot,
+            "E_L": rest_pot,
+            "C_m": capacitance,
+            "tau_m": time_const,
+            "V_th": threshold_pot,
+            "V_reset": rest_pot
+        }
+
+    else:
+        raise ValueError("The passed neuron type %s is not supported" % neuron_type)
+
+    torus_layer_inh = tp.CreateLayer(torus_dict_inh)
+    sensory_nodes_inh = nest.GetNodes(torus_layer_inh)[0]
+    nest.SetStatus(sensory_nodes_inh, neuron_dict)
+
+    return (torus_layer, torus_layer_inh), spikedetector, multimeter
+
+
 def create_torus_layer_uniform(
         num_neurons=3600,
         neuron_type="iaf_psc_delta",
@@ -227,6 +275,7 @@ def create_torus_layer_uniform(
         "elements": neuron_type,
         "edge_wrap": True
     }
+
     if neuron_type is "iaf_psc_delta" or neuron_type is "iaf_psc_alpha":
         neuron_dict = {
             "V_m": rest_pot,
@@ -248,6 +297,7 @@ def create_torus_layer_uniform(
     multimeter = nest.Create("multimeter", params={"withtime": True, "record_from": ["V_m"]})
     nest.Connect(sensory_nodes, spikedetector)
     nest.Connect(multimeter, sensory_nodes)
+
     return torus_layer, spikedetector, multimeter
 
 
@@ -321,6 +371,40 @@ def create_random_connections(
             save_plot=save_plot,
             plot_name="random_local_connections.png"
         )
+
+
+def create_inh_exc_connections(
+        layer_exc,
+        layer_inh,
+        r_loc=0.5,
+        p_center=1.0,
+        sigma=1.0,
+        mean=0.0,
+        shift=0.0,
+        weight=-1.,
+        allow_autapses=False,
+        allow_multapses=False
+):
+    # Use distance dependent gaussian decay
+    connection_dict = {
+        "connection_type": "divergent",
+        "mask": {"circular": {"radius": r_loc}},
+        "kernel": {"gaussian": {"c": shift, "p_center": p_center, "sigma": sigma, "mean": mean}},
+        "allow_autapses": allow_autapses,
+        "allow_multapses": allow_multapses,
+        "synapse_model": "static_synapse"
+    }
+
+    # Establish connection inhibitory to excitatory neurons
+    # Make sure connection is inhibitory
+    weight = -abs(weight)
+    tp.ConnectLayers(layer_inh, layer_exc, connection_dict)
+    inh_nodes = nest.GetNodes(layer_inh)[0]
+    conn = nest.GetConnections(source=inh_nodes)
+    nest.SetStatus(conn, {"weight": weight})
+
+    # Establish connections form excitatory to inhibitory neurons
+    tp.ConnectLayers(layer_exc, layer_inh, connection_dict)
 
 
 def create_local_circular_connections(
@@ -976,13 +1060,7 @@ def create_perlin_stimulus_map(
     neuron_to_tuning_map = {}
     tuning_weight_vector = np.zeros(len(nodes))
 
-    grid_nodes_range = np.arange(0, size_layer, spacing)
-    stimulus_grid_range_x = np.linspace(0, size_layer, resolution[0])
-    stimulus_grid_range_y = np.linspace(0, size_layer, resolution[1])
-    V = np.random.rand(stimulus_grid_range_x.size, stimulus_grid_range_y.size)
-
-    ipol = ip.RectBivariateSpline(stimulus_grid_range_x, stimulus_grid_range_y, V)
-    c_map = ipol(grid_nodes_range, grid_nodes_range)
+    c_map = perlin_noise(size_layer, resolution=resolution, spacing=spacing)
 
     step_size = np.abs(c_map.max() - c_map.min()) / num_stimulus_discr
     c_map -= c_map.min()
@@ -1129,19 +1207,21 @@ def check_in_stimulus_tuning(
     :param tuning_discr_steps: The number of discriminated stimulus features
     :return: True if neuron reacts, False otherwise
     """
-    return stimulus_tuning * tuning_discr_steps <= input_stimulus / multiplier < (stimulus_tuning + 1) * tuning_discr_steps
+    return np.logical_and(
+        stimulus_tuning * tuning_discr_steps <= input_stimulus / multiplier,
+        input_stimulus / multiplier < (stimulus_tuning + 1) * tuning_discr_steps
+    )
 
 
 def create_connections_rf(
-        src_layer,
+        image,
         target_layer,
         rf_centers,
         neuron_to_tuning_map,
-        rf_size=(5, 5),
+        rf_size=(10, 10),
         connect_dict=None,
-        synaptic_strength=1.,
         multiplier=1.,
-        ignore_weights=True,
+        no_tuning=False,
         plot_src_target=False,
         save_plot=False,
         plot_point=10,
@@ -1166,18 +1246,16 @@ def create_connections_rf(
     :return: Adjacency matrix from receptors to sensory nodes
     """
     target_node_ids = nest.GetNodes(target_layer)[0]
-    src_node_ids = nest.GetNodes(src_layer)[0]
 
     # Follow the nest convention [columns, rows]
     mask_specs = {
-        "lower_left": [-rf_size[1] / 2., -rf_size[0] / 2.],
-        "upper_right": [rf_size[1] / 2., rf_size[0] / 2.]
+        "lower_left": [-rf_size[1] // 2, -rf_size[0] // 2],
+        "upper_right": [rf_size[1] // 2, rf_size[0] // 2]
     }
     num_tuning_discr = max(neuron_to_tuning_map.values()) + 1
     tuning_discr_step = 256 / float(num_tuning_discr)
     min_id_target = min(target_node_ids)
-    min_id_src = min(src_node_ids)
-    adj_mat = np.zeros((len(src_node_ids), len(target_node_ids)), dtype='uint8')
+    adj_mat = np.zeros((image.size, len(target_node_ids)), dtype='uint8')
 
     if connect_dict is None:
         connect_dict = {
@@ -1187,31 +1265,68 @@ def create_connections_rf(
 
     counter = 0
     rf_list = []
+    index_values = np.arange(0, image.size, 1).astype('int').reshape(image.shape)
     for target_node, rf_center in zip(target_node_ids, rf_centers):
-        src_nodes = tp.SelectNodesByMask(src_layer, rf_center, mask_obj=tp.CreateMask("rectangular", specs=mask_specs))
-        src_pos = tp.GetPosition(src_nodes)
-        rf_list.append(list(src_pos))
+        upper_left = (np.asarray(rf_center) + np.asarray(mask_specs["lower_left"])).astype('int')
+        lower_right = (np.asarray(rf_center) + np.asarray(mask_specs["upper_right"])).astype('int')
 
-        nest.Connect(src_nodes, [target_node], connect_dict)
-        connections = nest.GetConnections(source=src_nodes, target=[target_node])
-        connected_src_nodes = nest.GetStatus(connections, "source")
-        synapse_declaration = [
-            {"weight": 0. if not check_in_stimulus_tuning(
-                nest.GetStatus([receptor], "amplitude")[0],
-                neuron_to_tuning_map[target_node],
-                tuning_discr_step) else synaptic_strength
-             } for receptor in connected_src_nodes]
+        upper_left = np.minimum(np.maximum(upper_left, 0), image.shape[0])
+        lower_right = np.minimum(np.maximum(lower_right, 0), image.shape[0])
+        rf = image[
+             upper_left[0]:lower_right[0],
+             upper_left[1]:lower_right[1]
+             ]
 
-        if plot_src_target:
-            if counter == plot_point:
+        indices = index_values[
+                  upper_left[0]:lower_right[0],
+                  upper_left[1]:lower_right[1]
+                  ]
+
+        rf_list.append((upper_left, lower_right[0] - upper_left[0], lower_right[1] - upper_left[1]))
+
+        # Establish connections
+        connections = np.random.binomial(1, connect_dict["p"], size=rf.size)
+        indices = indices[connections.astype('bool').reshape(rf.shape)]
+        rf = rf[connections.astype('bool').reshape(rf.shape)]
+        amplitude = np.zeros(rf.shape)
+        if not no_tuning:
+            amplitude[
+                np.where(
+                    check_in_stimulus_tuning(
+                        rf,
+                        neuron_to_tuning_map[target_node],
+                        tuning_discr_step
+                    )
+                )
+            ] = 255.
+        else:
+            amplitude[:] = 255.
+
+        current_dict = {"amplitude": float(amplitude.sum()) * multiplier}
+        dc_generator = nest.Create("dc_generator", n=1, params=current_dict)[0]
+        nest.Connect([dc_generator], [target_node])
+
+        adj_mat[indices.reshape(-1), target_node - min_id_target] = 1
+
+        if counter == plot_point:
+            if plot_src_target:
                 target_layer_size = nest.GetStatus(target_layer, "topology")[0]["extent"][0]
 
                 fig, ax = plt.subplots(1, 2, sharex='none', sharey='none')
-                ax[0].axis((-retina_size[1]/2., retina_size[1]/2., -retina_size[0]/2., retina_size[0]/2.))
-                for rf in rf_list:
+                ax[0].axis((0, retina_size[1], 0, retina_size[0]))
+
+                color_list = list(mcolors.TABLEAU_COLORS.items())
+                for num, rf in enumerate(rf_list):
                     # De-zip to get x and y values separately
-                    x_pixel, y_pixel = zip(*rf)
-                    ax[0].plot(x_pixel, y_pixel, '.')
+                    color = color_list[num % len(color_list)]
+                    area_rect = patches.Rectangle(
+                        rf[0],
+                        width=rf[1],
+                        height=rf[2],
+                        color=color[0],
+                        alpha=0.4
+                    )
+                    ax[0].add_patch(area_rect)
                 ax[0].set_xlabel("Retina tissue in X")
                 ax[0].set_ylabel("Retina tissue in Y")
 
@@ -1233,14 +1348,4 @@ def create_connections_rf(
 
         counter += 1
 
-        nest.SetStatus(connections, synapse_declaration)
-        adj_mat = set_values_in_adjacency_matrix(
-            connections,
-            adj_mat,
-            min_id_src,
-            min_id_target,
-            ignore_weights=ignore_weights
-        )
-
-    nest.SetStatus(src_node_ids, {"amplitude": 255. * multiplier})
     return adj_mat
