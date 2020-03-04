@@ -12,25 +12,25 @@ import matplotlib.pyplot as plt
 import nest
 
 
-VERBOSITY = 1
+VERBOSITY = 2
 nest.set_verbosity("M_ERROR")
 
 
 def main_lr(network_type, shuffle_input=False):
     # load input stimulus
-    input_stimulus = image_with_spatial_correlation(
-        size_img=(50, 50),
-        num_circles=5,
-        radius=10,
-        background_noise=shuffle_input,
-        shuffle=shuffle_input
-    )
-
+    # input_stimulus = image_with_spatial_correlation(
+    #     size_img=(50, 50),
+    #     num_circles=5,
+    #     radius=10,
+    #     background_noise=shuffle_input,
+    #     shuffle=shuffle_input
+    # )
     # input_stimulus = create_image_bar(0, shuffle=shuffle_input)
     # input_stimulus = load_image("nfl-sunflower50.jpg")
+    input_stimulus = plain_stimulus()
     stimulus_fft = fourier_trans(input_stimulus)
     if VERBOSITY > 2:
-        plt.imshow(input_stimulus, cmap='gray')
+        plt.imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
         plt.show()
 
     # #################################################################################################################
@@ -45,7 +45,8 @@ def main_lr(network_type, shuffle_input=False):
      adj_rec_sens_mat,
      _,
      tuning_weight_vector,
-     spike_detect) = create_network(
+     spike_detect,
+     color_map) = create_network(
         input_stimulus,
         cap_s=cap_s,
         network_type=network_type,
@@ -98,9 +99,10 @@ def main_lr(network_type, shuffle_input=False):
         _, fig = plt.subplots(1, 2)
         fig[0].imshow(np.abs(stimulus_fft), norm=LogNorm(vmin=5))
         fig[1].imshow(np.abs(response_fft), norm=LogNorm(vmin=5))
-        _, fig_2 = plt.subplots(1, 2)
-        fig_2[0].imshow(reconstruction, cmap='gray')
-        fig_2[1].imshow(input_stimulus, cmap='gray')
+        _, fig_2 = plt.subplots(1, 3)
+        fig_2[0].imshow(reconstruction, cmap='gray', vmin=0, vmax=255)
+        fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
+        fig_2[2].imshow(color_map, cmap=custom_cmap())
         plt.show()
 
     return input_stimulus, reconstruction, firing_rates
