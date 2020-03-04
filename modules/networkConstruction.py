@@ -4,7 +4,6 @@ from modules.networkAnalysis import *
 
 import warnings
 import numpy as np
-import scipy.interpolate as ip
 import matplotlib.patches as patches
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -377,23 +376,35 @@ def create_random_connections(
 def create_inh_exc_connections(
         layer_exc,
         layer_inh,
-        prob=0.1,
+        r_loc=0.5,
+        p_center=1.0,
+        sigma=1.0,
+        mean=0.0,
+        shift=0.0,
         weight=-1.,
         allow_autapses=False,
         allow_multapses=False
 ):
+    # Use distance dependent gaussian decay
     connection_dict = {
         "connection_type": "divergent",
-        "kernel": prob,
+        "mask": {"circular": {"radius": r_loc}},
+        "kernel": {"gaussian": {"c": shift, "p_center": p_center, "sigma": sigma, "mean": mean}},
         "allow_autapses": allow_autapses,
         "allow_multapses": allow_multapses,
         "synapse_model": "static_synapse"
     }
 
+    # Establish connection inhibitory to excitatory neurons
+    # Make sure connection is inhibitory
+    weight = -abs(weight)
     tp.ConnectLayers(layer_inh, layer_exc, connection_dict)
     inh_nodes = nest.GetNodes(layer_inh)[0]
     conn = nest.GetConnections(source=inh_nodes)
     nest.SetStatus(conn, {"weight": weight})
+
+    # Establish connections form excitatory to inhibitory neurons
+    tp.ConnectLayers(layer_exc, layer_inh, connection_dict)
 
 
 def create_local_circular_connections(
@@ -1049,13 +1060,7 @@ def create_perlin_stimulus_map(
     neuron_to_tuning_map = {}
     tuning_weight_vector = np.zeros(len(nodes))
 
-    grid_nodes_range = np.arange(0, size_layer, spacing)
-    stimulus_grid_range_x = np.linspace(0, size_layer, resolution[0])
-    stimulus_grid_range_y = np.linspace(0, size_layer, resolution[1])
-    V = np.random.rand(stimulus_grid_range_x.size, stimulus_grid_range_y.size)
-
-    ipol = ip.RectBivariateSpline(stimulus_grid_range_x, stimulus_grid_range_y, V)
-    c_map = ipol(grid_nodes_range, grid_nodes_range)
+    c_map = perlin_noise(size_layer, resolution=resolution, spacing=spacing)
 
     step_size = np.abs(c_map.max() - c_map.min()) / num_stimulus_discr
     c_map -= c_map.min()

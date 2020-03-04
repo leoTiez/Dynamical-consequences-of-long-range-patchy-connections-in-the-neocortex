@@ -2,6 +2,7 @@
 import os
 import numpy as np
 from scipy.fft import idct
+import scipy.interpolate as ip
 from PIL import Image
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -118,6 +119,16 @@ def plot_connections(
     else:
         plt.show()
 
+
+def perlin_noise(size_layer=50, resolution=(5, 5), spacing=0.01):
+    grid_nodes_range = np.arange(0, size_layer, spacing)
+    stimulus_grid_range_x = np.linspace(0, size_layer, resolution[0])
+    stimulus_grid_range_y = np.linspace(0, size_layer, resolution[1])
+    V = np.random.rand(stimulus_grid_range_x.size, stimulus_grid_range_y.size)
+
+    ipol = ip.RectBivariateSpline(stimulus_grid_range_x, stimulus_grid_range_y, V)
+    c_map = ipol(grid_nodes_range, grid_nodes_range)
+    return c_map
 
 def coordinates_to_cmap_index(layer_size, position, spacing):
     y = np.floor(((layer_size / 2.) + position[0]) / spacing).astype('int')

@@ -112,11 +112,18 @@ def image_with_spatial_correlation(
     return image
 
 
+def perlin_image(size=50, resolution=(5, 5), spacing=0.1):
+    perlin_img = perlin_noise(size, resolution=resolution, spacing=spacing)
+    perlin_img -= perlin_img.min()
+    perlin_img = 255. * perlin_img / perlin_img.max()
+    return perlin_img.astype('int')
+
+
 def test_main():
     """
     Test main
     """
-    image = load_image("monkey50.png")
+    image = load_image("monkey50.png", path="../test-input/")
     orient_map = convert_image_to_orientation_map(image)
     plt.imshow(orient_map, cmap='gray')
     plt.show()
@@ -131,6 +138,10 @@ def test_main():
 
     spart_img = image_with_spatial_correlation()
     plt.imshow(spart_img, cmap='gray')
+    plt.show()
+
+    perlin_img = perlin_image(50, resolution=(7, 7))
+    plt.imshow(perlin_img, cmap="gray")
     plt.show()
 
 

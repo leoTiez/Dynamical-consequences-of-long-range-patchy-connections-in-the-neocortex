@@ -208,7 +208,7 @@ def create_network(
 
     if verbosity > 0:
         print("\n#####################\tCreate inhibitory connections")
-    create_inh_exc_connections(layer_exc=torus_layer, layer_inh=torus_layer_inh, prob=p_inh)
+    create_inh_exc_connections(layer_exc=torus_layer, layer_inh=torus_layer_inh, r_loc=r_loc)
     create_connections_rf(
         input_stimulus,
         torus_layer_inh,
