@@ -119,6 +119,11 @@ def perlin_image(size=50, resolution=(5, 5), spacing=0.1):
     return perlin_img.astype('int')
 
 
+def plain_stimulus(size=(50, 50), intensity=255):
+    img = np.full(size, intensity)
+    return img
+
+
 def test_main():
     """
     Test main
@@ -142,6 +147,10 @@ def test_main():
 
     perlin_img = perlin_image(50, resolution=(7, 7))
     plt.imshow(perlin_img, cmap="gray")
+    plt.show()
+
+    plain_img = plain_stimulus(size=(50, 50), intensity=255)
+    plt.imshow(plain_img, cmap="gray", vmin=0, vmax=255)
     plt.show()
 
 
