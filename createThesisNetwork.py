@@ -69,10 +69,6 @@ def create_network(
     # Create nodes and orientation map
     # #################################################################################################################
     if verbosity > 0:
-        print("\n#####################\tCreate receptor layer")
-    receptor_layer = create_input_current_generator(input_stimulus, organise_on_grid=True)
-
-    if verbosity > 0:
         print("\n#####################\tCreate sensory layer")
     (torus_layer, torus_layer_inh), spike_detect, _ = create_torus_layer_with_inh(
         num_sensory,
@@ -82,7 +78,6 @@ def create_network(
         size_layer=layer_size
     )
     torus_layer_nodes = nest.GetNodes(torus_layer)[0]
-    receptor_layer_nodes = nest.GetNodes(receptor_layer)[0]
 
     # Create stimulus tuning map
     if verbosity > 0:
@@ -109,7 +104,10 @@ def create_network(
         print("\n#####################\tCreate central points for receptive fields")
     sens_node_positions = tp.GetPosition(torus_layer_nodes)
     rf_center_map = [
-        ((x / (layer_size / 2.)) * input_stimulus.shape[1] / 2., (y / (layer_size / 2.)) * input_stimulus.shape[0] / 2.)
+        (
+            (x + (layer_size / 2.)) / float(layer_size) * input_stimulus.shape[1],
+            (y + (layer_size / 2.)) / float(layer_size) * input_stimulus.shape[0]
+        )
         for (x, y) in sens_node_positions
     ]
 
@@ -120,7 +118,7 @@ def create_network(
     if verbosity > 0:
         print("\n#####################\tCreate connections between receptors and sensory neurons")
     adj_rec_sens_mat = create_connections_rf(
-        receptor_layer,
+        input_stimulus,
         torus_layer,
         rf_center_map,
         neuron_to_tuning_map,
@@ -216,7 +214,7 @@ def create_network(
         print("\n#####################\tCreate inhibitory connections")
     create_inh_exc_connections(layer_exc=torus_layer, layer_inh=torus_layer_inh, prob=p_inh)
     create_connections_rf(
-        receptor_layer,
+        input_stimulus,
         torus_layer_inh,
         rf_center_map,
         neuron_to_tuning_map,
@@ -240,5 +238,5 @@ def create_network(
         print("\n#####################\tSet synaptic weights for sensory to sensory neurons")
     set_synaptic_strength(torus_layer_nodes, adj_sens_sens_mat, cap_s=cap_s)
 
-    return receptor_layer, torus_layer, adj_rec_sens_mat, adj_sens_sens_mat, tuning_weight_vector, spike_detect
+    return torus_layer, adj_rec_sens_mat, adj_sens_sens_mat, tuning_weight_vector, spike_detect
 
