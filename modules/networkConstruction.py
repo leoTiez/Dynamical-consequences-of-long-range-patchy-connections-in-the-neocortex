@@ -197,55 +197,6 @@ def create_distinct_sublayer_boxes(size_boxes, size_layer=R_MAX):
     return sublayer_anchors, box_mask_dict
 
 
-def create_torus_layer_with_inh(
-        num_neurons=3600,
-        neuron_type="iaf_psc_delta",
-        exc_inh_ratio=1/5.,
-        rest_pot=0.,
-        threshold_pot=1e3,
-        time_const=20.,
-        capacitance=1e12,
-        size_layer=R_MAX
-):
-    torus_layer, spikedetector, multimeter = create_torus_layer_uniform(
-        num_neurons=num_neurons,
-        neuron_type=neuron_type,
-        rest_pot=rest_pot,
-        threshold_pot=threshold_pot,
-        time_const=time_const,
-        capacitance=capacitance,
-        size_layer=size_layer
-    )
-
-    num_inh = int(num_neurons * exc_inh_ratio)
-    positions_inh = np.random.uniform(- size_layer / 2., size_layer / 2., size=(num_inh, 2)).tolist()
-    torus_dict_inh = {
-        "extent": [size_layer, size_layer],
-        "positions": positions_inh,
-        "elements": neuron_type,
-        "edge_wrap": True
-    }
-
-    if neuron_type is "iaf_psc_delta" or neuron_type is "iaf_psc_alpha":
-        neuron_dict = {
-            "V_m": rest_pot,
-            "E_L": rest_pot,
-            "C_m": capacitance,
-            "tau_m": time_const,
-            "V_th": threshold_pot,
-            "V_reset": rest_pot
-        }
-
-    else:
-        raise ValueError("The passed neuron type %s is not supported" % neuron_type)
-
-    torus_layer_inh = tp.CreateLayer(torus_dict_inh)
-    sensory_nodes_inh = nest.GetNodes(torus_layer_inh)[0]
-    nest.SetStatus(sensory_nodes_inh, neuron_dict)
-
-    return (torus_layer, torus_layer_inh), spikedetector, multimeter
-
-
 def create_torus_layer_uniform(
         num_neurons=3600,
         neuron_type="iaf_psc_delta",
@@ -339,8 +290,10 @@ def create_torus_layer_with_jitter(
 
 def create_random_connections(
         layer,
+        inh_neurons,
         prob=0.7,
         cap_s=1.,
+        inh_weight=-1.,
         allow_autapses=False,
         allow_multapses=False,
         plot=False,
@@ -360,6 +313,8 @@ def create_random_connections(
     }
 
     tp.ConnectLayers(layer, layer, connection_dict)
+    conn = nest.GetConnections(source=inh_neurons)
+    nest.SetStatus(conn, {"weight": -abs(inh_weight)})
 
     if plot:
         layer_size = nest.GetStatus(layer, "topology")[0]["extent"][0]
@@ -377,44 +332,10 @@ def create_random_connections(
         )
 
 
-def create_inh_exc_connections(
-        layer_exc,
-        layer_inh,
-        r_loc=0.5,
-        p_center=1.0,
-        sigma=1.0,
-        mean=0.0,
-        shift=0.0,
-        weight=-1.,
-        allow_autapses=False,
-        allow_multapses=False
-):
-    # Create inhibitory synapse model
-    nest.CopyModel("static_synapse", "inh", {"weight": weight})
-    # Use distance dependent gaussian decay
-    connection_dict = {
-        "connection_type": "divergent",
-        "mask": {"circular": {"radius": r_loc}},
-        "kernel": {"gaussian": {"c": shift, "p_center": p_center, "sigma": sigma, "mean": mean}},
-        "allow_autapses": allow_autapses,
-        "allow_multapses": allow_multapses,
-        "synapse_model": "inh"
-    }
-
-    # Establish connection inhibitory to excitatory neurons
-    # Make sure connection is inhibitory
-    weight = -abs(weight)
-    tp.ConnectLayers(layer_inh, layer_exc, connection_dict)
-    inh_nodes = nest.GetNodes(layer_inh)[0]
-    conn = nest.GetConnections(source=inh_nodes)
-    nest.SetStatus(conn, {"weight": weight})
-
-    # Establish connections form excitatory to inhibitory neurons
-    tp.ConnectLayers(layer_exc, layer_inh, connection_dict)
-
-
 def create_local_circular_connections(
         layer,
+        inh_neurons,
+        inh_weight=-1.,
         r_loc=0.5,
         p_loc=0.7,
         cap_s=1.,
@@ -454,6 +375,8 @@ def create_local_circular_connections(
     }
 
     tp.ConnectLayers(layer, layer, connection_dict)
+    conn = nest.GetConnections(source=inh_neurons)
+    nest.SetStatus(conn, {"weight": -abs(inh_weight)})
 
     if plot:
         layer_size = nest.GetStatus(layer, "topology")[0]["extent"][0]
@@ -518,6 +441,7 @@ def create_distant_np_connections(
 
 def create_random_patches(
         layer,
+        inh_neurons,
         r_loc=0.5,
         p_loc=0.7,
         num_patches=3,
@@ -549,6 +473,10 @@ def create_random_patches(
     # Iterate through all neurons, as all neurons have random patches
     nodes = nest.GetNodes(layer)[0]
     for neuron in nodes:
+        # Do not establish lr connections with inh neurons
+        if neuron in inh_neurons:
+            continue
+
         # Calculate radial distance and the respective coordinates for patches
         radial_angle = np.random.uniform(0., 359., size=num_patches).tolist()
         radial_distance = np.random.uniform(min_distance, max_distance, size=num_patches).tolist()
@@ -719,6 +647,8 @@ def create_stimulus_based_local_connections(
         layer,
         neuron_to_tuning_map,
         tuning_to_neuron_map,
+        inh_nodes,
+        inh_weight=-1.,
         r_loc=0.5,
         cap_s=1.,
         connect_dict=None,
@@ -741,18 +671,30 @@ def create_stimulus_based_local_connections(
         connect_dict = {
             "rule": "pairwise_bernoulli",
             "p": 0.7,
-            "weight": cap_s
         }
 
     node_ids = nest.GetNodes(layer)[0]
     for node in node_ids:
-        stimulus_tuning = neuron_to_tuning_map[node]
-        similar_tuned_neurons = tuning_to_neuron_map[stimulus_tuning]
-        same_stimulus_area = list(filter(lambda n: n != node, similar_tuned_neurons))
-        connect_partners = [
-            connect_p for connect_p in same_stimulus_area
-            if tp.Distance([connect_p], [node])[0] < r_loc
-        ]
+        if node not in inh_nodes:
+            stimulus_tuning = neuron_to_tuning_map[node]
+            similar_tuned_neurons = tuning_to_neuron_map[stimulus_tuning]
+            same_stimulus_area = list(filter(lambda n: n != node, similar_tuned_neurons))
+            connect_partners = [
+                connect_p for connect_p in same_stimulus_area
+                if tp.Distance([connect_p], [node])[0] < r_loc
+            ]
+        else:
+            anchor = tp.GetPosition([node])
+            connect_partners = tp.SelectNodesByMask(
+                layer,
+                anchor,
+                mask_obj=tp.CreateMask("circular", specs={"radius": r_loc})
+            )
+        if node not in inh_nodes:
+            connect_dict["weight"] = cap_s
+        else:
+            connect_dict["weight"] = -abs(inh_weight)
+
         nest.Connect([node], connect_partners, connect_dict)
 
         # Plot first one
@@ -777,6 +719,7 @@ def create_stimulus_based_patches_random(
         layer,
         neuron_to_tuning_map,
         tuning_to_neuron_map,
+        inh_neurons,
         num_patches=2,
         r_loc=0.5,
         p_loc=0.7,
@@ -820,7 +763,8 @@ def create_stimulus_based_patches_random(
     node_ids = nest.GetNodes(layer)[0]
     mask_specs = {"radius": r_p}
 
-    for neuron in node_ids:
+    # Do not establish lr connections for inh neurons
+    for neuron in list(set(node_ids).difference(set(inh_neurons))):
         stimulus_tuning = neuron_to_tuning_map[neuron]
         same_tuning_nodes = tuning_to_neuron_map[stimulus_tuning]
         distances = tp.Distance([neuron], same_tuning_nodes)
@@ -860,8 +804,8 @@ def create_stimulus_based_patches_random(
                 neuron_anchor,
                 mask_obj=tp.CreateMask("circular", specs=mask_specs)
             )
-            stimulus_tuning = neuron_to_tuning_map[neuron]
-            lr_patches = tuple(filter(lambda n: neuron_to_tuning_map[n] == stimulus_tuning, lr_patches))
+            lr_patches = tuple(filter(lambda n: n in inh_neurons or
+                                                neuron_to_tuning_map[n] == stimulus_tuning, lr_patches))
 
         # Define connection
         if connect_dict is None:
@@ -873,7 +817,7 @@ def create_stimulus_based_patches_random(
         nest.Connect([neuron], lr_patches, connect_dict)
 
         # Plot only first neuron
-        if neuron - min(node_ids) == 4:
+        if neuron - min(node_ids) == 0:
             connect = nest.GetConnections([neuron])
             targets = nest.GetStatus(connect, "target")
             patchy_targets = [t for t in targets if t in list(lr_patches)]
@@ -1017,6 +961,7 @@ def create_connections_random(
 
 def create_random_stimulus_map(
         layer,
+        inh_neurons,
         num_stimulus_discr=4,
         spacing=0.1,
         plot=False,
@@ -1050,9 +995,12 @@ def create_random_stimulus_map(
 
         stim_class = color_map[x_grid, y_grid]
 
-        tuning_to_neuron_map[stim_class].append(n)
-        neuron_to_tuning_map[n] = stim_class
-        tuning_weight_vector[n - min_idx] = (stim_class + 1) / num_stimulus_discr
+        if n in inh_neurons:
+            tuning_weight_vector[n - min_idx] = 1.
+        else:
+            tuning_to_neuron_map[stim_class].append(n)
+            neuron_to_tuning_map[n] = stim_class
+            tuning_weight_vector[n - min_idx] = stim_class / float(num_stimulus_discr - 1)
 
         if plot:
             plt.plot(
@@ -1076,6 +1024,7 @@ def create_random_stimulus_map(
 
 def create_perlin_stimulus_map(
         layer,
+        inh_neurons,
         num_stimulus_discr=4,
         resolution=(10, 10),
         spacing=0.1,
@@ -1093,13 +1042,16 @@ def create_perlin_stimulus_map(
 
     c_map = perlin_noise(size_layer, resolution=resolution, spacing=spacing)
 
-    step_size = np.abs(c_map.max() - c_map.min()) / num_stimulus_discr
-    c_map -= c_map.min()
+    ind = np.indices(c_map.shape)
+    # Zip the row and column indices
+    ind = list(zip(ind[0].reshape(-1), ind[1].reshape(-1)))
+    c_map_sorted = sorted(zip(c_map.reshape(-1), ind), key=lambda x: x[0])
+    _, ind = zip(*c_map_sorted)
+    step_size = len(c_map_sorted) // num_stimulus_discr
     color_map = -1 * np.ones(c_map.shape, dtype='int')
     for stim_class in range(num_stimulus_discr):
-        color_map[
-            np.where(np.logical_and(c_map >= stim_class*step_size, c_map < (stim_class+1) * step_size))
-        ] = int(stim_class)
+        row, col = zip(*ind[stim_class*step_size: np.minimum(len(ind)-1, (stim_class+1)*step_size)])
+        color_map[row, col] = int(stim_class)
 
     color_map[c_map == c_map.max()] = num_stimulus_discr - 1
 
@@ -1121,9 +1073,12 @@ def create_perlin_stimulus_map(
 
         stim_class = color_map[x_grid, y_grid]
 
-        tuning_to_neuron_map[stim_class].append(n)
-        neuron_to_tuning_map[n] = stim_class
-        tuning_weight_vector[n - min_idx] = stim_class / float(num_stimulus_discr - 1)
+        if n in inh_neurons:
+            tuning_weight_vector[n - min_idx] = 1.
+        else:
+            tuning_to_neuron_map[stim_class].append(n)
+            neuron_to_tuning_map[n] = stim_class
+            tuning_weight_vector[n - min_idx] = stim_class / float(num_stimulus_discr - 1)
 
         if plot:
             plt.plot(
@@ -1251,10 +1206,10 @@ def create_connections_rf(
         target_layer,
         rf_centers,
         neuron_to_tuning_map,
+        inh_neurons,
         rf_size=(10, 10),
         connect_dict=None,
         multiplier=1.,
-        no_tuning=False,
         plot_src_target=False,
         save_plot=False,
         plot_point=10,
@@ -1322,7 +1277,7 @@ def create_connections_rf(
         indices = indices[connections.astype('bool').reshape(rf.shape)]
         rf = rf[connections.astype('bool').reshape(rf.shape)]
         amplitude = np.zeros(rf.shape)
-        if not no_tuning:
+        if target_node not in inh_neurons:
             amplitude[
                 np.where(
                     check_in_stimulus_tuning(
@@ -1333,7 +1288,7 @@ def create_connections_rf(
                 )
             ] = 255.
         else:
-            amplitude[:] = 255.
+            amplitude = rf
 
         current_dict = {"amplitude": float(amplitude.sum()) * multiplier}
         dc_generator = nest.Create("dc_generator", n=1, params=current_dict)[0]
