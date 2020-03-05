@@ -37,11 +37,11 @@ def main_eigenvalue_spec(network_type, shuffle_input=False):
     cap_s = 1.     # Increased to reduce the effect of the input and to make it easier to investigate the dynamical
                     # consequences of local / lr patchy connections
 
-    (torus_layer,
-     adj_rec_sens_mat,
+    (_,
+     _,
      adj_sens_sens_mat,
-     tuning_weight_vector,
-     spike_detect,
+     _,
+     _,
      _) = create_network(
         input_stimulus,
         sens_adj_mat_needed=True,
