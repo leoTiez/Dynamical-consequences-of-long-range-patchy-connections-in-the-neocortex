@@ -4,16 +4,15 @@
 from modules.stimulusReconstruction import fourier_trans, direct_stimulus_reconstruction
 from modules.createStimulus import *
 from modules.networkAnalysis import *
+from modules.thesisUtils import arg_parse
 from createThesisNetwork import create_network, NETWORK_TYPE
 
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use("Agg")
 import nest
 
 
-VERBOSITY = 2
+VERBOSITY = 4
 nest.set_verbosity("M_ERROR")
 
 
@@ -147,7 +146,13 @@ def main_error():
 
 
 if __name__ == '__main__':
-    np.random.seed(0)
+    cmd_params = arg_parse()
+    if cmd_params.seed:
+        np.random.seed(0)
+    if cmd_params.agg:
+        import matplotlib
+        matplotlib.use("Agg")
+
     main_lr("local_radial_lr_patchy")
     # main_mi()
     # main_error()
