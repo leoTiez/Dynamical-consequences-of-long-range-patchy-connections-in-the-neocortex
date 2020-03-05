@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import os
 import numpy as np
-from scipy.fft import idct
+from scipy.fftpack import idct
 import scipy.interpolate as ip
 from PIL import Image
 import matplotlib.pyplot as plt
