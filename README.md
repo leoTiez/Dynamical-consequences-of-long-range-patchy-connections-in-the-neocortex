@@ -18,6 +18,27 @@ The required Python modules that can be downloaded via pip are compiled in the
 pip3 install -r requirements.txt
 ```
 
+To make the project executable it's crucial to add the project's directory to the PYHTONPATH. Thus,
+you can either add it permanently in you `~/.bashrc` file through appending the following line
+
+```bash
+export PYTHONPATH="${PYTHONPATH}:/path/to/module"
+```
+and running
+
+```bash
+source ~./bashrc
+```
+
+or temporarily via
+
+```bash
+export PYTHONPATH=$PYTHONPATH:/path/to/module
+```
+
+where `/path/to/module` is respectively replaced by the actual path to the project's directory. 
+
+
 ## Install the Barranca neuron model
 To use the customised neuron model that was described by Barranca [1] several install steps have to be run first.
 Navigate to the `src` directory and run 
@@ -43,25 +64,6 @@ Afterwards the customised `nestmlmodule` can be dynamically linked to the script
 nest.Install("nestmlmodules")
 ``` 
 
-To make the project executable it's crucial to add the project's directory to the PYHTONPATH. Thus,
-you can either add it permanently in you `~/.bashrc` file through appending the following line
-
-```bash
-export PYTHONPATH="${PYTHONPATH}:/path/to/module"
-```
-and running
-
-```bash
-source ~./bashrc
-```
-
-or temporarily via
-
-```bash
-export PYTHONPATH=$PYTHONPATH:/path/to/module
-```
-
-where `/path/to/module` is respectively replaced by the actual path to the project's directory. 
 ## Coding style and naming
 All scripts follow the standard Python coding style. It uses the conventional naming for variables 
 and files with one exception: main files start with a capital letter, whereas module files start
@@ -84,6 +86,21 @@ pyhton3 CSCodingNetworkBarranca.py
 If you want to compute the mutual information (MI) of input and reconstructed stimulus over a number of
 stimuli set the flag `use_mi=True` that is passed as a parameter to the main function.
 
+The last main file contains the test code for my own thesis project. It creates a two layer network,
+one layer with the photoreceptors and one layer with sensory neurons. The input image is 
+converted to a direct current generator that produces a current between 0 and 255 nA. That one
+is injected to the sensory neurons (details left out and will be added later). To investigate 
+the effect of long-range patchy connections several different networks can be implemented,
+e.g. with or without distal patchy connections. The stimulus is reproduced based on the
+firing rates. Some first tests and trials can be run via
+
+```bash
+python3 ThesisNetwork.py
+``` 
+
+Please note that the network is currently under development, and hence, the implementation is not
+final yet. Moreover, more sophisticated explanations are missing. Nevertheless, feel free to 
+browse through the repository and to checkout the implementation at the recent state 
 ## Sources
 [1] 1.Barranca, V. J., Kovačič, G., Zhou, D. & Cai, D. Sparsity and Compressed Coding in Sensory Systems. PLoS Computational Biology 10, (2014).
 
