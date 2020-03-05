@@ -9,6 +9,8 @@ from createThesisNetwork import create_network
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("Agg")
 
 import nest
 
