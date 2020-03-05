@@ -27,7 +27,8 @@ def main_lr(network_type, shuffle_input=False):
     # )
     # input_stimulus = create_image_bar(0, shuffle=shuffle_input)
     # input_stimulus = load_image("nfl-sunflower50.jpg")
-    input_stimulus = plain_stimulus()
+    # input_stimulus = plain_stimulus()
+    input_stimulus = perlin_image()
     stimulus_fft = fourier_trans(input_stimulus)
     if VERBOSITY > 2:
         plt.imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
@@ -41,7 +42,7 @@ def main_lr(network_type, shuffle_input=False):
     cap_s = 1.     # Increased to reduce the effect of the input and to make it easier to investigate the dynamical
                     # consequences of local / lr patchy connections
 
-    (torus_layer,
+    (torus_layer_nodes,
      adj_rec_sens_mat,
      _,
      tuning_weight_vector,
@@ -52,8 +53,6 @@ def main_lr(network_type, shuffle_input=False):
         network_type=network_type,
         verbosity=VERBOSITY
     )
-
-    torus_layer_nodes = nest.GetNodes(torus_layer)[0]
 
     # #################################################################################################################
     # Simulate and retrieve resutls
