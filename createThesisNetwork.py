@@ -40,6 +40,7 @@ def create_network(
     # #################################################################################################################
     # Not necessary to divide by 10, as sparsity is obtained by tuning preference ?
     num_sensory = int(1e4)
+    ratio_inh_neurons = 5
     num_stimulus_discr = 4
     num_patches = 3
     p_loc = 0.5
@@ -47,7 +48,7 @@ def create_network(
     p_lr = 0.2
     p_random = 0.05
     inh_weight = -1.
-    rf_size = (input_stimulus.shape[0] / 4., input_stimulus.shape[1] / 4.)
+    rf_size = (input_stimulus.shape[0] // 4, input_stimulus.shape[1] // 4)
     patchy_connect_dict = {"rule": "pairwise_bernoulli", "p": p_lr}
     rf_connect_dict = {"rule": "pairwise_bernoulli", "p": p_rf}
     local_connect_dict = {"rule": "pairwise_bernoulli", "p": p_loc}
@@ -70,7 +71,7 @@ def create_network(
     # #################################################################################################################
     if verbosity > 0:
         print("\n#####################\tCreate sensory layer")
-    (torus_layer, torus_layer_inh), spike_detect, _ = create_torus_layer_with_inh(
+    torus_layer, spike_detect, _ = create_torus_layer_uniform(
         num_sensory,
         threshold_pot=pot_threshold,
         capacitance=capacitance,
@@ -78,6 +79,7 @@ def create_network(
         size_layer=layer_size
     )
     torus_layer_nodes = nest.GetNodes(torus_layer)[0]
+    torus_inh_nodes = np.random.choice(np.asarray(torus_layer_nodes), size=num_sensory // ratio_inh_neurons).tolist()
 
     # Create stimulus tuning map
     if verbosity > 0:
@@ -86,6 +88,7 @@ def create_network(
     if network_value == 1:
         tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map = create_random_stimulus_map(
             torus_layer,
+            torus_inh_nodes,
             num_stimulus_discr=num_stimulus_discr,
             plot=plot_tuning_map,
             save_plot=save_plots
@@ -93,6 +96,7 @@ def create_network(
     else:
         tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map = create_perlin_stimulus_map(
             torus_layer,
+            torus_inh_nodes,
             num_stimulus_discr=num_stimulus_discr,
             plot=plot_tuning_map,
             spacing=spacing_perlin,
@@ -122,6 +126,7 @@ def create_network(
         torus_layer,
         rf_center_map,
         neuron_to_tuning_map,
+        torus_inh_nodes,
         connect_dict=rf_connect_dict,
         rf_size=rf_size,
         plot_src_target=plot_rf_relation,
@@ -134,6 +139,8 @@ def create_network(
             print("\n#####################\tCreate random connections")
         create_random_connections(
             torus_layer,
+            torus_inh_nodes,
+            inh_weight=inh_weight,
             prob=p_random,
             cap_s=cap_s,
             plot=plot_local_connections,
@@ -150,6 +157,8 @@ def create_network(
                 torus_layer,
                 neuron_to_tuning_map,
                 tuning_to_neuron_map,
+                torus_inh_nodes,
+                inh_weight=inh_weight,
                 cap_s=cap_s,
                 connect_dict=local_connect_dict,
                 r_loc=r_loc,
@@ -160,6 +169,8 @@ def create_network(
         elif network_value in [2, 4, 5]:
             create_local_circular_connections(
                 torus_layer,
+                torus_inh_nodes,
+                inh_weight=inh_weight,
                 p_loc=p_loc,
                 r_loc=r_loc,
                 cap_s=cap_s,
@@ -176,6 +187,8 @@ def create_network(
                 torus_layer,
                 neuron_to_tuning_map,
                 tuning_to_neuron_map,
+                torus_inh_nodes,
+                inh_weight=inh_weight,
                 r_loc=r_loc,
                 connect_dict=patchy_connect_dict,
                 num_patches=num_patches,
@@ -189,6 +202,8 @@ def create_network(
                 print("\n#####################\tCreate long-range patchy random connections")
             create_random_patches(
                 torus_layer,
+                torus_inh_nodes,
+                inh_weight=inh_weight,
                 r_loc=r_loc,
                 p_loc=p_loc,
                 cap_s=cap_s,
@@ -212,29 +227,11 @@ def create_network(
             color_mask=color_map
         )
 
-    if verbosity > 0:
-        print("\n#####################\tCreate inhibitory connections")
-    create_inh_exc_connections(layer_exc=torus_layer, layer_inh=torus_layer_inh, r_loc=r_loc, weight=inh_weight)
-    create_connections_rf(
-        input_stimulus,
-        torus_layer_inh,
-        rf_center_map,
-        neuron_to_tuning_map,
-        no_tuning=True,
-        connect_dict=rf_connect_dict,
-        rf_size=rf_size,
-        plot_src_target=plot_rf_relation,
-        retina_size=input_stimulus.shape,
-        save_plot=save_plots
-    )
-
     # Create sensory-to-sensory matrix
     adj_sens_sens_mat = None
     if sens_adj_mat_needed:
         if verbosity > 0:
             print("\n#####################\tCreate adjacency matrix for sensory-to-sensory connections")
-        inh_nodes = nest.GetNodes(torus_layer_inh)[0]
-        # TODO How to incorporate inhibitory connections adjacency matrix?
         adj_sens_sens_mat = create_adjacency_matrix(torus_layer_nodes, torus_layer_nodes)
 
     # Set sensory-to-sensory weights
@@ -243,5 +240,12 @@ def create_network(
             print("\n#####################\tSet synaptic weights for sensory to sensory neurons")
         set_synaptic_strength(torus_layer_nodes, adj_sens_sens_mat, cap_s=cap_s, divide_by_num_connect=True)
 
-    return torus_layer, adj_rec_sens_mat, adj_sens_sens_mat, tuning_weight_vector, spike_detect, color_map
+    return (
+        torus_layer_nodes,
+        adj_rec_sens_mat,
+        adj_sens_sens_mat,
+        tuning_weight_vector,
+        spike_detect,
+        color_map
+    )
 
