@@ -6,6 +6,8 @@ from modules.networkAnalysis import *
 from createThesisNetwork import create_network, NETWORK_TYPE
 
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("Agg")
 
 import nest
 
