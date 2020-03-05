@@ -3,7 +3,7 @@ import cvxpy as cvx
 
 from modules.thesisUtils import *
 import numpy as np
-from scipy.fft import idct, fft2, fftfreq
+from scipy.fftpack import idct, fft2, fftfreq
 
 
 def _observations_from_linear_model(
