@@ -1,16 +1,13 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-from modules.stimulusReconstruction import fourier_trans, direct_stimulus_reconstruction
-from modules.networkConstruction import *
 from modules.createStimulus import *
-from modules.networkAnalysis import *
+from modules.networkConstruction import *
+from modules.thesisUtils import arg_parse
 from createThesisNetwork import create_network
 
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use("Agg")
 
 import nest
 
@@ -53,7 +50,13 @@ def main_matrix_dynamics(network_type="local_radial_lr_patchy"):
 
 
 if __name__ == '__main__':
-    np.random.seed(0)
+    cmd_params = arg_parse()
+    if cmd_params.seed:
+        np.random.seed(0)
+    if cmd_params.agg:
+        import matplotlib
+        matplotlib.use("Agg")
+
     main_matrix_dynamics(network_type="local_radial_lr_patchy")
 
 
