@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import os
+import argparse
 import numpy as np
 from scipy.fftpack import idct
 import scipy.interpolate as ip
@@ -9,6 +10,15 @@ import matplotlib.patches as patches
 import matplotlib.colors as mcolors
 
 import nest.topology as tp
+
+
+def arg_parse():
+    parser = argparse.ArgumentParser(description='Accept command line parameters for the reconstruction tests.')
+    parser.add_argument('--agg', dest='agg', action='store_true', help='Use Agg backend for matplotlib')
+    parser.add_argument('--seed', dest='seed', action='store_true', help='Seed random number generator')
+    parsed_args = parser.parse_args()
+
+    return parsed_args
 
 
 def custom_cmap(num_stimulus_discr=4):
