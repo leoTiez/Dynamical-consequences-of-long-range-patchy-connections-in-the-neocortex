@@ -4,10 +4,9 @@
 from modules.createStimulus import *
 from modules.networkAnalysis import *
 from createThesisNetwork import create_network, NETWORK_TYPE
+from modules.thesisUtils import arg_parse
 
 import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use("Agg")
 
 import nest
 
@@ -61,6 +60,13 @@ def main_eigenvalue_spec(network_type, shuffle_input=False):
 
 
 if __name__ == '__main__':
+    cmd_params = arg_parse()
+    if cmd_params.seed:
+        np.random.seed(0)
+    if cmd_params.agg:
+        import matplotlib
+        matplotlib.use("Agg")
+
     main_eigenvalue_spec(network_type="local_radial_lr_patchy")
 
 
