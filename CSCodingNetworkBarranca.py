@@ -12,7 +12,7 @@
 import os
 import numpy as np
 import cvxpy as cvx
-from scipy.fft import idct
+from scipy.fftpack import idct
 from PIL import Image
 import matplotlib.pyplot as plt
 from collections import Counter
