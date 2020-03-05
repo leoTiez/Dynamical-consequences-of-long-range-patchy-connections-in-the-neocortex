@@ -112,8 +112,8 @@ def image_with_spatial_correlation(
     return image
 
 
-def perlin_image(size=50, resolution=(5, 5), spacing=0.1):
-    perlin_img = perlin_noise(size, resolution=resolution, spacing=spacing)
+def perlin_image(size=50, resolution=(5, 5)):
+    perlin_img = perlin_noise(size, resolution=resolution, spacing=1)
     perlin_img -= perlin_img.min()
     perlin_img = 255. * perlin_img / perlin_img.max()
     return perlin_img.astype('int')
