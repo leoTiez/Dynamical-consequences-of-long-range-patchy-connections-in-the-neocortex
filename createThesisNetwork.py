@@ -188,7 +188,6 @@ def create_network(
                 neuron_to_tuning_map,
                 tuning_to_neuron_map,
                 torus_inh_nodes,
-                inh_weight=inh_weight,
                 r_loc=r_loc,
                 connect_dict=patchy_connect_dict,
                 num_patches=num_patches,
@@ -203,7 +202,6 @@ def create_network(
             create_random_patches(
                 torus_layer,
                 torus_inh_nodes,
-                inh_weight=inh_weight,
                 r_loc=r_loc,
                 p_loc=p_loc,
                 cap_s=cap_s,
