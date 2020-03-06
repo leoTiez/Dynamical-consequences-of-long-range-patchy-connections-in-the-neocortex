@@ -79,7 +79,6 @@ def eigenvalue_analysis(matrix, plot=True, save_plot=False, fig_name=None, fig_p
         plt.plot(eigenvalues.real, eigenvalues.imag, 'k,')
         plt.xlabel("Re($\lambda$)")
         plt.ylabel("Im($\lambda$)")
-        plt.axis((-20, 60, -20, 20))
         if not save_plot:
             plt.show()
         else:
