@@ -34,7 +34,7 @@ def main_eigenvalue_spec(network_type, shuffle_input=False):
     # #################################################################################################################
     # Define values
     # #################################################################################################################
-    plot_eigenvalue_spec = False
+    plot_eigenvalue_spec = True
     cap_s = 1.     # Increased to reduce the effect of the input and to make it easier to investigate the dynamical
                     # consequences of local / lr patchy connections
 
