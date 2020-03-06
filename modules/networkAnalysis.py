@@ -35,9 +35,12 @@ def error_distance(input_data, reconstructed_data):
     return normalised_error
 
 
-def set_values_in_adjacency_matrix(connect_values, adj_mat, min_src, min_target, ignore_weights=True):
-    for n in connect_values:
-        if ignore_weights or (not ignore_weights and nest.GetStatus([n], "weight")[0] > 0):
+def set_values_in_adjacency_matrix(connect_values, adj_mat, min_src, min_target, use_weights=True):
+    weights = nest.GetStatus(connect_values, "weight")
+    for n, w in zip(connect_values, weights):
+        if use_weights:
+            adj_mat[n[0] - min_src, n[1] - min_target] = w
+        elif w > 0:
             adj_mat[n[0] - min_src, n[1] - min_target] = 1
 
     return adj_mat

@@ -36,28 +36,11 @@ class NetworkAnalysisTest(unittest.TestCase):
             adj_mat,
             min(nodes),
             min(nodes),
-            ignore_weights=True
         )
 
         self.assertEqual(adj_mat[0, 1], 1, "Adjacency has not been set between 0 and 1")
         self.assertEqual(adj_mat[0, 2], 1, "Adjacency has not been set between 0 and 2")
         self.assertEqual(adj_mat[2, 3], 1, "Adjacency has not been set between 2 and 3")
-
-        con_2_3 = nest.GetConnections(source=[nodes[2]], target=[nodes[3]])
-        nest.SetStatus(con_2_3, {"weight": 0.})
-
-        adj_mat = np.zeros((num_nodes, num_nodes))
-        adj_mat = na.set_values_in_adjacency_matrix(
-            conn,
-            adj_mat,
-            min(nodes),
-            min(nodes),
-            ignore_weights=False
-        )
-
-        self.assertEqual(adj_mat[0, 1], 1, "Adjacency has not been set between 0 and 1")
-        self.assertEqual(adj_mat[0, 2], 1, "Adjacency has not been set between 0 and 2")
-        self.assertEqual(adj_mat[2, 3], 0, "Weight has not been taken into account between 2 and 3")
 
     def test_create_adjacency_matrix(self):
         num_nodes = 4

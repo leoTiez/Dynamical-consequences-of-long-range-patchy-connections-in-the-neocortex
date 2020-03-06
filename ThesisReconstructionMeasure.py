@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import nest
 
 
-VERBOSITY = 4
+VERBOSITY = 2
 nest.set_verbosity("M_ERROR")
 
 
@@ -27,8 +27,8 @@ def main_lr(network_type, shuffle_input=False):
     # )
     # input_stimulus = create_image_bar(0, shuffle=shuffle_input)
     # input_stimulus = load_image("nfl-sunflower50.jpg")
-    # input_stimulus = plain_stimulus()
-    input_stimulus = perlin_image()
+    input_stimulus = plain_stimulus()
+    # input_stimulus = perlin_image()
     stimulus_fft = fourier_trans(input_stimulus)
     if VERBOSITY > 2:
         plt.imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
