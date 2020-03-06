@@ -55,7 +55,7 @@ def main_eigenvalue_spec(network_type, shuffle_input=False):
         adj_sens_sens_mat,
         plot=True,
         save_plot=plot_eigenvalue_spec,
-        fig_name="thesis_network_non-zero_connections.png"
+        fig_name="%s_network_non-zero_connections.png" % network_type
     )
 
 
@@ -67,6 +67,7 @@ if __name__ == '__main__':
         import matplotlib
         matplotlib.use("Agg")
 
-    main_eigenvalue_spec(network_type="local_radial_lr_patchy")
+    for network_type in list(NETWORK_TYPE.keys()):
+        main_eigenvalue_spec(network_type=network_type)
 
 
