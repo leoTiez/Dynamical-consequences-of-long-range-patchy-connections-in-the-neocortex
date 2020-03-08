@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import nest
 
 
-VERBOSITY = 1
+VERBOSITY = 2
 nest.set_verbosity("M_ERROR")
 
 
@@ -27,8 +27,8 @@ def main_lr(network_type, shuffle_input=False):
     # )
     # input_stimulus = create_image_bar(0, shuffle=shuffle_input)
     # input_stimulus = load_image("nfl-sunflower50.jpg")
-    input_stimulus = plain_stimulus()
     # input_stimulus = perlin_image()
+    input_stimulus = plain_stimulus()
     stimulus_fft = fourier_trans(input_stimulus)
     if VERBOSITY > 2:
         plt.imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
@@ -41,7 +41,7 @@ def main_lr(network_type, shuffle_input=False):
     use_mask = False
     cap_s = 1.     # Increased to reduce the effect of the input and to make it easier to investigate the dynamical
                    # consequences of local / lr patchy connections
-    ff_weight = 1.
+    ff_weight = 0.01
 
     (torus_layer_nodes,
      adj_rec_sens_mat,

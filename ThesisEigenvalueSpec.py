@@ -38,6 +38,7 @@ def main_eigenvalue_spec(network_type, shuffle_input=False):
     cap_s = 1.     # Increased to reduce the effect of the input and to make it easier to investigate the dynamical
                     # consequences of local / lr patchy connections
 
+    ff_weight = 0.01
     (_,
      _,
      adj_sens_sens_mat,
@@ -47,6 +48,7 @@ def main_eigenvalue_spec(network_type, shuffle_input=False):
         input_stimulus,
         sens_adj_mat_needed=True,
         cap_s=cap_s,
+        ff_weight=ff_weight,
         network_type=network_type,
         verbosity=VERBOSITY
     )
