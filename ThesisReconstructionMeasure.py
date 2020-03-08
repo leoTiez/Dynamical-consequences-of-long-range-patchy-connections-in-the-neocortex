@@ -130,9 +130,8 @@ def main_mi():
 
 
 def main_error():
-    num_trials = 1
-    # shuffle = [True, False]
-    shuffle = [False]
+    num_trials = 5
+    shuffle = [True, False]
     for network_type in list(NETWORK_TYPE.keys()):
         for shuffle_flag in shuffle:
             errors = []

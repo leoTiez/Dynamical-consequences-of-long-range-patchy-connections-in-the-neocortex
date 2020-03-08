@@ -5,6 +5,7 @@ from modules.networkConstruction import *
 from modules.createStimulus import *
 from modules.networkAnalysis import *
 
+from scipy.spatial import KDTree
 import nest
 
 nest.set_verbosity("M_ERROR")
@@ -47,7 +48,7 @@ def create_network(
     p_loc = 0.5
     p_rf = 0.3
     p_lr = 0.2
-    p_random = 0.05
+    p_random = 0.001
     inh_weight = -1.
     rf_size = (input_stimulus.shape[0] // 4, input_stimulus.shape[1] // 4)
     patchy_connect_dict = {"rule": "pairwise_bernoulli", "p": p_lr}
@@ -79,7 +80,9 @@ def create_network(
         rest_pot=pot_reset,
         size_layer=layer_size
     )
-    torus_layer_nodes = nest.GetNodes(torus_layer)[0]
+    torus_layer_nodes = nest.GetNodes(torus_layer, properties={"element_type": "neuron"})[0]
+    torus_layer_nodes_pos = tp.GetPosition(torus_layer_nodes)
+    torus_layer_tree = KDTree(torus_layer_nodes_pos)
     torus_inh_nodes = np.random.choice(np.asarray(torus_layer_nodes), size=num_sensory // ratio_inh_neurons).tolist()
 
     # Create stimulus tuning map
@@ -157,6 +160,7 @@ def create_network(
         if network_value in [3, 6]:
             create_stimulus_based_local_connections(
                 torus_layer,
+                torus_layer_tree,
                 neuron_to_tuning_map,
                 tuning_to_neuron_map,
                 torus_inh_nodes,
@@ -190,6 +194,7 @@ def create_network(
                 neuron_to_tuning_map,
                 tuning_to_neuron_map,
                 torus_inh_nodes,
+                torus_layer_tree,
                 r_loc=r_loc,
                 connect_dict=patchy_connect_dict,
                 num_patches=num_patches,

@@ -471,12 +471,10 @@ def create_random_patches(
         p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches, layer_size=layer_size)
 
     # Iterate through all neurons, as all neurons have random patches
-    nodes = nest.GetNodes(layer)[0]
-    for neuron in nodes:
-        # Do not establish lr connections with inh neurons
-        if neuron in inh_neurons:
-            continue
-
+    nodes = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
+    # Do not establish lr connections with inh neurons
+    exc_nodes = list(set(nodes).difference((set(inh_neurons))))
+    for neuron in exc_nodes:
         # Calculate radial distance and the respective coordinates for patches
         radial_angle = np.random.uniform(0., 359., size=num_patches).tolist()
         radial_distance = np.random.uniform(min_distance, max_distance, size=num_patches).tolist()
@@ -646,6 +644,7 @@ def create_partially_overlapping_patches(
 
 def create_stimulus_based_local_connections(
         layer,
+        node_tree,
         neuron_to_tuning_map,
         tuning_to_neuron_map,
         inh_nodes,
@@ -674,23 +673,16 @@ def create_stimulus_based_local_connections(
             "p": 0.7,
         }
 
-    node_ids = nest.GetNodes(layer)[0]
-    for node in node_ids:
+    node_ids = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
+    node_pos = tp.GetPosition(node_ids)
+    for node, pos in zip(node_ids, node_pos):
+        connect_partners = (np.asarray(node_tree.query_ball_point(pos, r_loc)) + min(node_ids)).tolist()
         if node not in inh_nodes:
             stimulus_tuning = neuron_to_tuning_map[node]
             similar_tuned_neurons = tuning_to_neuron_map[stimulus_tuning]
-            same_stimulus_area = list(filter(lambda n: n != node, similar_tuned_neurons))
-            connect_partners = [
-                connect_p for connect_p in same_stimulus_area
-                if tp.Distance([connect_p], [node])[0] < r_loc
-            ]
-        else:
-            anchor = tp.GetPosition([node])[0]
-            connect_partners = tp.SelectNodesByMask(
-                layer,
-                anchor,
-                mask_obj=tp.CreateMask("circular", specs={"radius": r_loc})
-            )
+            same_stimulus_area = set(filter(lambda n: n != node, similar_tuned_neurons))
+            connect_partners = list(set(connect_partners).intersection(same_stimulus_area))
+
         if node not in inh_nodes:
             syn_spec = {"weight": float(cap_s)}
         else:
@@ -721,6 +713,7 @@ def create_stimulus_based_patches_random(
         neuron_to_tuning_map,
         tuning_to_neuron_map,
         inh_neurons,
+        node_tree,
         num_patches=2,
         r_loc=0.5,
         p_loc=0.7,
@@ -728,6 +721,7 @@ def create_stimulus_based_patches_random(
         cap_s=1.,
         r_p=None,
         connect_dict=None,
+        filter_patches=True,
         plot=False,
         save_plot=False,
         color_mask=None
@@ -761,20 +755,18 @@ def create_stimulus_based_patches_random(
     max_distance = np.sqrt(size_layer**2 + size_layer**2) / 2. - r_p
     if p_p is None and connect_dict is None:
         p_p = get_lr_connection_probability_patches(r_loc, p_loc, r_p, num_patches=num_patches, layer_size=size_layer)
-    node_ids = nest.GetNodes(layer)[0]
-    mask_specs = {"radius": r_p}
+    node_ids = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
 
     # Do not establish lr connections for inh neurons
-    for neuron in list(set(node_ids).difference(set(inh_neurons))):
+    exc_neurons = list(set(node_ids).difference(set(inh_neurons)))
+    exc_pos = tp.GetPosition(exc_neurons)
+    for neuron, pos in zip(exc_neurons, exc_pos):
+        inner_nodes = (np.asarray(node_tree.query_ball_point(pos, min_distance)) + min(node_ids)).tolist()
+        outer_nodes = (np.asarray(node_tree.query_ball_point(pos, max_distance)) + min(node_ids)).tolist()
+        patchy_candidates = set(outer_nodes).difference(set(inner_nodes))
         stimulus_tuning = neuron_to_tuning_map[neuron]
         same_tuning_nodes = tuning_to_neuron_map[stimulus_tuning]
-        distances = tp.Distance([neuron], same_tuning_nodes)
-        patchy_candidates_distance = list(filter(
-            lambda pc: min_distance <= pc[1] < max_distance,
-            zip(same_tuning_nodes, distances)
-        ))
-
-        patchy_candidates, _ = zip(*patchy_candidates_distance)
+        patchy_candidates = patchy_candidates.intersection(set(same_tuning_nodes))
 
         # TODO is sorting by angle needed at some point?
         # pos_n = tp.GetPosition([neuron])[0]
@@ -800,13 +792,10 @@ def create_stimulus_based_patches_random(
 
         lr_patches = tuple()
         for neuron_anchor in pos_patch_centers:
-            lr_patches += tp.SelectNodesByMask(
-                layer,
-                neuron_anchor,
-                mask_obj=tp.CreateMask("circular", specs=mask_specs)
-            )
-            lr_patches = tuple(filter(lambda n: n in inh_neurons or
-                                                neuron_to_tuning_map[n] == stimulus_tuning, lr_patches))
+            lr_patches += tuple((np.asarray(node_tree.query_ball_point(neuron_anchor, r_p)) + min(node_ids)).tolist())
+
+        if filter_patches:
+            lr_patches = tuple(set(lr_patches).intersection(set(same_tuning_nodes)))
 
         # Define connection
         if connect_dict is None:
@@ -971,7 +960,7 @@ def create_random_stimulus_map(
         plot_name=None
 ):
     size_layer = nest.GetStatus(layer, "topology")[0]["extent"][0]
-    nodes = nest.GetNodes(layer)[0]
+    nodes = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
     min_idx = min(nodes)
 
     size_cm = int(size_layer/float(spacing))
@@ -1035,7 +1024,7 @@ def create_perlin_stimulus_map(
         plot_name=None
 ):
     size_layer = nest.GetStatus(layer, "topology")[0]["extent"][0]
-    nodes = nest.GetNodes(layer)[0]
+    nodes = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
     min_idx = min(nodes)
 
     tuning_to_neuron_map = {stimulus: [] for stimulus in range(num_stimulus_discr)}
@@ -1127,7 +1116,7 @@ def create_stimulus_tuning_map(
     sublayer_anchors, box_mask_dict = create_distinct_sublayer_boxes(size_boxes=box_size, size_layer=size_layer)
     tuning_to_neuron_map = {stimulus: [] for stimulus in range(num_stimulus_discr)}
     neuron_to_tuning_map = {}
-    nodes = nest.GetNodes(layer)[0]
+    nodes = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
     tuning_weight_vector = np.zeros(len(nodes))
     min_idx = min(nodes)
     shift = 0
@@ -1236,7 +1225,7 @@ def create_connections_rf(
     :param retina_size: Size of the retina / input layer
     :return: Adjacency matrix from receptors to sensory nodes
     """
-    target_node_ids = nest.GetNodes(target_layer)[0]
+    target_node_ids = nest.GetNodes(target_layer, properties={"element_type": "neuron"})[0]
 
     # Follow the nest convention [columns, rows]
     mask_specs = {
