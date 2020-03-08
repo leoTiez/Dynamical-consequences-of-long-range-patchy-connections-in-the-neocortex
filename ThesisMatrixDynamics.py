@@ -25,7 +25,6 @@ def main_matrix_dynamics(network_type="local_radial_lr_patchy"):
     # Define values
     # #################################################################################################################
     cap_s = 1.
-    ff_weight = 0.01
     plot_arrangement_rows = 5
     plot_arrangement_columns = 5
 
@@ -33,7 +32,6 @@ def main_matrix_dynamics(network_type="local_radial_lr_patchy"):
         input_stimulus,
         sens_adj_mat_needed=True,
         cap_s=cap_s,
-        ff_weight=ff_weight,
         network_type=network_type,
         verbosity=VERBOSITY
     )
