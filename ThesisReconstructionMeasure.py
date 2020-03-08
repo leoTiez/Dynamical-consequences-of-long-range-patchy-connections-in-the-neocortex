@@ -98,8 +98,8 @@ def main_lr(network_type, shuffle_input=False):
     if VERBOSITY > 1:
         from matplotlib.colors import LogNorm
         _, fig = plt.subplots(1, 2)
-        fig[0].imshow(np.abs(stimulus_fft), norm=LogNorm(vmin=5))
-        fig[1].imshow(np.abs(response_fft), norm=LogNorm(vmin=5))
+        fig[0].imshow(np.abs(response_fft), norm=LogNorm(vmin=5))
+        fig[1].imshow(np.abs(stimulus_fft), norm=LogNorm(vmin=5))
         _, fig_2 = plt.subplots(1, 3)
         fig_2[0].imshow(reconstruction, cmap='gray', vmin=0, vmax=255)
         fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
