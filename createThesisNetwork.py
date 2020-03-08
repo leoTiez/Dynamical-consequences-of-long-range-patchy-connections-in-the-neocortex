@@ -23,7 +23,6 @@ NETWORK_TYPE = {
 def create_network(
         input_stimulus,
         cap_s=1.,
-        ff_weight=1.,
         network_type="local_radial_lr_patchy",
         verbosity=0,
         weights_connection_dependent=False,
@@ -67,6 +66,18 @@ def create_network(
     plot_local_connections = False if verbosity < 4 else True
     plot_patchy_connections = False if verbosity < 4 else True
     save_plots = False
+
+    # #################################################################################################################
+    # Compute feedforward weight
+    # #################################################################################################################
+    if verbosity > 0:
+        print("\n#####################\tDetermine feedforward weight")
+    ff_weight = determine_ffweight(
+        rf_size,
+        rest_pot=pot_reset,
+        threshold_pot=pot_threshold,
+        capacitance=capacitance,
+    )
 
     # #################################################################################################################
     # Create nodes and orientation map

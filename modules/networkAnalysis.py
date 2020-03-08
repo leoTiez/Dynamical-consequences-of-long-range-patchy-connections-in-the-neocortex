@@ -107,3 +107,37 @@ def get_firing_rates(spike_train, nodes, simulation_time):
 
     return firing_rates
 
+
+def determine_ffweight(
+        rf_size,
+        neuron_type="iaf_psc_delta",
+        rest_pot=-70.,
+        threshold_pot=-55.,
+        time_const=20.,
+        capacitance=80,
+        max_value=255.,
+        max_freq=20.,
+        sim_time=250.
+):
+    input_curr = rf_size[0] * rf_size[1] * max_value
+
+    neuron_dict = {
+        "V_m": rest_pot,
+        "E_L": rest_pot,
+        "C_m": capacitance,
+        "tau_m": time_const,
+        "V_th": threshold_pot,
+        "V_reset": rest_pot,
+        "I_e": input_curr
+    }
+    test_node = nest.Create(neuron_type, n=1, params=neuron_dict)
+    test_spike = nest.Create("spike_detector", params={"withgid": True, "withtime": True})
+    nest.Connect(test_node, test_spike)
+
+    nest.Simulate(sim_time)
+
+    data_sp = nest.GetStatus(test_spike, keys="events")[0]
+    sender_data = data_sp["senders"]
+    firing_rate = get_firing_rates(sender_data, test_node, sim_time)
+
+    return max_freq / float(firing_rate[0])
