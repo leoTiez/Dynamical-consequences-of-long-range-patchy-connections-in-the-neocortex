@@ -492,10 +492,11 @@ def create_random_patches(
         # Define connection
         connect_dict = {
             "rule": "pairwise_bernoulli",
-            "p": p_p,
-            "weight": cap_s
+            "p": p_p
         }
-        nest.Connect([neuron], patches, connect_dict)
+
+        syn_spec = {"weight": cap_s}
+        nest.Connect([neuron], patches, conn_spec=connect_dict, syn_spec=syn_spec)
 
     if plot:
         nodes = nest.GetNodes(layer)[0]
@@ -684,18 +685,18 @@ def create_stimulus_based_local_connections(
                 if tp.Distance([connect_p], [node])[0] < r_loc
             ]
         else:
-            anchor = tp.GetPosition([node])
+            anchor = tp.GetPosition([node])[0]
             connect_partners = tp.SelectNodesByMask(
                 layer,
                 anchor,
                 mask_obj=tp.CreateMask("circular", specs={"radius": r_loc})
             )
         if node not in inh_nodes:
-            connect_dict["weight"] = cap_s
+            syn_spec = {"weight": float(cap_s)}
         else:
-            connect_dict["weight"] = -abs(inh_weight)
+            syn_spec = {"weight": float(-abs(inh_weight))}
 
-        nest.Connect([node], connect_partners, connect_dict)
+        nest.Connect([node], connect_partners, conn_spec=connect_dict, syn_spec=syn_spec)
 
         # Plot first one
         if node - min(node_ids) == 0:
@@ -811,10 +812,11 @@ def create_stimulus_based_patches_random(
         if connect_dict is None:
             connect_dict = {
                 "rule": "pairwise_bernoulli",
-                "p": p_p,
-                "weight": cap_s
+                "p": p_p
             }
-        nest.Connect([neuron], lr_patches, connect_dict)
+        syn_spec = {"weight": cap_s}
+
+        nest.Connect([neuron], lr_patches, conn_spec=connect_dict, syn_spec=syn_spec)
 
         # Plot only first neuron
         if neuron - min(node_ids) == 0:
@@ -1207,6 +1209,7 @@ def create_connections_rf(
         rf_centers,
         neuron_to_tuning_map,
         inh_neurons,
+        synaptic_strength=1.,
         rf_size=(10, 10),
         connect_dict=None,
         multiplier=1.,
@@ -1292,7 +1295,8 @@ def create_connections_rf(
 
         current_dict = {"amplitude": float(amplitude.sum()) * multiplier}
         dc_generator = nest.Create("dc_generator", n=1, params=current_dict)[0]
-        nest.Connect([dc_generator], [target_node])
+        syn_spec = {"weight": synaptic_strength}
+        nest.Connect([dc_generator], [target_node], syn_spec=syn_spec)
 
         adj_mat[indices.reshape(-1), target_node - min_id_target] = 1
 
