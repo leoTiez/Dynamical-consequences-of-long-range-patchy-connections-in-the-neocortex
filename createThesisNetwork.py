@@ -48,7 +48,7 @@ def create_network(
     p_rf = 0.3
     p_lr = 0.2
     p_random = 0.001
-    inh_weight = -1.
+    inh_weight = -15.
     rf_size = (input_stimulus.shape[0] // 4, input_stimulus.shape[1] // 4)
     patchy_connect_dict = {"rule": "pairwise_bernoulli", "p": p_lr}
     rf_connect_dict = {"rule": "pairwise_bernoulli", "p": p_rf}
@@ -60,6 +60,7 @@ def create_network(
     r_loc = 0.5
     spacing_perlin = 0.01
     resolution_perlin = (20, 20)
+    use_continue_tuning = True
 
     plot_rf_relation = False if verbosity < 4 else True
     plot_tuning_map = False if verbosity < 4 else True
@@ -143,6 +144,7 @@ def create_network(
         neuron_to_tuning_map,
         torus_inh_nodes,
         synaptic_strength=ff_weight,
+        use_continue_tuning=use_continue_tuning,
         connect_dict=rf_connect_dict,
         rf_size=rf_size,
         plot_src_target=plot_rf_relation,

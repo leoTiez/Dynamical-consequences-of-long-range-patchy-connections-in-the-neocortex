@@ -4,6 +4,7 @@ from modules.networkAnalysis import *
 
 import warnings
 import numpy as np
+import scipy.stats as stats
 import matplotlib.patches as patches
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -1172,7 +1173,7 @@ def create_stimulus_tuning_map(
     return tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map
 
 
-def check_in_stimulus_tuning(
+def step_tuning_curve(
         input_stimulus,
         stimulus_tuning,
         tuning_discr_steps,
@@ -1192,6 +1193,30 @@ def check_in_stimulus_tuning(
     )
 
 
+def continuous_tuning_curve(
+        input_stimulus,
+        stimulus_tuning,
+        tuning_discr_steps,
+        sigma=None,
+        max_value=255.
+):
+    stimulus_shape = input_stimulus.shape
+    mu = stimulus_tuning * tuning_discr_steps
+    response = stats.norm.pdf(
+        input_stimulus.reshape(-1),
+        mu,
+        sigma if sigma is not None else tuning_discr_steps
+    ).reshape(stimulus_shape)
+
+    max_response = stats.norm.pdf(
+        [mu],
+        mu,
+        sigma if sigma is not None else tuning_discr_steps
+    )[0]
+
+    return response * max_value / max_response
+
+
 def create_connections_rf(
         image,
         target_layer,
@@ -1200,6 +1225,7 @@ def create_connections_rf(
         inh_neurons,
         synaptic_strength=1.,
         rf_size=(10, 10),
+        use_continue_tuning=True,
         connect_dict=None,
         multiplier=1.,
         plot_src_target=False,
@@ -1270,15 +1296,18 @@ def create_connections_rf(
         rf = rf[connections.astype('bool').reshape(rf.shape)]
         amplitude = np.zeros(rf.shape)
         if target_node not in inh_neurons:
-            amplitude[
-                np.where(
-                    check_in_stimulus_tuning(
-                        rf,
-                        neuron_to_tuning_map[target_node],
-                        tuning_discr_step
+            if not use_continue_tuning:
+                amplitude[
+                    np.where(
+                        step_tuning_curve(
+                            rf,
+                            neuron_to_tuning_map[target_node],
+                            tuning_discr_step
+                        )
                     )
-                )
-            ] = 255.
+                ] = 255.
+            else:
+                amplitude = continuous_tuning_curve(rf, neuron_to_tuning_map[target_node], tuning_discr_step)
         else:
             amplitude = rf
 
