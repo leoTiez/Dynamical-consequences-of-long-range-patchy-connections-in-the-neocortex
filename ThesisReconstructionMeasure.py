@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import nest
 
 
-VERBOSITY = 2
+VERBOSITY = 1
 nest.set_verbosity("M_ERROR")
 
 
@@ -40,7 +40,8 @@ def main_lr(network_type, shuffle_input=False):
     simulation_time = 1000.
     use_mask = False
     cap_s = 1.     # Increased to reduce the effect of the input and to make it easier to investigate the dynamical
-                    # consequences of local / lr patchy connections
+                   # consequences of local / lr patchy connections
+    ff_weight = 1.
 
     (torus_layer_nodes,
      adj_rec_sens_mat,
@@ -50,6 +51,7 @@ def main_lr(network_type, shuffle_input=False):
      color_map) = create_network(
         input_stimulus,
         cap_s=cap_s,
+        ff_weight=ff_weight,
         network_type=network_type,
         verbosity=VERBOSITY
     )
