@@ -22,6 +22,7 @@ NETWORK_TYPE = {
 def create_network(
         input_stimulus,
         cap_s=1.,
+        ff_weight=1.,
         network_type="local_radial_lr_patchy",
         verbosity=0,
         weights_connection_dependent=False,
@@ -127,6 +128,7 @@ def create_network(
         rf_center_map,
         neuron_to_tuning_map,
         torus_inh_nodes,
+        synaptic_strength=ff_weight,
         connect_dict=rf_connect_dict,
         rf_size=rf_size,
         plot_src_target=plot_rf_relation,
