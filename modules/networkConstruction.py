@@ -1216,6 +1216,7 @@ def continuous_tuning_curve(
 
     return response * max_value / max_response
 
+
 def create_connections_rf(
         image,
         target_layer,
