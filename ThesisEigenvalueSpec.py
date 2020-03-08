@@ -16,6 +16,7 @@ nest.set_verbosity("M_ERROR")
 
 
 def main_eigenvalue_spec(network_type, shuffle_input=False):
+    nest.ResetKernel()
     # load input stimulus
     input_stimulus = image_with_spatial_correlation(
         size_img=(50, 50),
