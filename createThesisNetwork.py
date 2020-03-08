@@ -49,7 +49,7 @@ def create_network(
     p_rf = 0.3
     p_lr = 0.2
     p_random = 0.001
-    inh_weight = -1.
+    inh_weight = -15.
     rf_size = (input_stimulus.shape[0] // 4, input_stimulus.shape[1] // 4)
     patchy_connect_dict = {"rule": "pairwise_bernoulli", "p": p_lr}
     rf_connect_dict = {"rule": "pairwise_bernoulli", "p": p_rf}
