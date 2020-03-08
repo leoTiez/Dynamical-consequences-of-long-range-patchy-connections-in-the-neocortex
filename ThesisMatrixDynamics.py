@@ -17,6 +17,7 @@ nest.set_verbosity("M_ERROR")
 
 
 def main_matrix_dynamics(network_type="local_radial_lr_patchy"):
+    nest.ResetKernel()
     input_stimulus = image_with_spatial_correlation(size_img=(50, 50), num_circles=5, background_noise=False)
     if VERBOSITY > 2:
         plt.imshow(input_stimulus, cmap='gray')

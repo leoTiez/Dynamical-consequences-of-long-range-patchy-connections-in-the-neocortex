@@ -17,6 +17,7 @@ nest.set_verbosity("M_ERROR")
 
 
 def main_lr(network_type, shuffle_input=False):
+    nest.ResetKernel()
     # load input stimulus
     # input_stimulus = image_with_spatial_correlation(
     #     size_img=(50, 50),
@@ -116,7 +117,6 @@ def main_mi():
             input_stimuli = []
             reconstructed_stimuli = []
             for _ in range(num_trials):
-                nest.ResetKernel()
                 input_stimulus, reconstruction, _ = main_lr(network_type, shuffle_input=shuffle_flag)
                 input_stimuli.append(input_stimulus.reshape(-1))
                 reconstructed_stimuli.append(reconstruction.reshape(-1))
@@ -134,7 +134,6 @@ def main_error():
         for shuffle_flag in shuffle:
             errors = []
             for _ in range(num_trials):
-                nest.ResetKernel()
                 input_stimulus, reconstruction, _ = main_lr(network_type, shuffle_input=shuffle_flag)
                 errors.append(error_distance(input_stimulus, reconstruction))
 
