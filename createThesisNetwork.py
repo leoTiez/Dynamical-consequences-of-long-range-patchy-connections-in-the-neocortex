@@ -61,6 +61,7 @@ def create_network(
     r_loc = 0.5
     spacing_perlin = 0.01
     resolution_perlin = (20, 20)
+    use_continue_tuning = True
 
     plot_rf_relation = False if verbosity < 4 else True
     plot_tuning_map = False if verbosity < 4 else True
@@ -132,6 +133,7 @@ def create_network(
         neuron_to_tuning_map,
         torus_inh_nodes,
         synaptic_strength=ff_weight,
+        use_continue_tuning=use_continue_tuning,
         connect_dict=rf_connect_dict,
         rf_size=rf_size,
         plot_src_target=plot_rf_relation,
