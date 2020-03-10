@@ -989,21 +989,24 @@ def create_random_stimulus_map(
 
         if n in inh_neurons:
             tuning_weight_vector[n - min_idx] = 1.
+            if plot:
+                plt.plot(p[0], p[1], marker='o', markerfacecolor='k', markeredgewidth=0)
         else:
             tuning_to_neuron_map[stim_class].append(n)
             neuron_to_tuning_map[n] = stim_class
             tuning_weight_vector[n - min_idx] = stim_class / float(num_stimulus_discr - 1)
 
-        if plot:
-            plt.plot(
-                p[0],
-                p[1],
-                marker='o',
-                markerfacecolor=list(mcolors.TABLEAU_COLORS.items())[stim_class][0],
-                markeredgewidth=0
-            )
+            if plot:
+                plt.plot(
+                    p[0],
+                    p[1],
+                    marker='o',
+                    markerfacecolor=list(mcolors.TABLEAU_COLORS.items())[stim_class][0],
+                    markeredgewidth=0
+                )
 
     if plot:
+        plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=num_stimulus_discr)
         if not save_plot:
             plt.show()
         else:
@@ -1067,21 +1070,24 @@ def create_perlin_stimulus_map(
 
         if n in inh_neurons:
             tuning_weight_vector[n - min_idx] = 1.
+            if plot:
+                plt.plot(p[0], p[1], marker='o', markerfacecolor='k', markeredgewidth=0)
         else:
             tuning_to_neuron_map[stim_class].append(n)
             neuron_to_tuning_map[n] = stim_class
             tuning_weight_vector[n - min_idx] = stim_class / float(num_stimulus_discr - 1)
 
-        if plot:
-            plt.plot(
-                p[0],
-                p[1],
-                marker='o',
-                markerfacecolor=list(mcolors.TABLEAU_COLORS.items())[stim_class][0],
-                markeredgewidth=0
-            )
+            if plot:
+                plt.plot(
+                    p[0],
+                    p[1],
+                    marker='o',
+                    markerfacecolor=list(mcolors.TABLEAU_COLORS.items())[stim_class][0],
+                    markeredgewidth=0
+                )
 
     if plot:
+        plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=num_stimulus_discr)
         if not save_plot:
             plt.show()
         else:
