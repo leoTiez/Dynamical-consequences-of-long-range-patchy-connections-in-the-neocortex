@@ -258,12 +258,18 @@ def create_network(
             print("\n#####################\tSet synaptic weights for sensory to sensory neurons")
         set_synaptic_strength(torus_layer_nodes, adj_sens_sens_mat, cap_s=cap_s, divide_by_num_connect=True)
 
+    meta_dict = {
+        "perlin_spacing": spacing_perlin,
+        "inh_neurons": torus_inh_nodes,
+        "num_stim_classes": num_stimulus_discr
+    }
     return (
-        torus_layer_nodes,
+        torus_layer,
         adj_rec_sens_mat,
         adj_sens_sens_mat,
         tuning_weight_vector,
         spike_detect,
-        color_map
+        color_map,
+        meta_dict
     )
 

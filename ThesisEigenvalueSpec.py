@@ -44,6 +44,7 @@ def main_eigenvalue_spec(network_type, shuffle_input=False):
      adj_sens_sens_mat,
      _,
      _,
+     _,
      _) = create_network(
         input_stimulus,
         sens_adj_mat_needed=True,
