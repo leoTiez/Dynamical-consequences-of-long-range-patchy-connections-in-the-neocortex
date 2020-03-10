@@ -1261,7 +1261,7 @@ def create_connections_rf(
     num_tuning_discr = max(neuron_to_tuning_map.values()) + 1
     tuning_discr_step = 256 / float(num_tuning_discr)
     min_id_target = min(target_node_ids)
-    adj_mat = np.zeros((image.size, len(target_node_ids)), dtype='uint8')
+    adj_mat = np.zeros((image.size, len(target_node_ids)))
 
     if connect_dict is None:
         connect_dict = {

@@ -59,7 +59,7 @@ def create_adjacency_matrix(src_nodes, target_nodes):
         connection for connection in connect_values if nest.GetStatus([connection], "target")[0] in target_nodes
     ]
 
-    adjacency_mat = np.zeros((len(src_nodes), len(target_nodes)), dtype='uint8')
+    adjacency_mat = np.zeros((len(src_nodes), len(target_nodes)))
     adjacency_mat = set_values_in_adjacency_matrix(connect_values, adjacency_mat, min(src_nodes), min(target_nodes))
     return adjacency_mat
 
