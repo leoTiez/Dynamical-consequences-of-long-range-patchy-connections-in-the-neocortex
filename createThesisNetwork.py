@@ -20,6 +20,44 @@ NETWORK_TYPE = {
 }
 
 
+class NeuronalNetwork():
+    def __init__(
+            self,
+            input_stimulus,
+            num_sensory=int(1e4),
+            ratio_inh_neurons=5,
+            num_stim_discr=4,
+            inh_weight=-15.,
+            rf_size=None,
+            pot_threshold=-55.,
+            pot_reset=-70.,
+            capacitance=80.,
+            layer_size=8.,
+            spacing_perlin=0.01,
+            resolution_perlin=(20, 20),
+            verbosity=0,
+            save_plots=False
+    ):
+        self.input_stimulus = input_stimulus
+        self.num_sensory = int(num_sensory)
+        self.ratio_inh_neurons = ratio_inh_neurons
+        self.num_stim_discr = num_stim_discr
+        self.inh_weight = inh_weight
+        self.rf_size = rf_size
+
+        if self.rf_size is None:
+            self.rf_size = (input_stimulus.shape[0] // 4, input_stimulus.shape[1] // 4)
+
+        self.pot_threshold = pot_threshold
+        self.pot_reset = pot_reset
+        self.capacitance = capacitance
+        self.layer_size = layer_size
+        se
+
+    def set_input_stimulus(self, img):
+        self.input_stimulus = img
+
+
 def create_network(
         input_stimulus,
         cap_s=1.,
