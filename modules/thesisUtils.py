@@ -8,6 +8,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.colors as mcolors
+import matplotlib.cm as cm
 
 import nest.topology as tp
 
@@ -21,11 +22,13 @@ def arg_parse():
     return parsed_args
 
 
-def custom_cmap(num_stimulus_discr=4):
+def custom_cmap(num_stimulus_discr=4, add_inh=False):
     cmap = plt.get_cmap('tab10')
     new_cmap = mcolors.LinearSegmentedColormap.from_list(
         'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=0.0, b=(1/num_stimulus_discr)+0.1),
         cmap(np.linspace(0.0, (1/num_stimulus_discr)+0.1, 100)))
+    if add_inh:
+        new_cmap.set_under('k')
     return new_cmap
 
 
@@ -102,6 +105,7 @@ def plot_connections(
             plt.plot([s[0], t[0]], [s[1], t[1]], color="k")
 
     if color_mask is not None:
+        plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=color_mask.max()+1)
         if not type(color_mask) == np.ndarray:
             for mask in color_mask:
                 area_rect = patches.Rectangle(
@@ -128,6 +132,22 @@ def plot_connections(
         plt.close()
     else:
         plt.show()
+
+
+def plot_colorbar(fig, ax, num_stim_classes=4):
+    step_size = 255 / float(num_stim_classes)
+    bounds = [i * step_size for i in range(0, num_stim_classes + 1)]
+    cmap = custom_cmap(num_stimulus_discr=num_stim_classes, add_inh=True)
+    norm = mcolors.BoundaryNorm(bounds, cmap.N)
+    fig.colorbar(
+        cm.ScalarMappable(norm=norm, cmap=cmap),
+        ax=ax,
+        extend='min',
+        boundaries=[-1] + bounds,
+        ticks=bounds,
+        spacing='uniform',
+        orientation='vertical'
+    )
 
 
 def perlin_noise(size_layer=50, resolution=(5, 5), spacing=0.01):
