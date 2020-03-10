@@ -5,14 +5,14 @@ from modules.stimulusReconstruction import fourier_trans, direct_stimulus_recons
 from modules.createStimulus import *
 from modules.networkAnalysis import *
 from modules.thesisUtils import arg_parse
-from createThesisNetwork import create_network, NETWORK_TYPE
+from createThesisNetwork import RandomNetwork, LocalNetwork, PatchyNetwork
 
 import numpy as np
 import matplotlib.pyplot as plt
 import nest
 
 
-VERBOSITY = 2
+VERBOSITY = 3
 nest.set_verbosity("M_ERROR")
 
 
@@ -43,34 +43,33 @@ def main_lr(network_type, shuffle_input=False):
     cap_s = 1.     # Increased to reduce the effect of the input and to make it easier to investigate the dynamical
     # consequences of local / lr patchy connections
 
-    (torus_layer,
-     adj_rec_sens_mat,
-     _,
-     tuning_weight_vector,
-     spike_detect,
-     color_map,
-     meta_dict) = create_network(
-        input_stimulus,
-        cap_s=cap_s,
-        network_type=network_type,
-        verbosity=VERBOSITY
-    )
+    network = PatchyNetwork(input_stimulus, verbosity=VERBOSITY)
+    network.create_network()
 
-    torus_layer_nodes = nest.GetNodes(torus_layer)[0]
-    layer_size = nest.GetStatus(torus_layer, "topology")[0]["extent"][0]
-    # #################################################################################################################
-    # Simulate and retrieve resutls
-    # #################################################################################################################
-    if VERBOSITY > 0:
-        print("\n#####################\tSimulate")
-    nest.Simulate(simulation_time)
+    # (torus_layer,
+    #  adj_rec_sens_mat,
+    #  _,
+    #  tuning_weight_vector,
+    #  spike_detect,
+    #  color_map,
+    #  meta_dict) = create_network(
+    #     input_stimulus,
+    #     cap_s=cap_s,
+    #     network_type=network_type,
+    #     verbosity=VERBOSITY
+    # )
+    # torus_layer_nodes = nest.GetNodes(torus_layer)[0]
+    # layer_size = nest.GetStatus(torus_layer, "topology")[0]["extent"][0]
+
+    firing_rates, (spikes_s, time_s) = network.simulate(simulation_time)
+    # nest.Simulate(simulation_time)
 
     # Get network response in spikes
-    data_sp = nest.GetStatus(spike_detect, keys="events")[0]
-    spikes_s = data_sp["senders"]
-    time_s = data_sp["times"]
-
-    firing_rates = get_firing_rates(spikes_s, torus_layer_nodes, simulation_time)
+    # data_sp = nest.GetStatus(spike_detect, keys="events")[0]
+    # spikes_s = data_sp["senders"]
+    # time_s = data_sp["times"]
+    #
+    # firing_rates = get_firing_rates(spikes_s, torus_layer_nodes, simulation_time)
 
     if VERBOSITY > 0:
         average_firing_rate = np.mean(firing_rates)
@@ -79,28 +78,27 @@ def main_lr(network_type, shuffle_input=False):
     if VERBOSITY > 3:
         print("\n#####################\tPlot firing pattern over time")
         positions = tp.GetPosition(spikes_s.tolist())
-        plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=meta_dict["num_stim_classes"])
+        plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=network.num_stim_discr)
         for s, t, pos in zip(spikes_s, time_s, positions):
-            x_grid, y_grid = coordinates_to_cmap_index(layer_size, pos, meta_dict["perlin_spacing"])
-            stim_class = color_map[x_grid, y_grid]
+            x_grid, y_grid = coordinates_to_cmap_index(network.layer_size, pos, network.num_stim_discr)
+            stim_class = network.color_map[x_grid, y_grid]
             plt.plot(
                 t,
                 s,
                 marker='.',
                 markerfacecolor=list(mcolors.TABLEAU_COLORS.items())[stim_class][0]
-                if s not in meta_dict["inh_neurons"] else 'k',
+                if s not in network.torus_inh_nodes else 'k',
                 markeredgewidth=0
             )
         plt.show()
 
     if VERBOSITY > 2:
         print("\n#####################\tPlot firing pattern over space")
-        positions = tp.GetPosition(torus_layer_nodes)
-        plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=meta_dict["num_stim_classes"])
-        for pos, fr, neuron in zip(positions, firing_rates, torus_layer_nodes):
-            if neuron not in meta_dict["inh_neurons"]:
-                x_grid, y_grid = coordinates_to_cmap_index(layer_size, pos, meta_dict["perlin_spacing"])
-                stim_class = color_map[x_grid, y_grid]
+        plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=network.num_stim_discr)
+        for pos, fr, neuron in zip(network.torus_layer_positions, firing_rates, network.torus_layer_nodes):
+            if neuron not in network.torus_inh_nodes:
+                x_grid, y_grid = coordinates_to_cmap_index(network.layer_size, pos, network.spacing_perlin)
+                stim_class = network.color_map[x_grid, y_grid]
                 plt.plot(
                     pos[0],
                     pos[1],
@@ -120,11 +118,16 @@ def main_lr(network_type, shuffle_input=False):
                 )
 
         plt.imshow(
-            color_map,
+            network.color_map,
             cmap=custom_cmap(),
             alpha=0.3,
-            origin=(color_map.shape[0] // 2, color_map.shape[1] // 2),
-            extent=(-layer_size / 2., layer_size / 2., -layer_size / 2., layer_size / 2.)
+            origin=(network.color_map.shape[0] // 2, network.color_map.shape[1] // 2),
+            extent=(
+                -network.layer_size / 2.,
+                network.layer_size / 2.,
+                -network.layer_size / 2.,
+                network.layer_size / 2.
+            )
         )
         plt.show()
 
@@ -141,8 +144,8 @@ def main_lr(network_type, shuffle_input=False):
 
     reconstruction = direct_stimulus_reconstruction(
         firing_rates[mask],
-        adj_rec_sens_mat,
-        tuning_weight_vector
+        network.adj_rec_sens_mat,
+        network.tuning_weight_vector
     )
     response_fft = fourier_trans(reconstruction)
 
@@ -156,45 +159,45 @@ def main_lr(network_type, shuffle_input=False):
         _, fig_2 = plt.subplots(1, 3)
         fig_2[0].imshow(reconstruction, cmap='gray', vmin=0, vmax=255)
         fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
-        fig_2[2].imshow(color_map, cmap=custom_cmap())
+        fig_2[2].imshow(network.color_map, cmap=custom_cmap())
         plt.show()
 
     return input_stimulus, reconstruction, firing_rates
 
 
-def main_mi():
-    # Define parameters outside  the loop
-    num_trials = 5
-    shuffle = [True, False]
-    for network_type in list(NETWORK_TYPE.keys()):
-        for shuffle_flag in shuffle:
-            input_stimuli = []
-            reconstructed_stimuli = []
-            for _ in range(num_trials):
-                input_stimulus, reconstruction, _ = main_lr(network_type, shuffle_input=shuffle_flag)
-                input_stimuli.append(input_stimulus.reshape(-1))
-                reconstructed_stimuli.append(reconstruction.reshape(-1))
-
-            mutual_information = mutual_information_hist(input_stimuli, reconstructed_stimuli)
-            shuffle_string = "random input" if shuffle_flag else "input with spatial correlation"
-            print("\n#####################\tMutual Information MI for network type %s and %s: %s \n"
-                  % (network_type, shuffle_string, mutual_information))
-
-
-def main_error():
-    num_trials = 5
-    shuffle = [True, False]
-    for network_type in list(NETWORK_TYPE.keys()):
-        for shuffle_flag in shuffle:
-            errors = []
-            for _ in range(num_trials):
-                input_stimulus, reconstruction, _ = main_lr(network_type, shuffle_input=shuffle_flag)
-                errors.append(error_distance(input_stimulus, reconstruction))
-
-            mean_error = np.mean(np.asarray(errors))
-            shuffle_string = "random input" if shuffle_flag else "input with spatial correlation"
-            print("\n#####################\tMean Error for network type %s and %s: %s \n"
-                  % (network_type, shuffle_string, mean_error))
+# def main_mi():
+#     # Define parameters outside  the loop
+#     num_trials = 5
+#     shuffle = [True, False]
+#     for network_type in list(NETWORK_TYPE.keys()):
+#         for shuffle_flag in shuffle:
+#             input_stimuli = []
+#             reconstructed_stimuli = []
+#             for _ in range(num_trials):
+#                 input_stimulus, reconstruction, _ = main_lr(network_type, shuffle_input=shuffle_flag)
+#                 input_stimuli.append(input_stimulus.reshape(-1))
+#                 reconstructed_stimuli.append(reconstruction.reshape(-1))
+#
+#             mutual_information = mutual_information_hist(input_stimuli, reconstructed_stimuli)
+#             shuffle_string = "random input" if shuffle_flag else "input with spatial correlation"
+#             print("\n#####################\tMutual Information MI for network type %s and %s: %s \n"
+#                   % (network_type, shuffle_string, mutual_information))
+#
+#
+# def main_error():
+#     num_trials = 5
+#     shuffle = [True, False]
+#     for network_type in list(NETWORK_TYPE.keys()):
+#         for shuffle_flag in shuffle:
+#             errors = []
+#             for _ in range(num_trials):
+#                 input_stimulus, reconstruction, _ = main_lr(network_type, shuffle_input=shuffle_flag)
+#                 errors.append(error_distance(input_stimulus, reconstruction))
+#
+#             mean_error = np.mean(np.asarray(errors))
+#             shuffle_string = "random input" if shuffle_flag else "input with spatial correlation"
+#             print("\n#####################\tMean Error for network type %s and %s: %s \n"
+#                   % (network_type, shuffle_string, mean_error))
 
 
 if __name__ == '__main__':
