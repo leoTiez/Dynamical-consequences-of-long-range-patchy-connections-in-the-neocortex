@@ -41,20 +41,23 @@ def main_lr(network_type, shuffle_input=False):
     simulation_time = 1000.
     use_mask = False
     cap_s = 1.     # Increased to reduce the effect of the input and to make it easier to investigate the dynamical
-                   # consequences of local / lr patchy connections
+    # consequences of local / lr patchy connections
 
-    (torus_layer_nodes,
+    (torus_layer,
      adj_rec_sens_mat,
      _,
      tuning_weight_vector,
      spike_detect,
-     color_map) = create_network(
+     color_map,
+     meta_dict) = create_network(
         input_stimulus,
         cap_s=cap_s,
         network_type=network_type,
         verbosity=VERBOSITY
     )
 
+    torus_layer_nodes = nest.GetNodes(torus_layer)[0]
+    layer_size = nest.GetStatus(torus_layer, "topology")[0]["extent"][0]
     # #################################################################################################################
     # Simulate and retrieve resutls
     # #################################################################################################################
@@ -66,15 +69,64 @@ def main_lr(network_type, shuffle_input=False):
     data_sp = nest.GetStatus(spike_detect, keys="events")[0]
     spikes_s = data_sp["senders"]
     time_s = data_sp["times"]
-    if VERBOSITY > 2:
-        plt.plot(time_s, spikes_s, "k,")
-        plt.show()
 
     firing_rates = get_firing_rates(spikes_s, torus_layer_nodes, simulation_time)
 
     if VERBOSITY > 0:
         average_firing_rate = np.mean(firing_rates)
-        print("\n#####################\tAverage firing rate: %s \n" % average_firing_rate)
+        print("\n#####################\tAverage firing rate: %s" % average_firing_rate)
+
+    if VERBOSITY > 3:
+        print("\n#####################\tPlot firing pattern over time")
+        positions = tp.GetPosition(spikes_s.tolist())
+        plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=meta_dict["num_stim_classes"])
+        for s, t, pos in zip(spikes_s, time_s, positions):
+            x_grid, y_grid = coordinates_to_cmap_index(layer_size, pos, meta_dict["perlin_spacing"])
+            stim_class = color_map[x_grid, y_grid]
+            plt.plot(
+                t,
+                s,
+                marker='.',
+                markerfacecolor=list(mcolors.TABLEAU_COLORS.items())[stim_class][0]
+                if s not in meta_dict["inh_neurons"] else 'k',
+                markeredgewidth=0
+            )
+        plt.show()
+
+    if VERBOSITY > 2:
+        print("\n#####################\tPlot firing pattern over space")
+        positions = tp.GetPosition(torus_layer_nodes)
+        plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=meta_dict["num_stim_classes"])
+        for pos, fr, neuron in zip(positions, firing_rates, torus_layer_nodes):
+            if neuron not in meta_dict["inh_neurons"]:
+                x_grid, y_grid = coordinates_to_cmap_index(layer_size, pos, meta_dict["perlin_spacing"])
+                stim_class = color_map[x_grid, y_grid]
+                plt.plot(
+                    pos[0],
+                    pos[1],
+                    marker='o',
+                    markerfacecolor=list(mcolors.TABLEAU_COLORS.items())[stim_class][0],
+                    markeredgewidth=0,
+                    alpha=fr/float(max(firing_rates))
+                )
+            else:
+                plt.plot(
+                    pos[0],
+                    pos[1],
+                    marker='o',
+                    markerfacecolor='k',
+                    markeredgewidth=0,
+                    alpha=fr/float(max(firing_rates))
+                )
+
+        plt.imshow(
+            color_map,
+            cmap=custom_cmap(),
+            alpha=0.3,
+            origin=(color_map.shape[0] // 2, color_map.shape[1] // 2),
+            extent=(-layer_size / 2., layer_size / 2., -layer_size / 2., layer_size / 2.)
+        )
+        plt.show()
 
     # #################################################################################################################
     # Reconstruct stimulus
@@ -94,11 +146,13 @@ def main_lr(network_type, shuffle_input=False):
     )
     response_fft = fourier_trans(reconstruction)
 
-    if VERBOSITY > 1:
+    if VERBOSITY > 3:
         from matplotlib.colors import LogNorm
         _, fig = plt.subplots(1, 2)
         fig[0].imshow(np.abs(response_fft), norm=LogNorm(vmin=5))
         fig[1].imshow(np.abs(stimulus_fft), norm=LogNorm(vmin=5))
+
+    if VERBOSITY > 1:
         _, fig_2 = plt.subplots(1, 3)
         fig_2[0].imshow(reconstruction, cmap='gray', vmin=0, vmax=255)
         fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
