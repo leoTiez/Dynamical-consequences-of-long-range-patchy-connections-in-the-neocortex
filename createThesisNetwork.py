@@ -10,6 +10,15 @@ import nest
 
 nest.set_verbosity("M_ERROR")
 
+NETWORK_TYPE = {
+    "random": 0,
+    "local_circ": 1,
+    "local_sd": 2,
+    "local_circ_patchy_sd": 3,
+    "local_circ_patchy_random": 4,
+    "local_sd_patchy_sd": 5
+}
+
 
 class NeuronalNetworkBase:
     def __init__(
@@ -30,7 +39,8 @@ class NeuronalNetworkBase:
             spacing_perlin=0.01,
             resolution_perlin=(20, 20),
             verbosity=0,
-            save_plots=False
+            save_plots=False,
+            **kwargs
     ):
         self.input_stimulus = input_stimulus
         self.num_sensory = int(num_sensory)
@@ -307,7 +317,8 @@ class RandomNetwork(NeuronalNetworkBase):
             capacitance=80.,
             layer_size=8.,
             verbosity=0,
-            save_plots=False
+            save_plots=False,
+            **kwargs
     ):
         spacing_perlin = layer_size / np.sqrt(num_sensory)
         res_perlin = int(layer_size * np.sqrt(num_sensory))
@@ -398,7 +409,8 @@ class LocalNetwork(NeuronalNetworkBase):
             spacing_perlin=0.01,
             resolution_perlin=(20, 20),
             verbosity=0,
-            save_plots=False
+            save_plots=False,
+            **kwargs
     ):
         NeuronalNetworkBase.__init__(
             self,
@@ -526,7 +538,8 @@ class PatchyNetwork(LocalNetwork):
             spacing_perlin=0.01,
             resolution_perlin=(20, 20),
             verbosity=0,
-            save_plots=False
+            save_plots=False,
+            **kwargs
     ):
         LocalNetwork.__init__(
             self,
@@ -630,4 +643,49 @@ class PatchyNetwork(LocalNetwork):
     def create_network(self):
         LocalNetwork.create_network(self)
         self.create_lr_connections()
+
+
+def network_factory(input_stimulus, network_type=NETWORK_TYPE["local_circ_patchy_sd"], **kwargs):
+    if network_type == NETWORK_TYPE["random"]:
+        network = RandomNetwork(
+            input_stimulus,
+            **kwargs
+        )
+    elif network_type == NETWORK_TYPE["local_circ"]:
+        network = LocalNetwork(
+            input_stimulus,
+            loc_connection_type="circular",
+            **kwargs
+        )
+    elif network_type == NETWORK_TYPE["local_sd"]:
+        network = LocalNetwork(
+            input_stimulus,
+            loc_connection_type="sd",
+            **kwargs
+        )
+    elif network_type == NETWORK_TYPE["local_circ_patchy_random"]:
+        network = PatchyNetwork(
+            input_stimulus,
+            loc_connection_type="circular",
+            lr_connection_type="random",
+            **kwargs
+        )
+    elif network_type == NETWORK_TYPE["local_circ_patchy_sd"]:
+        network = PatchyNetwork(
+            input_stimulus,
+            loc_connection_type="circular",
+            lr_connection_type="sd",
+            **kwargs
+        )
+    elif network_type == NETWORK_TYPE["local_sd_patchy_sd"]:
+        network = PatchyNetwork(
+            input_stimulus,
+            loc_connection_type="sd",
+            lr_connection_type="sd",
+            **kwargs
+        )
+    else:
+        raise ValueError("Network type %s is not accpepted" % network_type)
+
+    return network
 
