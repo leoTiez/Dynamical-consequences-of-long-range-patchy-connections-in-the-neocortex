@@ -3,33 +3,23 @@
 
 from modules.stimulusReconstruction import fourier_trans, direct_stimulus_reconstruction
 from modules.createStimulus import *
-from modules.networkAnalysis import *
 from modules.thesisUtils import arg_parse
-from createThesisNetwork import RandomNetwork, LocalNetwork, PatchyNetwork
+from createThesisNetwork import network_factory, NETWORK_TYPE
+from modules.networkAnalysis import mutual_information_hist, error_distance
 
 import numpy as np
 import matplotlib.pyplot as plt
 import nest
 
 
-VERBOSITY = 3
+VERBOSITY = 1
 nest.set_verbosity("M_ERROR")
 
 
-def main_lr(network_type, shuffle_input=False):
-    nest.ResetKernel()
+def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=INPUT_TYPE["plain"]):
     # load input stimulus
-    # input_stimulus = image_with_spatial_correlation(
-    #     size_img=(50, 50),
-    #     num_circles=5,
-    #     radius=10,
-    #     background_noise=shuffle_input,
-    #     shuffle=shuffle_input
-    # )
-    # input_stimulus = create_image_bar(0, shuffle=shuffle_input)
-    # input_stimulus = load_image("nfl-sunflower50.jpg")
-    # input_stimulus = perlin_image()
-    input_stimulus = plain_stimulus()
+    input_stimulus = stimulus_factory(input_type)
+
     stimulus_fft = fourier_trans(input_stimulus)
     if VERBOSITY > 2:
         plt.imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
@@ -39,37 +29,11 @@ def main_lr(network_type, shuffle_input=False):
     # Define values
     # #################################################################################################################
     simulation_time = 1000.
-    use_mask = False
-    cap_s = 1.     # Increased to reduce the effect of the input and to make it easier to investigate the dynamical
-    # consequences of local / lr patchy connections
+    num_neurons = int(1e4)
 
-    network = PatchyNetwork(input_stimulus, verbosity=VERBOSITY)
+    network = network_factory(input_stimulus, network_type=network_type, num_sensory=num_neurons, verbosity=VERBOSITY)
     network.create_network()
-
-    # (torus_layer,
-    #  adj_rec_sens_mat,
-    #  _,
-    #  tuning_weight_vector,
-    #  spike_detect,
-    #  color_map,
-    #  meta_dict) = create_network(
-    #     input_stimulus,
-    #     cap_s=cap_s,
-    #     network_type=network_type,
-    #     verbosity=VERBOSITY
-    # )
-    # torus_layer_nodes = nest.GetNodes(torus_layer)[0]
-    # layer_size = nest.GetStatus(torus_layer, "topology")[0]["extent"][0]
-
     firing_rates, (spikes_s, time_s) = network.simulate(simulation_time)
-    # nest.Simulate(simulation_time)
-
-    # Get network response in spikes
-    # data_sp = nest.GetStatus(spike_detect, keys="events")[0]
-    # spikes_s = data_sp["senders"]
-    # time_s = data_sp["times"]
-    #
-    # firing_rates = get_firing_rates(spikes_s, torus_layer_nodes, simulation_time)
 
     if VERBOSITY > 0:
         average_firing_rate = np.mean(firing_rates)
@@ -134,16 +98,12 @@ def main_lr(network_type, shuffle_input=False):
     # #################################################################################################################
     # Reconstruct stimulus
     # #################################################################################################################
-    mask = np.ones(firing_rates.shape, dtype='bool')
-    if use_mask:
-        mask = firing_rates > 0
-
     # Reconstruct input stimulus
     if VERBOSITY > 0:
         print("\n#####################\tReconstruct stimulus")
 
     reconstruction = direct_stimulus_reconstruction(
-        firing_rates[mask],
+        firing_rates,
         network.adj_rec_sens_mat,
         network.tuning_weight_vector
     )
@@ -165,39 +125,37 @@ def main_lr(network_type, shuffle_input=False):
     return input_stimulus, reconstruction, firing_rates
 
 
-# def main_mi():
-#     # Define parameters outside  the loop
-#     num_trials = 5
-#     shuffle = [True, False]
-#     for network_type in list(NETWORK_TYPE.keys()):
-#         for shuffle_flag in shuffle:
-#             input_stimuli = []
-#             reconstructed_stimuli = []
-#             for _ in range(num_trials):
-#                 input_stimulus, reconstruction, _ = main_lr(network_type, shuffle_input=shuffle_flag)
-#                 input_stimuli.append(input_stimulus.reshape(-1))
-#                 reconstructed_stimuli.append(reconstruction.reshape(-1))
-#
-#             mutual_information = mutual_information_hist(input_stimuli, reconstructed_stimuli)
-#             shuffle_string = "random input" if shuffle_flag else "input with spatial correlation"
-#             print("\n#####################\tMutual Information MI for network type %s and %s: %s \n"
-#                   % (network_type, shuffle_string, mutual_information))
-#
-#
-# def main_error():
-#     num_trials = 5
-#     shuffle = [True, False]
-#     for network_type in list(NETWORK_TYPE.keys()):
-#         for shuffle_flag in shuffle:
-#             errors = []
-#             for _ in range(num_trials):
-#                 input_stimulus, reconstruction, _ = main_lr(network_type, shuffle_input=shuffle_flag)
-#                 errors.append(error_distance(input_stimulus, reconstruction))
-#
-#             mean_error = np.mean(np.asarray(errors))
-#             shuffle_string = "random input" if shuffle_flag else "input with spatial correlation"
-#             print("\n#####################\tMean Error for network type %s and %s: %s \n"
-#                   % (network_type, shuffle_string, mean_error))
+def main_mi(input_type=INPUT_TYPE["plain"], num_trials=5):
+    # Define parameters outside  the loop
+    for network_type in list(NETWORK_TYPE.keys()):
+        input_stimuli = []
+        reconstructed_stimuli = []
+        for _ in range(num_trials):
+            input_stimulus, reconstruction, _ = main_lr(
+                network_type=NETWORK_TYPE[network_type],
+                input_type=input_type,
+            )
+            input_stimuli.append(input_stimulus.reshape(-1))
+            reconstructed_stimuli.append(reconstruction.reshape(-1))
+
+        mutual_information = mutual_information_hist(input_stimuli, reconstructed_stimuli)
+        print("\n#####################\tMutual Information MI for network type %s and input type %s: %s \n"
+              % (network_type, input_type, mutual_information))
+
+
+def main_error(input_type=INPUT_TYPE["plain"], num_trials=5):
+    for network_type in list(NETWORK_TYPE.keys()):
+        errors = []
+        for _ in range(num_trials):
+            input_stimulus, reconstruction, _ = main_lr(
+                network_type=NETWORK_TYPE[network_type],
+                input_type=input_type
+            )
+            errors.append(error_distance(input_stimulus, reconstruction))
+
+        mean_error = np.mean(np.asarray(errors))
+        print("\n#####################\tMean Error for network type %s and input type %s: %s \n"
+              % (network_type, input_type, mean_error))
 
 
 if __name__ == '__main__':
@@ -208,7 +166,7 @@ if __name__ == '__main__':
         import matplotlib
         matplotlib.use("Agg")
 
-    main_lr("local_radial_lr_patchy")
-    # main_mi()
-    # main_error()
+    main_lr(network_type=NETWORK_TYPE["local_circ_patchy_sd"], input_type=INPUT_TYPE["plain"])
+    # main_mi(input_type=INPUT_TYPE["plain"], num_trials=5)
+    # main_error(input_type=INPUT_TYPE["plain"], num_trials=5)
 
