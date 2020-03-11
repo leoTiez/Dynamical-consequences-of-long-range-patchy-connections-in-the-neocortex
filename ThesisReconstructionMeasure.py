@@ -30,8 +30,25 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
     # #################################################################################################################
     simulation_time = 1000.
     num_neurons = int(1e4)
+    cap_s = 1.
+    inh_weight = -15.
+    all_same_input_current = False
+    p_loc = 0.6
+    p_lr = 0.2
 
-    network = network_factory(input_stimulus, network_type=network_type, num_sensory=num_neurons, verbosity=VERBOSITY)
+    # Note: when using the same input current for all neurons, we obtain synchrony, and due to the refactory phase
+    # all recurrent connections do not have any effect
+    network = network_factory(
+        input_stimulus,
+        network_type=network_type,
+        num_sensory=num_neurons,
+        all_same_input_current=all_same_input_current,
+        cap_s=cap_s,
+        inh_weight=inh_weight,
+        p_loc=p_loc,
+        p_lr=p_lr,
+        verbosity=VERBOSITY
+    )
     network.create_network()
     firing_rates, (spikes_s, time_s) = network.simulate(simulation_time)
 
@@ -44,7 +61,7 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
         positions = tp.GetPosition(spikes_s.tolist())
         plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=network.num_stim_discr)
         for s, t, pos in zip(spikes_s, time_s, positions):
-            x_grid, y_grid = coordinates_to_cmap_index(network.layer_size, pos, network.num_stim_discr)
+            x_grid, y_grid = coordinates_to_cmap_index(network.layer_size, pos, network.spacing_perlin)
             stim_class = network.color_map[x_grid, y_grid]
             plt.plot(
                 t,
@@ -94,6 +111,9 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
             )
         )
         plt.show()
+
+    if all_same_input_current:
+        return None
 
     # #################################################################################################################
     # Reconstruct stimulus
@@ -166,7 +186,7 @@ if __name__ == '__main__':
         import matplotlib
         matplotlib.use("Agg")
 
-    main_lr(network_type=NETWORK_TYPE["local_circ_patchy_sd"], input_type=INPUT_TYPE["plain"])
+    main_lr(network_type=NETWORK_TYPE["local_circ_patchy_sd"], input_type=INPUT_TYPE["perlin"])
     # main_mi(input_type=INPUT_TYPE["plain"], num_trials=5)
     # main_error(input_type=INPUT_TYPE["plain"], num_trials=5)
 
