@@ -32,6 +32,7 @@ class NeuronalNetworkBase:
             p_rf=0.3,
             rf_size=None,
             use_continuous_tuning=True,
+            all_same_input_current=False,
             pot_threshold=-55.,
             pot_reset=-70.,
             capacitance=80.,
@@ -54,6 +55,7 @@ class NeuronalNetworkBase:
         if self.rf_size is None:
             self.rf_size = (input_stimulus.shape[0] // 4, input_stimulus.shape[1] // 4)
 
+        self.all_same_input_current = all_same_input_current
         self.use_continuous_tuning = use_continuous_tuning
 
         self.pot_threshold = pot_threshold
@@ -87,17 +89,13 @@ class NeuronalNetworkBase:
 
         self.adj_rec_sens_mat = None
         self.adj_sens_sens_mat = None
+        self.rf_center_map = None
 
     def determine_ffweight(self):
         if self.verbosity > 0:
             print("\n#####################\tDetermine feedforward weight")
 
-        self.ff_weight = determine_ffweight(
-            self.rf_size,
-            rest_pot=self.pot_reset,
-            threshold_pot=self.pot_threshold,
-            capacitance=self.capacitance,
-        )
+        self.ff_weight = determine_ffweight(self.rf_size)
 
     # #################################################################################################################
     # Network creation
@@ -194,34 +192,50 @@ class NeuronalNetworkBase:
             raise ValueError("The the connection probability for the receptive field is not set "
                              "to a meaningful value. Set it between 0 and 1"
                              " Current value is %s" % self.p_rf)
+        if self.rf_size[0] < 0 or self.rf_size[1] < 0:
+            raise ValueError("The size and shape of the receptive field must not be negative.")
 
-        rf_center_map = [
-            (
-                (x + (self.layer_size / 2.)) / float(self.layer_size) * self.input_stimulus.shape[1],
-                (y + (self.layer_size / 2.)) / float(self.layer_size) * self.input_stimulus.shape[0]
-            )
-            for (x, y) in self.torus_layer_positions
-        ]
+        if self.rf_center_map is None:
+            self.rf_center_map = [
+                (
+                    (x + (self.layer_size / 2.)) / float(self.layer_size) * self.input_stimulus.shape[1],
+                    (y + (self.layer_size / 2.)) / float(self.layer_size) * self.input_stimulus.shape[0]
+                )
+                for (x, y) in self.torus_layer_positions
+            ]
 
         # Create connections to receptive field
         if self.verbosity > 0:
             print("\n#####################\tCreate connections between receptors and sensory neurons")
 
-        rf_connect_dict = {"rule": "pairwise_bernoulli", "p": self.p_rf}
         self.adj_rec_sens_mat = create_connections_rf(
             self.input_stimulus,
             self.torus_layer,
-            rf_center_map,
+            self.rf_center_map,
             self.neuron_to_tuning_map,
             self.torus_inh_nodes,
             synaptic_strength=self.ff_weight,
             use_continuous_tuning=self.use_continuous_tuning,
-            connect_dict=rf_connect_dict,
+            p_rf=self.p_rf,
             rf_size=self.rf_size,
             plot_src_target=self.plot_rf_relation,
             retina_size=self.input_stimulus.shape,
             save_plot=self.save_plots
         )
+
+    def set_same_input_current(self):
+        if self.verbosity > 0:
+            print("\n#####################\tSet same input current to all sensory neurons")
+
+        # Check ups
+        if self.torus_layer is None:
+            raise ValueError("The neural sheet has not been created yet. Run create_layer")
+        if self.ff_weight is None:
+            raise ValueError("The feedforward weight must not be None. Run determine_ffweight")
+        if self.rf_size[0] < 0 or self.rf_size[1] < 0:
+            raise ValueError("The size and shape of the receptive field must not be negative.")
+
+        same_input_current(self.torus_layer, self.p_rf, self.ff_weight, rf_size=self.rf_size)
 
     # #################################################################################################################
     # Simulate
@@ -289,6 +303,7 @@ class NeuronalNetworkBase:
 
     def set_input_stimulus(self, img):
         self.input_stimulus = img
+        self.create_retina()
 
     # #################################################################################################################
     # Abstract methods
@@ -297,6 +312,12 @@ class NeuronalNetworkBase:
     def create_network(self):
         # Reset Nest Kernel
         nest.ResetKernel()
+        self.create_layer()
+        self.create_orientation_map()
+        if not self.all_same_input_current:
+            self.create_retina()
+        else:
+            self.set_same_input_current()
 
 
 class RandomNetwork(NeuronalNetworkBase):
@@ -323,7 +344,7 @@ class RandomNetwork(NeuronalNetworkBase):
         spacing_perlin = layer_size / np.sqrt(num_sensory)
         res_perlin = int(layer_size * np.sqrt(num_sensory))
         resolution_perlin = (res_perlin, res_perlin)
-
+        self.__dict__.update(kwargs)
         NeuronalNetworkBase.__init__(
             self,
             input_stimulus,
@@ -342,7 +363,8 @@ class RandomNetwork(NeuronalNetworkBase):
             spacing_perlin=spacing_perlin,
             resolution_perlin=resolution_perlin,
             verbosity=verbosity,
-            save_plots=save_plots
+            save_plots=save_plots,
+            **kwargs
         )
 
         self.p_random = p_random
@@ -366,11 +388,12 @@ class RandomNetwork(NeuronalNetworkBase):
                              "to a meaningful value. Set it between 0 and 1"
                              " Current value is %s" % self.p_random)
 
+        connect_dict = {"rule": "pairwise_bernoulli", "p": self.p_random}
         create_random_connections(
             self.torus_layer,
             self.torus_inh_nodes,
             inh_weight=self.inh_weight,
-            prob=self.p_random,
+            connect_dict=connect_dict,
             cap_s=self.cap_s,
             plot=self.plot_random_connections,
             save_plot=self.save_plots,
@@ -379,9 +402,6 @@ class RandomNetwork(NeuronalNetworkBase):
 
     def create_network(self):
         NeuronalNetworkBase.create_network(self)
-        self.create_layer()
-        self.create_orientation_map()
-        self.create_retina()
         self.create_random_connections()
 
 
@@ -412,6 +432,7 @@ class LocalNetwork(NeuronalNetworkBase):
             save_plots=False,
             **kwargs
     ):
+        self.__dict__.update(kwargs)
         NeuronalNetworkBase.__init__(
             self,
             input_stimulus,
@@ -430,7 +451,8 @@ class LocalNetwork(NeuronalNetworkBase):
             spacing_perlin=spacing_perlin,
             resolution_perlin=resolution_perlin,
             verbosity=verbosity,
-            save_plots=save_plots
+            save_plots=save_plots,
+            **kwargs
         )
 
         self.p_loc = p_loc
@@ -457,13 +479,16 @@ class LocalNetwork(NeuronalNetworkBase):
                              " Current value is %s" % self.p_loc)
         if self.r_loc < 0:
             raise ValueError("Local connection radius must not be negative")
+        if self.torus_layer_tree is None:
+            raise ValueError("The torus layer organised in a tree must be created first. Run create_layer")
+
+        # Set connection dict
+        local_connect_dict = {"rule": "pairwise_bernoulli", "p": self.p_loc}
 
         if self.loc_connection_type == "sd":
             if self.verbosity > 0:
                 print("\n#####################\tCreate local stimulus dependent connections")
             # Connection specific check up
-            if self.torus_layer_tree is None:
-                raise ValueError("The torus layer organised in a tree must be created first. Run create_layer")
             if self.neuron_to_tuning_map is None:
                 raise ValueError("The mapping from neuron to orientation tuning must be created first."
                                  " Run create_orientation_map")
@@ -471,7 +496,6 @@ class LocalNetwork(NeuronalNetworkBase):
                 raise ValueError("The mapping from orientation tuning to neuron must be created first."
                                  " Run create_orientation_map")
 
-            local_connect_dict = {"rule": "pairwise_bernoulli", "p": self.p_loc}
             create_stimulus_based_local_connections(
                 self.torus_layer,
                 self.torus_layer_tree,
@@ -491,9 +515,10 @@ class LocalNetwork(NeuronalNetworkBase):
                 print("\n#####################\tCreate local circular connections")
             create_local_circular_connections(
                 self.torus_layer,
+                self.torus_layer_tree,
                 self.torus_inh_nodes,
                 inh_weight=self.inh_weight,
-                p_loc=self.p_loc,
+                connect_dict=local_connect_dict,
                 r_loc=self.r_loc,
                 cap_s=self.cap_s,
                 plot=self.plot_local_connections,
@@ -505,9 +530,6 @@ class LocalNetwork(NeuronalNetworkBase):
 
     def create_network(self):
         NeuronalNetworkBase.create_network(self)
-        self.create_layer()
-        self.create_orientation_map()
-        self.create_retina()
         self.create_local_connections()
 
 
@@ -541,6 +563,7 @@ class PatchyNetwork(LocalNetwork):
             save_plots=False,
             **kwargs
     ):
+        self.__dict__.update(kwargs)
         LocalNetwork.__init__(
             self,
             input_stimulus,
@@ -562,7 +585,8 @@ class PatchyNetwork(LocalNetwork):
             spacing_perlin=spacing_perlin,
             resolution_perlin=resolution_perlin,
             verbosity=verbosity,
-            save_plots=save_plots
+            save_plots=save_plots,
+            **kwargs
         )
 
         self.p_lr = p_lr
