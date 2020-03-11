@@ -292,30 +292,23 @@ def create_torus_layer_with_jitter(
 def create_random_connections(
         layer,
         inh_neurons,
-        prob=0.7,
+        connect_dict=None,
         cap_s=1.,
         inh_weight=-1.,
-        allow_autapses=False,
-        allow_multapses=False,
         plot=False,
         save_plot=False,
         color_mask=None
 ):
-    # Create new random synapse model
-
-    nest.CopyModel("static_synapse", "rand", {"weight": cap_s})
     # Define connection parameters
-    connection_dict = {
-        "connection_type": "divergent",
-        "kernel": prob,
-        "allow_autapses": allow_autapses,
-        "allow_multapses": allow_multapses,
-        "synapse_model": "rand"
-    }
-
-    tp.ConnectLayers(layer, layer, connection_dict)
-    conn = nest.GetConnections(source=inh_neurons)
-    nest.SetStatus(conn, {"weight": -abs(inh_weight)})
+    nodes = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
+    exc_nodes = list(set(nodes).difference(inh_neurons))
+    if connect_dict is None:
+        connect_dict = {
+            "rule": "pairwise_bernoulli",
+            "p": 0.01
+        }
+    nest.Connect(exc_nodes, nodes, connect_spec=connect_dict, syn_spec={"weight": cap_s})
+    nest.Connect(inh_neurons, nodes, connect_dict=connect_dict, syn_spec={"weight": -abs(inh_weight)})
 
     if plot:
         layer_size = nest.GetStatus(layer, "topology")[0]["extent"][0]
@@ -335,13 +328,12 @@ def create_random_connections(
 
 def create_local_circular_connections(
         layer,
+        node_tree,
         inh_neurons,
         inh_weight=-1.,
         r_loc=0.5,
-        p_loc=0.7,
         cap_s=1.,
-        allow_autapses=False,
-        allow_multapses=False,
+        connect_dict=None,
         plot=False,
         save_plot=False,
         color_mask=None
@@ -357,42 +349,39 @@ def create_local_circular_connections(
     :param save_plot: Flag for saving the plot. If not plotted the parameter is ignored
     :param color_mask: Color/orientation map for neurons. If not plotted the parameter is ignored
     """
-    # Create new synapse model
-    nest.CopyModel("static_synapse", "local", {"weight": cap_s})
 
-    # Define mask
-    mask_dict = {
-        "circular": {"radius": r_loc}
-    }
+    if connect_dict is None:
+        connect_dict = {
+            "rule": "pairwise_bernoulli",
+            "p": 0.7,
+        }
 
-    # Define connection parameters
-    connection_dict = {
-        "connection_type": "divergent",
-        "mask": mask_dict,
-        "kernel": p_loc,
-        "allow_autapses": allow_autapses,
-        "allow_multapses": allow_multapses,
-        "synapse_model": "local"
-    }
+    nodes = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
+    positions = tp.GetPosition(nodes)
+    for n, pos in zip(nodes, positions):
+        connect_partners = (np.asarray(node_tree.query_ball_point(pos, r_loc)) + min(nodes)).tolist()
+        if n not in inh_neurons:
+            syn_dict = {"weight": cap_s}
+        else:
+            syn_dict = {"weight": inh_weight}
+        nest.Connect([n], connect_partners, conn_spec=connect_dict, syn_spec=syn_dict)
 
-    tp.ConnectLayers(layer, layer, connection_dict)
-    conn = nest.GetConnections(source=inh_neurons)
-    nest.SetStatus(conn, {"weight": -abs(inh_weight)})
-
-    if plot:
-        layer_size = nest.GetStatus(layer, "topology")[0]["extent"][0]
-        nodes = nest.GetNodes(layer)[0]
-        node = nodes[0]
-        node_conn = nest.GetConnections(source=[node], target=nodes)
-        target_nodes = nest.GetStatus(node_conn, "target")
-        plot_connections(
-            [node],
-            target_nodes,
-            layer_size=layer_size,
-            color_mask=color_mask,
-            save_plot=save_plot,
-            plot_name="circular_local_connections.png"
-        )
+        # Plot first one
+        if n - min(nodes) == 0:
+            if plot:
+                # Assume that layer is a square
+                layer_size = nest.GetStatus(layer, "topology")[0]["extent"][0]
+                connect = nest.GetConnections([n])
+                targets = nest.GetStatus(connect, "target")
+                local_targets = [t for t in targets if t in list(connect_partners)]
+                plot_connections(
+                    [n],
+                    local_targets,
+                    layer_size=layer_size,
+                    save_plot=save_plot,
+                    plot_name="circular_local_connections.png",
+                    color_mask=color_mask,
+                )
 
 
 def create_distant_np_connections(
@@ -683,8 +672,6 @@ def create_stimulus_based_local_connections(
             similar_tuned_neurons = tuning_to_neuron_map[stimulus_tuning]
             same_stimulus_area = set(filter(lambda n: n != node, similar_tuned_neurons))
             connect_partners = list(set(connect_partners).intersection(same_stimulus_area))
-
-        if node not in inh_nodes:
             syn_spec = {"weight": float(cap_s)}
         else:
             syn_spec = {"weight": float(-abs(inh_weight))}
@@ -809,7 +796,7 @@ def create_stimulus_based_patches_random(
         nest.Connect([neuron], lr_patches, conn_spec=connect_dict, syn_spec=syn_spec)
 
         # Plot only first neuron
-        if neuron - min(node_ids) == 0:
+        if neuron - min(exc_neurons) == 0:
             connect = nest.GetConnections([neuron])
             targets = nest.GetStatus(connect, "target")
             patchy_targets = [t for t in targets if t in list(lr_patches)]
@@ -1223,6 +1210,30 @@ def continuous_tuning_curve(
     return response * max_value / max_response
 
 
+def _set_input_current(neuron, current_dict, synaptic_strength):
+    connections = nest.GetConnections(target=[neuron])
+    sources = nest.GetStatus(connections, "source")
+    source_types = np.asarray(list(nest.GetStatus(sources, "element_type")))
+    dc_generator = np.array([])
+    if len(source_types) > 0:
+        dc_generator = np.asarray(sources)[source_types == "stimulator"]
+
+    if dc_generator.size == 0:
+        dc_generator = nest.Create("dc_generator", n=1, params=current_dict)[0]
+        syn_spec = {"weight": synaptic_strength}
+        nest.Connect([dc_generator], [neuron], syn_spec=syn_spec)
+    else:
+        dc_generator = dc_generator[0]
+        nest.SetStatus([dc_generator], current_dict)
+
+
+def same_input_current(layer, synaptic_strength, connect_prob, value=255/2., rf_size=(10, 10)):
+    current_dict = {"amplitude": (rf_size[0] * rf_size[1]) * value * connect_prob}
+    neurons = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
+    for neuron in neurons:
+        _set_input_current(neuron, current_dict, synaptic_strength)
+
+
 def create_connections_rf(
         image,
         target_layer,
@@ -1232,10 +1243,11 @@ def create_connections_rf(
         synaptic_strength=1.,
         rf_size=(10, 10),
         use_continuous_tuning=True,
-        connect_dict=None,
+        p_rf=0.3,
         multiplier=1.,
         plot_src_target=False,
         save_plot=False,
+        non_changing_connections=True,
         plot_point=10,
         retina_size=(100, 100)
 ):
@@ -1269,12 +1281,6 @@ def create_connections_rf(
     min_id_target = min(target_node_ids)
     adj_mat = np.zeros((image.size, len(target_node_ids)))
 
-    if connect_dict is None:
-        connect_dict = {
-            "rule": "pairwise_bernoulli",
-            "p": 0.7
-        }
-
     counter = 0
     rf_list = []
     index_values = np.arange(0, image.size, 1).astype('int').reshape(image.shape)
@@ -1297,7 +1303,11 @@ def create_connections_rf(
         rf_list.append((upper_left, lower_right[0] - upper_left[0], lower_right[1] - upper_left[1]))
 
         # Establish connections
-        connections = np.random.binomial(1, connect_dict["p"], size=rf.size)
+        if non_changing_connections:
+            rng = np.random.RandomState(1)
+            connections = rng.binomial(1, p_rf, size=rf.size)
+        else:
+            connections = np.random.binomial(1, p_rf, size=rf.size)
         indices = indices[connections.astype('bool').reshape(rf.shape)]
         rf = rf[connections.astype('bool').reshape(rf.shape)]
         amplitude = np.zeros(rf.shape)
@@ -1318,9 +1328,7 @@ def create_connections_rf(
             amplitude = rf
 
         current_dict = {"amplitude": float(amplitude.sum()) * multiplier}
-        dc_generator = nest.Create("dc_generator", n=1, params=current_dict)[0]
-        syn_spec = {"weight": synaptic_strength}
-        nest.Connect([dc_generator], [target_node], syn_spec=syn_spec)
+        _set_input_current(target_node, current_dict, synaptic_strength)
 
         adj_mat[indices.reshape(-1), target_node - min_id_target] = 1
 
