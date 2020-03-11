@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-from modules.createStimulus import *
+from modules.createStimulus import stimulus_factory, INPUT_TYPE
 from modules.networkAnalysis import *
-from createThesisNetwork import create_network, NETWORK_TYPE
+from createThesisNetwork import network_factory, NETWORK_TYPE
 from modules.thesisUtils import arg_parse
 
 import matplotlib.pyplot as plt
@@ -15,17 +15,14 @@ VERBOSITY = 1
 nest.set_verbosity("M_ERROR")
 
 
-def main_eigenvalue_spec(network_type, shuffle_input=False):
-    nest.ResetKernel()
+def main_eigenvalue_spec(
+        network_type=NETWORK_TYPE["local_circ_patchy_sd"],
+        input_type=INPUT_TYPE["plain"],
+        save_plot=False
+):
     # load input stimulus
-    input_stimulus = image_with_spatial_correlation(
-        size_img=(50, 50),
-        num_circles=5,
-        radius=10,
-        background_noise=shuffle_input,
-        shuffle=shuffle_input
-    )
-
+    stimulus_size = (50, 50)
+    input_stimulus = stimulus_factory(input_type, size=stimulus_size)
     # input_stimulus = create_image_bar(0, shuffle=shuffle_input)
     # input_stimulus = load_image("nfl-sunflower50.jpg")
     if VERBOSITY > 2:
@@ -35,30 +32,23 @@ def main_eigenvalue_spec(network_type, shuffle_input=False):
     # #################################################################################################################
     # Define values
     # #################################################################################################################
-    plot_eigenvalue_spec = True
-    cap_s = 1.     # Increased to reduce the effect of the input and to make it easier to investigate the dynamical
-                    # consequences of local / lr patchy connections
+    num_neurons = int(1e4)
 
-    (_,
-     _,
-     adj_sens_sens_mat,
-     _,
-     _,
-     _,
-     _) = create_network(
-        input_stimulus,
-        sens_adj_mat_needed=True,
-        cap_s=cap_s,
-        network_type=network_type,
-        verbosity=VERBOSITY
-    )
+    network = network_factory(input_stimulus, network_type=network_type, num_sensory=num_neurons)
+    network.create_network()
+    sens_weight_mat = network.get_sensory_weight_mat()
 
     _, _ = eigenvalue_analysis(
-        adj_sens_sens_mat,
+        sens_weight_mat,
         plot=True,
-        save_plot=plot_eigenvalue_spec,
-        fig_name="%s_network_non-zero_connections.png" % network_type
+        save_plot=save_plot,
+        fig_name="%s_network_connections.png" % network_type
     )
+
+
+def main():
+    for network_type in list(NETWORK_TYPE.keys()):
+        main_eigenvalue_spec(network_type=NETWORK_TYPE[network_type])
 
 
 if __name__ == '__main__':
@@ -69,7 +59,6 @@ if __name__ == '__main__':
         import matplotlib
         matplotlib.use("Agg")
 
-    for network_type in list(NETWORK_TYPE.keys()):
-        main_eigenvalue_spec(network_type=network_type)
+    main()
 
 

@@ -61,7 +61,7 @@ def idct2(x):
     return idct(idct(x.T, norm='ortho', axis=0).T, norm='ortho', axis=0)
 
 
-def load_image(name, path=None):
+def load_image(name="nfl-sunflower50.jpg", path=None, **kwargs):
     """
     Load image with given name from path
     :param name: Name with suffix of the picture

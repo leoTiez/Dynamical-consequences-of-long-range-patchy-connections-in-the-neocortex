@@ -6,7 +6,18 @@ import cv2
 import matplotlib.pyplot as plt
 
 
-def convert_image_to_orientation_map(image, magnitude_threshold=50, num_orientation_ranges=8):
+INPUT_TYPE = {
+    "plain": 0,
+    "perlin": 1,
+    "bar": 2,
+    "circles": 3,
+    "natural": 4,
+    "edges": 5,
+    "random": 6
+}
+
+
+def convert_image_to_orientation_map(image, magnitude_threshold=50, num_orientation_ranges=8, **kwargs):
     """
     Convert the edges of an image to a an orientation color map
     :param image: The actual image
@@ -46,7 +57,7 @@ def convert_image_to_orientation_map(image, magnitude_threshold=50, num_orientat
     return orient_map
 
 
-def create_image_bar(orientation, bar_width=5, size=(50, 50), shuffle=False):
+def create_image_bar(orientation, bar_width=5, size=(50, 50), shuffle=False, **kwargs):
     """
     Create image with a single bar
     :param orientation: Orientation of the bar
@@ -78,9 +89,10 @@ def create_image_bar(orientation, bar_width=5, size=(50, 50), shuffle=False):
 def image_with_spatial_correlation(
         num_circles=50,
         radius=5,
-        size_img=(50, 50),
+        size=(50, 50),
         background_noise=False,
-        shuffle=False
+        shuffle=False,
+        **kwargs
 ):
     """
     Create image with circles such that there is a spatial correlation of pixels
@@ -91,12 +103,12 @@ def image_with_spatial_correlation(
     :return: Image with circles for spatial correlation of color
     """
     if background_noise:
-        image = np.random.randint(0, 256, size_img).astype('float')
+        image = np.random.randint(0, 256, size).astype('float')
     else:
-        image = np.zeros(size_img)
+        image = np.zeros(size)
     rng = np.random.RandomState(1)
-    x_coordinates = rng.choice(size_img[0], size=num_circles)
-    y_coordinates = rng.choice(size_img[1], size=num_circles)
+    x_coordinates = rng.choice(size[0], size=num_circles)
+    y_coordinates = rng.choice(size[1], size=num_circles)
 
     for x, y in zip(x_coordinates, y_coordinates):
         if background_noise:
@@ -107,12 +119,12 @@ def image_with_spatial_correlation(
 
     if shuffle:
         np.random.shuffle(image.reshape(-1))
-        image = image.reshape(size_img)
+        image = image.reshape(size)
 
     return image
 
 
-def perlin_image(size=50, resolution=(5, 5)):
+def perlin_image(size=50, resolution=(5, 5), **kwargs):
     perlin_img = perlin_noise(size, resolution=resolution, spacing=1)
     perlin_img -= perlin_img.min()
     perlin_img = 255. * perlin_img / perlin_img.max()
@@ -122,6 +134,28 @@ def perlin_image(size=50, resolution=(5, 5)):
 def plain_stimulus(size=(50, 50), intensity=255):
     img = np.full(size, intensity)
     return img
+
+
+def stimulus_factory(input_type=INPUT_TYPE["plain"], **kwargs):
+    if input_type == INPUT_TYPE["circles"]:
+        input_stimulus = image_with_spatial_correlation(**kwargs)
+    elif input_type == INPUT_TYPE["bar"]:
+        input_stimulus = create_image_bar(**kwargs)
+    elif input_type == INPUT_TYPE["natural"]:
+        input_stimulus = load_image(**kwargs)
+    elif input_type == INPUT_TYPE["perlin"]:
+        input_stimulus = perlin_image(**kwargs)
+    elif input_type == INPUT_TYPE["plain"]:
+        input_stimulus = plain_stimulus(**kwargs)
+    elif input_type == INPUT_TYPE["edges"]:
+        input_stimulus = load_image(**kwargs)
+        input_stimulus = convert_image_to_orientation_map(input_stimulus, **kwargs)
+    elif input_type == INPUT_TYPE["random"]:
+        input_stimulus = image_with_spatial_correlation(shuffle=True, **kwargs)
+    else:
+        raise ValueError("Input type %s is not accepted" % input_type)
+
+    return input_stimulus
 
 
 def test_main():

@@ -1231,7 +1231,7 @@ def create_connections_rf(
         inh_neurons,
         synaptic_strength=1.,
         rf_size=(10, 10),
-        use_continue_tuning=True,
+        use_continuous_tuning=True,
         connect_dict=None,
         multiplier=1.,
         plot_src_target=False,
@@ -1302,7 +1302,7 @@ def create_connections_rf(
         rf = rf[connections.astype('bool').reshape(rf.shape)]
         amplitude = np.zeros(rf.shape)
         if target_node not in inh_neurons:
-            if not use_continue_tuning:
+            if not use_continuous_tuning:
                 amplitude[
                     np.where(
                         step_tuning_curve(

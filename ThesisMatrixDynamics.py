@@ -1,10 +1,9 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-from modules.createStimulus import *
-from modules.networkConstruction import *
+from modules.createStimulus import stimulus_factory, INPUT_TYPE
 from modules.thesisUtils import arg_parse
-from createThesisNetwork import create_network
+from createThesisNetwork import network_factory, NETWORK_TYPE
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,36 +15,43 @@ VERBOSITY = 2
 nest.set_verbosity("M_ERROR")
 
 
-def main_matrix_dynamics(network_type="local_radial_lr_patchy"):
-    nest.ResetKernel()
-    input_stimulus = image_with_spatial_correlation(size_img=(50, 50), num_circles=5, background_noise=False)
+NETWORK_TYPE = {
+    "random": 0,
+    "local_circ": 1,
+    "local_sd": 2,
+    "local_circ_patchy_sd": 3,
+    "local_circ_patchy_random": 4,
+    "local_sd_patchy_sd": 5
+}
+
+
+def main_matrix_dynamics(network_type=NETWORK_TYPE["local_circ_patchy_sd"], input_type=INPUT_TYPE["plain"]):
+    # load input stimulus
+    stimulus_size = (50, 50)
+    input_stimulus = stimulus_factory(input_type, size=stimulus_size)
     if VERBOSITY > 2:
         plt.imshow(input_stimulus, cmap='gray')
         plt.show()
     # #################################################################################################################
     # Define values
     # #################################################################################################################
-    cap_s = 1.
-    plot_arrangement_rows = 5
-    plot_arrangement_columns = 5
-
-    (_, adj_rec_sens_mat, adj_sens_sens_mat, _, _, _, _) = create_network(
-        input_stimulus,
-        sens_adj_mat_needed=True,
-        cap_s=cap_s,
-        network_type=network_type,
-        verbosity=VERBOSITY
-    )
+    plot_arrangement_rows = 10
+    plot_arrangement_columns = 10
+    network_shape = (100, 100)
+    num_neurons = int(network_shape[0] * network_shape[1])
+    network = network_factory(input_stimulus, network_type=network_type, num_sensory=num_neurons, verbosity=VERBOSITY)
+    network.create_network()
+    sens_weight_mat = network.get_sensory_weight_mat()
 
     # Sufficient to use only 255 as we don't use the neurons themselves
-    input_matrix = np.full((50, 50), 255)
-    sensory_activity = adj_rec_sens_mat.T.dot(input_matrix.reshape(-1))
+    input_matrix = np.full(stimulus_size, 255)
+    sensory_activity = network.adj_rec_sens_mat.T.dot(input_matrix.reshape(-1))
     fig, axes = plt.subplots(plot_arrangement_rows, plot_arrangement_columns)
     fig.set_figheight(10)
     fig.set_figwidth(20)
     for ax in axes.reshape(-1):
-        ax.imshow(sensory_activity.reshape((50, 50)))
-        sensory_activity = adj_sens_sens_mat.T.dot(sensory_activity)
+        ax.imshow(sensory_activity.reshape(network_shape))
+        sensory_activity = sens_weight_mat.T.dot(sensory_activity)
 
     plt.show()
 
@@ -58,6 +64,6 @@ if __name__ == '__main__':
         import matplotlib
         matplotlib.use("Agg")
 
-    main_matrix_dynamics(network_type="local_radial_lr_patchy")
+    main_matrix_dynamics(network_type=NETWORK_TYPE["local_circ_patchy_sd"], input_type=INPUT_TYPE["plain"])
 
 
