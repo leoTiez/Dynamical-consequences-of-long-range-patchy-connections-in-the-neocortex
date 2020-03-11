@@ -101,6 +101,18 @@ python3 ThesisNetwork.py
 Please note that the network is currently under development, and hence, the implementation is not
 final yet. Moreover, more sophisticated explanations are missing. Nevertheless, feel free to 
 browse through the repository and to checkout the implementation at the recent state 
+
+## The Jupyter notebook
+To provide play around and test different parameter settings, there is a Jupyter notebook provided.
+Run
+
+```bash
+jupyter notebook InteractiveThesisNetwork.ipynb
+```
+
+If you are re-directed to a graphical interface with file directory in your browser, select the
+file `InteractiveThesisNetwork.ipynb`.
+
 ## Sources
 [1] 1.Barranca, V. J., Kovačič, G., Zhou, D. & Cai, D. Sparsity and Compressed Coding in Sensory Systems. PLoS Computational Biology 10, (2014).
 
