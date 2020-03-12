@@ -16,7 +16,7 @@ VERBOSITY = 1
 nest.set_verbosity("M_ERROR")
 
 
-def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=INPUT_TYPE["plain"]):
+def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=INPUT_TYPE["plain"], reconstruct=False):
     # load input stimulus
     input_stimulus = stimulus_factory(input_type)
 
@@ -112,53 +112,55 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
         )
         plt.show()
 
-    if all_same_input_current:
-        return None
+    if all_same_input_current or not reconstruct:
+        return input_stimulus, firing_rates
 
-    # #################################################################################################################
-    # Reconstruct stimulus
-    # #################################################################################################################
-    # Reconstruct input stimulus
-    if VERBOSITY > 0:
-        print("\n#####################\tReconstruct stimulus")
+    else:
+        # #################################################################################################################
+        # Reconstruct stimulus
+        # #################################################################################################################
+        # Reconstruct input stimulus
+        if VERBOSITY > 0:
+            print("\n#####################\tReconstruct stimulus")
 
-    reconstruction = direct_stimulus_reconstruction(
-        firing_rates,
-        network.adj_rec_sens_mat,
-        network.tuning_weight_vector
-    )
-    response_fft = fourier_trans(reconstruction)
+        reconstruction = direct_stimulus_reconstruction(
+            firing_rates,
+            network.adj_rec_sens_mat,
+            network.tuning_weight_vector
+        )
+        response_fft = fourier_trans(reconstruction)
 
-    if VERBOSITY > 3:
-        from matplotlib.colors import LogNorm
-        _, fig = plt.subplots(1, 2)
-        fig[0].imshow(np.abs(response_fft), norm=LogNorm(vmin=5))
-        fig[1].imshow(np.abs(stimulus_fft), norm=LogNorm(vmin=5))
+        if VERBOSITY > 3:
+            from matplotlib.colors import LogNorm
+            _, fig = plt.subplots(1, 2)
+            fig[0].imshow(np.abs(response_fft), norm=LogNorm(vmin=5))
+            fig[1].imshow(np.abs(stimulus_fft), norm=LogNorm(vmin=5))
 
-    if VERBOSITY > 1:
-        _, fig_2 = plt.subplots(1, 3)
-        fig_2[0].imshow(reconstruction, cmap='gray', vmin=0, vmax=255)
-        fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
-        fig_2[2].imshow(network.color_map, cmap=custom_cmap())
-        plt.show()
+        if VERBOSITY > 1:
+            _, fig_2 = plt.subplots(1, 3)
+            fig_2[0].imshow(reconstruction, cmap='gray', vmin=0, vmax=255)
+            fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
+            fig_2[2].imshow(network.color_map, cmap=custom_cmap())
+            plt.show()
 
-    return input_stimulus, reconstruction, firing_rates
+        return input_stimulus, reconstruction
 
 
 def main_mi(input_type=INPUT_TYPE["plain"], num_trials=5):
     # Define parameters outside  the loop
     for network_type in list(NETWORK_TYPE.keys()):
         input_stimuli = []
-        reconstructed_stimuli = []
+        firing_rates = []
         for _ in range(num_trials):
-            input_stimulus, reconstruction, _ = main_lr(
+            input_stimulus, firing_rate = main_lr(
                 network_type=NETWORK_TYPE[network_type],
                 input_type=input_type,
+                reconstruct=False
             )
             input_stimuli.append(input_stimulus.reshape(-1))
-            reconstructed_stimuli.append(reconstruction.reshape(-1))
+            firing_rates.append(firing_rate.reshape(-1))
 
-        mutual_information = mutual_information_hist(input_stimuli, reconstructed_stimuli)
+        mutual_information = mutual_information_hist(input_stimuli, firing_rates)
         print("\n#####################\tMutual Information MI for network type %s and input type %s: %s \n"
               % (network_type, input_type, mutual_information))
 
@@ -167,9 +169,10 @@ def main_error(input_type=INPUT_TYPE["plain"], num_trials=5):
     for network_type in list(NETWORK_TYPE.keys()):
         errors = []
         for _ in range(num_trials):
-            input_stimulus, reconstruction, _ = main_lr(
+            input_stimulus, reconstruction = main_lr(
                 network_type=NETWORK_TYPE[network_type],
-                input_type=input_type
+                input_type=input_type,
+                reconstruct=True
             )
             errors.append(error_distance(input_stimulus, reconstruction))
 
@@ -187,6 +190,6 @@ if __name__ == '__main__':
         matplotlib.use("Agg")
 
     main_lr(network_type=NETWORK_TYPE["local_circ_patchy_sd"], input_type=INPUT_TYPE["perlin"])
-    # main_mi(input_type=INPUT_TYPE["plain"], num_trials=5)
+    # main_mi(input_type=INPUT_TYPE["perlin"], num_trials=3)
     # main_error(input_type=INPUT_TYPE["plain"], num_trials=5)
 
