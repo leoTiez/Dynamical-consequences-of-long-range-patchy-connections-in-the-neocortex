@@ -38,7 +38,7 @@ class NeuronalNetworkBase:
             capacitance=80.,
             layer_size=8.,
             spacing_perlin=0.01,
-            resolution_perlin=(20, 20),
+            resolution_perlin=(15, 15),
             verbosity=0,
             save_plots=False,
             **kwargs
@@ -427,7 +427,7 @@ class LocalNetwork(NeuronalNetworkBase):
             capacitance=80.,
             layer_size=8.,
             spacing_perlin=0.01,
-            resolution_perlin=(20, 20),
+            resolution_perlin=(15, 15),
             verbosity=0,
             save_plots=False,
             **kwargs
@@ -558,7 +558,7 @@ class PatchyNetwork(LocalNetwork):
             capacitance=80.,
             layer_size=8.,
             spacing_perlin=0.01,
-            resolution_perlin=(20, 20),
+            resolution_perlin=(15, 15),
             verbosity=0,
             save_plots=False,
             **kwargs
