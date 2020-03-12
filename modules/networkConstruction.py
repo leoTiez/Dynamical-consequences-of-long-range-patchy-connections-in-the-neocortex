@@ -307,8 +307,8 @@ def create_random_connections(
             "rule": "pairwise_bernoulli",
             "p": 0.01
         }
-    nest.Connect(exc_nodes, nodes, connect_spec=connect_dict, syn_spec={"weight": cap_s})
-    nest.Connect(inh_neurons, nodes, connect_dict=connect_dict, syn_spec={"weight": -abs(inh_weight)})
+    nest.Connect(exc_nodes, nodes, conn_spec=connect_dict, syn_spec={"weight": cap_s})
+    nest.Connect(inh_neurons, nodes, conn_spec=connect_dict, syn_spec={"weight": -abs(inh_weight)})
 
     if plot:
         layer_size = nest.GetStatus(layer, "topology")[0]["extent"][0]
