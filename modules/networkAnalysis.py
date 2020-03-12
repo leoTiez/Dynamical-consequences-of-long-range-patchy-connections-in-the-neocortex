@@ -6,7 +6,21 @@ from collections import Counter
 import nest
 
 
-def mutual_information_hist(input_data, reconstruction_data):
+def mutual_information_hist(input_data, firing_rates):
+    hist_input, bins_input = np.histogram(np.mean(input_data, axis=0))
+    hist_f_rate, bins_f_rate = np.histogram(np.mean(firing_rates, axis=0))
+
+    prob_in = hist_input / float(np.sum(hist_input))
+    prob_f_rate = hist_f_rate / float(np.sum(hist_f_rate))
+
+    ind_prob = prob_in[:, None] * prob_f_rate[None, :]
+    joint_hist, _, _ = np.histogram2d(np.mean(input_data, axis=0), np.mean(input_data, axis=0), bins=[bins_input, bins_f_rate])
+    joint_prob = joint_hist / float(np.sum(joint_hist))
+    non_zero_indices = joint_prob > 0
+    return np.sum(joint_prob[non_zero_indices] * np.log(joint_prob[non_zero_indices] / ind_prob[non_zero_indices]))
+
+
+def mutual_information_img(input_data, reconstruction_data):
     """
     Compute mutual information based on histogram of arrays
     :param input_data: The original stimulus
