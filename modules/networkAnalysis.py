@@ -6,6 +6,16 @@ from collections import Counter
 import nest
 
 
+def spatial_variance(node_tree, node_pos, firing_rates, r_neighborhood=0.3):
+    variance = []
+    for pos in node_pos:
+        neighborhood = np.asarray(node_tree.query_ball_point(pos, r_neighborhood))
+        nbh_fr = firing_rates[neighborhood.astype('int')]
+        variance.append(np.cov(nbh_fr[nbh_fr > 0]))
+
+    return np.nanmean(np.asarray(variance))
+
+
 def mutual_information_hist(input_data, firing_rates):
     hist_input, bins_input = np.histogram(np.mean(input_data, axis=0))
     hist_f_rate, bins_f_rate = np.histogram(np.mean(firing_rates, axis=0))
