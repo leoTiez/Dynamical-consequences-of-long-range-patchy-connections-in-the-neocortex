@@ -36,6 +36,7 @@ class NeuronalNetworkBase:
             pot_threshold=-55.,
             pot_reset=-70.,
             capacitance=80.,
+            time_constant=20.,
             layer_size=8.,
             spacing_perlin=0.01,
             resolution_perlin=(15, 15),
@@ -61,6 +62,7 @@ class NeuronalNetworkBase:
         self.pot_threshold = pot_threshold
         self.pot_reset = pot_reset
         self.capacitance = capacitance
+        self.time_constant = time_constant
         self.layer_size = layer_size
 
         self.spacing_perlin = spacing_perlin
@@ -125,6 +127,7 @@ class NeuronalNetworkBase:
             threshold_pot=self.pot_threshold,
             capacitance=self.capacitance,
             rest_pot=self.pot_reset,
+            time_const=self.time_constant,
             size_layer=self.layer_size
         )
         self.torus_layer_nodes = nest.GetNodes(self.torus_layer, properties={"element_type": "neuron"})[0]
