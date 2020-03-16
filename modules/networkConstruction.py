@@ -1181,8 +1181,8 @@ def step_tuning_curve(
     :return: True if neuron reacts, False otherwise
     """
     return np.logical_and(
-        stimulus_tuning * tuning_discr_steps <= input_stimulus / multiplier,
-        input_stimulus / multiplier < (stimulus_tuning + 1) * tuning_discr_steps
+        stimulus_tuning * tuning_discr_steps + 1 <= input_stimulus / multiplier,
+        input_stimulus / multiplier < (stimulus_tuning + 1) * tuning_discr_steps + 1
     )
 
 
@@ -1277,13 +1277,15 @@ def create_connections_rf(
         "upper_right": [rf_size[1] // 2, rf_size[0] // 2]
     }
     num_tuning_discr = max(neuron_to_tuning_map.values()) + 1
-    tuning_discr_step = 256 / float(num_tuning_discr)
+    tuning_discr_step = 256. / float(num_tuning_discr)
     min_id_target = min(target_node_ids)
     adj_mat = np.zeros((image.size, len(target_node_ids)))
 
     counter = 0
     rf_list = []
     index_values = np.arange(0, image.size, 1).astype('int').reshape(image.shape)
+
+    amplitudes = []
     for target_node, rf_center in zip(target_node_ids, rf_centers):
         upper_left = (np.asarray(rf_center) + np.asarray(mask_specs["lower_left"])).astype('int')
         lower_right = (np.asarray(rf_center) + np.asarray(mask_specs["upper_right"])).astype('int')
@@ -1311,26 +1313,35 @@ def create_connections_rf(
         indices = indices[connections.astype('bool').reshape(rf.shape)]
         rf = rf[connections.astype('bool').reshape(rf.shape)]
         amplitude = np.zeros(rf.shape)
+        mask = None
         if target_node not in inh_neurons:
             if not use_continuous_tuning:
-                amplitude[
-                    np.where(
+                mask = np.where(
                         step_tuning_curve(
                             rf,
                             neuron_to_tuning_map[target_node],
                             tuning_discr_step
                         )
                     )
-                ] = 255.
+                amplitude[mask] = 255.
+                indices = indices[mask]
+                nonzero_mask = np.flatnonzero(np.asarray(amplitude)[mask])
+                adj_mat[indices.reshape(-1)[nonzero_mask], target_node - min_id_target] = 255. / (
+                            rf + np.finfo("float64").eps)[mask].reshape(-1)[nonzero_mask].astype("float64")
             else:
                 amplitude = continuous_tuning_curve(rf, neuron_to_tuning_map[target_node], tuning_discr_step)
+                rf = rf.astype("float64")
+                rf[rf == 0] = np.finfo("float64").eps
+                adj_mat[indices.reshape(-1), target_node - min_id_target] =\
+                    amplitude.reshape(-1) / rf.reshape(-1).astype("float64")
+
         else:
             amplitude = rf
+            adj_mat[indices.reshape(-1), target_node - min_id_target] = 1.
 
+        amplitudes.append(amplitude.sum())
         current_dict = {"amplitude": float(amplitude.sum()) * multiplier}
         _set_input_current(target_node, current_dict, synaptic_strength)
-
-        adj_mat[indices.reshape(-1), target_node - min_id_target] = 1
 
         if counter == plot_point:
             if plot_src_target:
@@ -1372,4 +1383,21 @@ def create_connections_rf(
 
         counter += 1
 
+    if plot_src_target:
+        import modules.stimulusReconstruction as sr
+
+        recons = sr.direct_stimulus_reconstruction(
+            np.asarray(amplitudes),
+            adj_mat
+        )
+
+        _, ax = plt.subplots(1, 2)
+        ax[0].imshow(recons, cmap='gray')
+        ax[1].imshow(image, cmap='gray', vmin=0, vmax=255)
+        if not save_plot:
+            plt.show()
+        else:
+            curr_dir = os.getcwd()
+            plt.savefig(curr_dir + "/figures/reconstruction_based_on_current.png")
+            plt.close()
     return adj_mat
