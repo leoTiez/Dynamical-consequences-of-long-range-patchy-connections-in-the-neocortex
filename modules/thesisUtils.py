@@ -177,3 +177,13 @@ def dot_product_perlin(x_grid, y_grid, x, y, gradients):
 def lerp_perlin(a, b, weight):
     return (1. - weight) * a + weight * b
 
+
+def sort_nodes_space(nodes, axis=0):
+    pos = tp.GetPosition(nodes)
+    nodes_pos = list(zip(nodes, pos))
+    if axis == 0:
+        nodes_pos.sort(key=lambda p: (p[1][0], p[1][1]))
+    elif axis == 1:
+        nodes_pos.sort(key=lambda p: (p[1][1], p[1][0]))
+    nodes, pos = zip(*nodes_pos)
+    return nodes, pos
