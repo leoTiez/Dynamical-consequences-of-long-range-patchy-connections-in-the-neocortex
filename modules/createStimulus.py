@@ -87,8 +87,8 @@ def create_image_bar(orientation, bar_width=5, size=(50, 50), shuffle=False, **k
 
 
 def image_with_spatial_correlation(
-        num_circles=50,
-        radius=5,
+        num_circles=10,
+        radius=10,
         size=(50, 50),
         background_noise=False,
         shuffle=False,
