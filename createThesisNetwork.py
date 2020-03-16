@@ -89,7 +89,7 @@ class NeuronalNetworkBase:
         self.tuning_weight_vector = None
         self.color_map = None
 
-        self.adj_rec_sens_mat = None
+        self.ff_weight_mat = None
         self.adj_sens_sens_mat = None
         self.rf_center_map = None
 
@@ -211,7 +211,7 @@ class NeuronalNetworkBase:
         if self.verbosity > 0:
             print("\n#####################\tCreate connections between receptors and sensory neurons")
 
-        self.adj_rec_sens_mat = create_connections_rf(
+        self.ff_weight_mat = create_connections_rf(
             self.input_stimulus,
             self.torus_layer,
             self.rf_center_map,
