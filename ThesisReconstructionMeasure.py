@@ -5,14 +5,14 @@ from modules.stimulusReconstruction import fourier_trans, direct_stimulus_recons
 from modules.createStimulus import *
 from modules.thesisUtils import arg_parse
 from createThesisNetwork import network_factory, NETWORK_TYPE
-from modules.networkAnalysis import mutual_information_hist, error_distance
+from modules.networkAnalysis import mutual_information_hist, error_distance, spatial_variance
 
 import numpy as np
 import matplotlib.pyplot as plt
 import nest
 
 
-VERBOSITY = 1
+VERBOSITY = 2
 nest.set_verbosity("M_ERROR")
 
 
@@ -29,12 +29,18 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
     # Define values
     # #################################################################################################################
     simulation_time = 1000.
-    num_neurons = int(1e4)
-    cap_s = 1.
-    inh_weight = -15.
+    num_neurons = int(1e3)
+    cap_s = 0.
+    inh_weight = 0.
     all_same_input_current = False
-    p_loc = 0.6
-    p_lr = 0.2
+    p_loc = 0.
+    p_lr = 0.
+    p_rf = 0.7
+    pot_threshold = -55.
+    pot_reset = -70.
+    capacitance = 80.
+    time_constant = 20.
+    use_continuous_tuning = False
 
     # Note: when using the same input current for all neurons, we obtain synchrony, and due to the refactory phase
     # all recurrent connections do not have any effect
@@ -47,6 +53,12 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
         inh_weight=inh_weight,
         p_loc=p_loc,
         p_lr=p_lr,
+        p_rf=p_rf,
+        pot_reset=pot_reset,
+        pot_threshold=pot_threshold,
+        capacitance=capacitance,
+        time_constant=time_constant,
+        use_continuous_tuning=use_continuous_tuning,
         verbosity=VERBOSITY
     )
     network.create_network()
@@ -112,8 +124,9 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
         )
         plt.show()
 
+    mean_variance = spatial_variance(network.torus_layer_tree, network.torus_layer_positions, firing_rates)
     if all_same_input_current or not reconstruct:
-        return input_stimulus, firing_rates
+        return input_stimulus, firing_rates, mean_variance
 
     else:
         # #################################################################################################################
@@ -123,10 +136,10 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
         if VERBOSITY > 0:
             print("\n#####################\tReconstruct stimulus")
 
+        mask = None
         reconstruction = direct_stimulus_reconstruction(
-            firing_rates,
-            network.adj_rec_sens_mat,
-            network.tuning_weight_vector
+            firing_rates[mask],
+            network.ff_weight_mat[:, mask],
         )
         response_fft = fourier_trans(reconstruction)
 
@@ -138,7 +151,7 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
 
         if VERBOSITY > 1:
             _, fig_2 = plt.subplots(1, 3)
-            fig_2[0].imshow(reconstruction, cmap='gray', vmin=0, vmax=255)
+            fig_2[0].imshow(reconstruction, cmap='gray')
             fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
             fig_2[2].imshow(network.color_map, cmap=custom_cmap())
             plt.show()
@@ -151,18 +164,22 @@ def main_mi(input_type=INPUT_TYPE["plain"], num_trials=5):
     for network_type in list(NETWORK_TYPE.keys()):
         input_stimuli = []
         firing_rates = []
+        variance = []
         for _ in range(num_trials):
-            input_stimulus, firing_rate = main_lr(
+            input_stimulus, firing_rate, corr = main_lr(
                 network_type=NETWORK_TYPE[network_type],
                 input_type=input_type,
                 reconstruct=False
             )
             input_stimuli.append(input_stimulus.reshape(-1))
             firing_rates.append(firing_rate.reshape(-1))
+            variance.append(corr)
 
         mutual_information = mutual_information_hist(input_stimuli, firing_rates)
         print("\n#####################\tMutual Information MI for network type %s and input type %s: %s \n"
               % (network_type, input_type, mutual_information))
+        print("\n#####################\tSpatial variance for network type %s and input type %s: %s \n"
+              % (network_type, input_type, np.asarray(variance).mean()))
 
 
 def main_error(input_type=INPUT_TYPE["plain"], num_trials=5):
@@ -189,7 +206,7 @@ if __name__ == '__main__':
         import matplotlib
         matplotlib.use("Agg")
 
-    main_lr(network_type=NETWORK_TYPE["local_circ_patchy_sd"], input_type=INPUT_TYPE["perlin"])
+    main_lr(network_type=NETWORK_TYPE["local_circ_patchy_sd"], input_type=INPUT_TYPE["perlin"], reconstruct=True)
     # main_mi(input_type=INPUT_TYPE["perlin"], num_trials=3)
     # main_error(input_type=INPUT_TYPE["plain"], num_trials=5)
 
