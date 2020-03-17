@@ -96,13 +96,14 @@ def plot_connections(
     x_source, y_source = zip(*source_positions)
     plt.plot(x_source, y_source, 'o')
 
-    target_positions = tp.GetPosition(target_nodes)
-    x_target, y_target = zip(*target_positions)
-    plt.plot(x_target, y_target, 'o')
+    if len(target_nodes) > 0:
+        target_positions = tp.GetPosition(target_nodes)
+        x_target, y_target = zip(*target_positions)
+        plt.plot(x_target, y_target, 'o')
 
-    for s in source_positions:
-        for t in target_positions:
-            plt.plot([s[0], t[0]], [s[1], t[1]], color="k")
+        for s in source_positions:
+            for t in target_positions:
+                plt.plot([s[0], t[0]], [s[1], t[1]], color="k")
 
     if color_mask is not None:
         plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=color_mask.max()+1)
