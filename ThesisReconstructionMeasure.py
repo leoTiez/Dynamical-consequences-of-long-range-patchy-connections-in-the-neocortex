@@ -4,6 +4,7 @@
 from modules.stimulusReconstruction import fourier_trans, direct_stimulus_reconstruction
 from modules.createStimulus import *
 from modules.thesisUtils import arg_parse
+from modules.networkConstruction import TUNING_FUNCTION
 from createThesisNetwork import network_factory, NETWORK_TYPE
 from modules.networkAnalysis import mutual_information_hist, error_distance, spatial_variance
 
@@ -13,7 +14,7 @@ from webcolors import hex_to_rgb
 import nest
 
 
-VERBOSITY = 3
+VERBOSITY = 4
 nest.set_verbosity("M_ERROR")
 
 
@@ -31,17 +32,17 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
     # #################################################################################################################
     simulation_time = 1000.
     num_neurons = int(1e3)
-    cap_s = 0.
-    inh_weight = 0.
+    cap_s = 1.
+    inh_weight = -15.
     all_same_input_current = False
-    p_loc = 0.
-    p_lr = 0.
+    p_loc = 0.5
+    p_lr = .2
     p_rf = 0.7
     pot_threshold = -55.
     pot_reset = -70.
     capacitance = 80.
     time_constant = 20.
-    use_continuous_tuning = False
+    tuning_function = TUNING_FUNCTION["gauss"]
 
     # Note: when using the same input current for all neurons, we obtain synchrony, and due to the refactory phase
     # all recurrent connections do not have any effect
@@ -59,7 +60,7 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
         pot_threshold=pot_threshold,
         capacitance=capacitance,
         time_constant=time_constant,
-        use_continuous_tuning=use_continuous_tuning,
+        tuning_function=tuning_function,
         verbosity=VERBOSITY
     )
     network.create_network()
