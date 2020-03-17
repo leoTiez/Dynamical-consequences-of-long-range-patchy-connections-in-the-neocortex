@@ -162,8 +162,11 @@ def perlin_noise(size_layer=50, resolution=(5, 5), spacing=0.01):
 
 
 def coordinates_to_cmap_index(layer_size, position, spacing):
-    y = np.floor(((layer_size / 2.) + position[0]) / spacing).astype('int')
-    x = np.floor(((layer_size / 2.) + position[1]) / spacing).astype('int')
+    position = np.asarray(position)
+    if len(position.shape) <= 1:
+        position = np.asarray([position])
+    y = np.floor(((layer_size / 2.) + position[:, 0]) / spacing).astype('int')
+    x = np.floor(((layer_size / 2.) + position[:, 1]) / spacing).astype('int')
 
     return x, y
 
