@@ -31,7 +31,7 @@ class NeuronalNetworkBase:
             inh_weight=-15.,
             p_rf=0.3,
             rf_size=None,
-            use_continuous_tuning=True,
+            tuning_function=TUNING_FUNCTION["step"],
             all_same_input_current=False,
             pot_threshold=-55.,
             pot_reset=-70.,
@@ -57,7 +57,7 @@ class NeuronalNetworkBase:
             self.rf_size = (input_stimulus.shape[0] // 4, input_stimulus.shape[1] // 4)
 
         self.all_same_input_current = all_same_input_current
-        self.use_continuous_tuning = use_continuous_tuning
+        self.tuning_function = tuning_function
 
         self.pot_threshold = pot_threshold
         self.pot_reset = pot_reset
@@ -216,7 +216,7 @@ class NeuronalNetworkBase:
             self.neuron_to_tuning_map,
             self.torus_inh_nodes,
             synaptic_strength=self.ff_weight,
-            use_continuous_tuning=self.use_continuous_tuning,
+            tuning_function=self.tuning_function,
             p_rf=self.p_rf,
             rf_size=self.rf_size,
             plot_src_target=self.plot_rf_relation,
@@ -333,7 +333,7 @@ class RandomNetwork(NeuronalNetworkBase):
             inh_weight=-15.,
             p_rf=0.3,
             rf_size=None,
-            use_continuous_tuning=True,
+            tuning_function=TUNING_FUNCTION["step"],
             pot_threshold=-55.,
             pot_reset=-70.,
             capacitance=80.,
@@ -356,7 +356,7 @@ class RandomNetwork(NeuronalNetworkBase):
             inh_weight=inh_weight,
             p_rf=p_rf,
             rf_size=rf_size,
-            use_continuous_tuning=use_continuous_tuning,
+            tuning_function=tuning_function,
             pot_threshold=pot_threshold,
             pot_reset=pot_reset,
             capacitance=capacitance,
@@ -422,7 +422,7 @@ class LocalNetwork(NeuronalNetworkBase):
             inh_weight=-15.,
             p_rf=0.3,
             rf_size=None,
-            use_continuous_tuning=True,
+            tuning_function=TUNING_FUNCTION["step"],
             pot_threshold=-55.,
             pot_reset=-70.,
             capacitance=80.,
@@ -444,7 +444,7 @@ class LocalNetwork(NeuronalNetworkBase):
             inh_weight=inh_weight,
             p_rf=p_rf,
             rf_size=rf_size,
-            use_continuous_tuning=use_continuous_tuning,
+            tuning_function=tuning_function,
             pot_threshold=pot_threshold,
             pot_reset=pot_reset,
             capacitance=capacitance,
@@ -553,7 +553,7 @@ class PatchyNetwork(LocalNetwork):
             inh_weight=-15.,
             p_rf=0.3,
             rf_size=None,
-            use_continuous_tuning=True,
+            tuning_function=TUNING_FUNCTION["step"],
             pot_threshold=-55.,
             pot_reset=-70.,
             capacitance=80.,
@@ -578,7 +578,7 @@ class PatchyNetwork(LocalNetwork):
             inh_weight=inh_weight,
             p_rf=p_rf,
             rf_size=rf_size,
-            use_continuous_tuning=use_continuous_tuning,
+            tuning_function=tuning_function,
             pot_threshold=pot_threshold,
             pot_reset=pot_reset,
             capacitance=capacitance,
