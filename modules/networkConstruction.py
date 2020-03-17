@@ -16,6 +16,12 @@ import nest
 GLOBAL_CONNECTIVITY = 0.0123
 R_MAX = 8.
 
+TUNING_FUNCTION = {
+    "step": 0,
+    "gauss": 1,
+    "linear": 2
+}
+
 
 def _create_location_based_patches(
         layer,
@@ -1183,21 +1189,20 @@ def continuous_tuning_curve(
         sigma=None,
         max_value=255.
 ):
-    stimulus_shape = input_stimulus.shape
+
+    sigma = sigma if sigma is not None else tuning_discr_steps
     mu = stimulus_tuning * tuning_discr_steps
-    response = stats.norm.pdf(
-        input_stimulus.reshape(-1),
-        mu,
-        sigma if sigma is not None else tuning_discr_steps
-    ).reshape(stimulus_shape)
 
-    max_response = stats.norm.pdf(
-        [mu],
-        mu,
-        sigma if sigma is not None else tuning_discr_steps
-    )[0]
+    return max_value * np.exp((input_stimulus - mu)**2 / float(-2 * sigma**2))
 
-    return response * max_value / max_response
+
+def linear_tuning(
+        input_stimulus,
+        stimulus_tuning,
+        tuning_discr_steps
+):
+    intercept = stimulus_tuning * tuning_discr_steps
+    return stimulus_tuning * input_stimulus - intercept, stimulus_tuning, intercept
 
 
 def _set_input_current(neuron, current_dict, synaptic_strength):
@@ -1224,6 +1229,58 @@ def same_input_current(layer, synaptic_strength, connect_prob, value=255/2., rf_
         _set_input_current(neuron, current_dict, synaptic_strength)
 
 
+def convert_step_tuning(target_node, rf, neuron_tuning, tuning_discr_step, indices, adj_mat, min_target):
+    amplitude = np.zeros(rf.shape)
+
+    mask = np.where(
+        step_tuning_curve(
+            rf,
+            neuron_tuning,
+            tuning_discr_step
+        )
+    )
+    amplitude[mask] = 255.
+    indices = indices[mask]
+    nonzero_mask = np.flatnonzero(np.asarray(amplitude)[mask])
+    adj_mat[indices.reshape(-1)[nonzero_mask], target_node - min_target] = 255. / (
+            rf + np.finfo("float64").eps)[mask].reshape(-1)[nonzero_mask].astype("float64")
+
+    return amplitude
+
+
+def convert_gauss_tuning(
+        target_node,
+        rf,
+        neuron_tuning,
+        tuning_discr_step,
+        indices,
+        adj_mat,
+        min_target,
+):
+    amplitude = continuous_tuning_curve(rf, neuron_tuning, tuning_discr_step)
+    rf = rf.astype("float64")
+    rf[rf == 0] = np.finfo("float64").eps
+    adj_mat[indices.reshape(-1), target_node - min_target] = amplitude.reshape(-1) / rf.reshape(-1).astype("float64")
+
+    return amplitude
+
+
+def convert_linear_tuning(
+        target_node,
+        rf,
+        neuron_tuning,
+        tuning_discr_step,
+        indices,
+        adj_mat,
+        min_target
+):
+    amplitude, slope, intercept = linear_tuning(rf, neuron_tuning, tuning_discr_step)
+    adj_mat[indices.reshape(-1), target_node - min_target] = slope
+    adj_mat[-1, target_node - min_target] = - amplitude.size * intercept
+
+    return amplitude
+
+
 def create_connections_rf(
         image,
         target_layer,
@@ -1232,7 +1289,7 @@ def create_connections_rf(
         inh_neurons,
         synaptic_strength=1.,
         rf_size=(10, 10),
-        use_continuous_tuning=True,
+        tuning_function=TUNING_FUNCTION["step"],
         p_rf=0.3,
         multiplier=1.,
         plot_src_target=False,
@@ -1269,7 +1326,8 @@ def create_connections_rf(
     num_tuning_discr = max(neuron_to_tuning_map.values()) + 1
     tuning_discr_step = 256. / float(num_tuning_discr)
     min_id_target = min(target_node_ids)
-    adj_mat = np.zeros((image.size, len(target_node_ids)))
+    adj_mat = np.zeros((image.size + 1, len(target_node_ids) + 1))
+    adj_mat[-1, -1] = 1.
 
     counter = 0
     rf_list = []
@@ -1302,29 +1360,25 @@ def create_connections_rf(
             connections = np.random.binomial(1, p_rf, size=rf.size)
         indices = indices[connections.astype('bool').reshape(rf.shape)]
         rf = rf[connections.astype('bool').reshape(rf.shape)]
-        amplitude = np.zeros(rf.shape)
-        mask = None
         if target_node not in inh_neurons:
-            if not use_continuous_tuning:
-                mask = np.where(
-                        step_tuning_curve(
-                            rf,
-                            neuron_to_tuning_map[target_node],
-                            tuning_discr_step
-                        )
-                    )
-                amplitude[mask] = 255.
-                indices = indices[mask]
-                nonzero_mask = np.flatnonzero(np.asarray(amplitude)[mask])
-                adj_mat[indices.reshape(-1)[nonzero_mask], target_node - min_id_target] = 255. / (
-                            rf + np.finfo("float64").eps)[mask].reshape(-1)[nonzero_mask].astype("float64")
+            tuning_fun = None
+            if tuning_function == TUNING_FUNCTION["step"]:
+                tuning_fun = convert_step_tuning
+            elif tuning_function == TUNING_FUNCTION["gauss"]:
+                tuning_fun = convert_gauss_tuning
+            elif tuning_function == TUNING_FUNCTION["linear"]:
+                tuning_fun = convert_linear_tuning
             else:
-                amplitude = continuous_tuning_curve(rf, neuron_to_tuning_map[target_node], tuning_discr_step)
-                rf = rf.astype("float64")
-                rf[rf == 0] = np.finfo("float64").eps
-                adj_mat[indices.reshape(-1), target_node - min_id_target] =\
-                    amplitude.reshape(-1) / rf.reshape(-1).astype("float64")
-
+                raise ValueError("The passed tuning function is not supported")
+            amplitude = tuning_fun(
+                target_node,
+                rf,
+                neuron_to_tuning_map[target_node],
+                tuning_discr_step,
+                indices,
+                adj_mat,
+                min_id_target
+            )
         else:
             amplitude = rf
             adj_mat[indices.reshape(-1), target_node - min_id_target] = 1.
