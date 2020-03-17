@@ -86,7 +86,6 @@ class NeuronalNetworkBase:
 
         self.tuning_to_neuron_map = None
         self.neuron_to_tuning_map = None
-        self.tuning_weight_vector = None
         self.color_map = None
 
         self.ff_weight_mat = None
@@ -162,7 +161,6 @@ class NeuronalNetworkBase:
 
         (self.tuning_to_neuron_map,
          self.neuron_to_tuning_map,
-         self.tuning_weight_vector,
          self.color_map) = create_perlin_stimulus_map(
             self.torus_layer,
             self.torus_inh_nodes,
