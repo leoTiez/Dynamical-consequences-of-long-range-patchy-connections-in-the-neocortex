@@ -9,10 +9,11 @@ from modules.networkAnalysis import mutual_information_hist, error_distance, spa
 
 import numpy as np
 import matplotlib.pyplot as plt
+from webcolors import hex_to_rgb
 import nest
 
 
-VERBOSITY = 2
+VERBOSITY = 3
 nest.set_verbosity("M_ERROR")
 
 
@@ -68,47 +69,48 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
         average_firing_rate = np.mean(firing_rates)
         print("\n#####################\tAverage firing rate: %s" % average_firing_rate)
 
-    if VERBOSITY > 3:
+    if VERBOSITY > 2:
         print("\n#####################\tPlot firing pattern over time")
-        positions = tp.GetPosition(spikes_s.tolist())
+        positions = np.asarray(tp.GetPosition(spikes_s.tolist()))
         plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=network.num_stim_discr)
-        for s, t, pos in zip(spikes_s, time_s, positions):
-            x_grid, y_grid = coordinates_to_cmap_index(network.layer_size, pos, network.spacing_perlin)
-            stim_class = network.color_map[x_grid, y_grid]
-            plt.plot(
-                t,
-                s,
-                marker='.',
-                markerfacecolor=list(mcolors.TABLEAU_COLORS.items())[stim_class][0]
-                if s not in network.torus_inh_nodes else 'k',
-                markeredgewidth=0
-            )
+
+        inh_mask = np.zeros(len(spikes_s)).astype('bool')
+        for inh_n in network.torus_inh_nodes:
+            inh_mask[spikes_s == inh_n] = True
+
+        x_grid, y_grid = coordinates_to_cmap_index(network.layer_size, positions[~inh_mask], network.spacing_perlin)
+        stim_classes = network.color_map[x_grid, y_grid]
+        c = np.full(len(spikes_s), '#000000')
+        c[~inh_mask] = np.asarray(list(mcolors.TABLEAU_COLORS.items()))[stim_classes, 1]
+        plt.scatter(time_s, spikes_s, c=c.tolist(), marker=',')
         plt.show()
 
     if VERBOSITY > 2:
         print("\n#####################\tPlot firing pattern over space")
         plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=network.num_stim_discr)
-        for pos, fr, neuron in zip(network.torus_layer_positions, firing_rates, network.torus_layer_nodes):
-            if neuron not in network.torus_inh_nodes:
-                x_grid, y_grid = coordinates_to_cmap_index(network.layer_size, pos, network.spacing_perlin)
-                stim_class = network.color_map[x_grid, y_grid]
-                plt.plot(
-                    pos[0],
-                    pos[1],
-                    marker='o',
-                    markerfacecolor=list(mcolors.TABLEAU_COLORS.items())[stim_class][0],
-                    markeredgewidth=0,
-                    alpha=fr/float(max(firing_rates))
-                )
-            else:
-                plt.plot(
-                    pos[0],
-                    pos[1],
-                    marker='o',
-                    markerfacecolor='k',
-                    markeredgewidth=0,
-                    alpha=fr/float(max(firing_rates))
-                )
+
+        inh_mask = np.zeros(len(network.torus_layer_nodes)).astype('bool')
+        inh_mask[np.asarray(network.torus_inh_nodes) - min(network.torus_layer_nodes)] = True
+
+        x_grid, y_grid = coordinates_to_cmap_index(
+            network.layer_size,
+            np.asarray(network.torus_layer_positions)[~inh_mask],
+            network.spacing_perlin
+        )
+        stim_classes = network.color_map[x_grid, y_grid]
+
+        c = np.full(len(network.torus_layer_nodes), '#000000')
+        c[~inh_mask] = np.asarray(list(mcolors.TABLEAU_COLORS.items()))[stim_classes, 1]
+
+        c_rgba = np.zeros((len(network.torus_layer_nodes), 4))
+        for num, color in enumerate(c):
+            c_rgba[num, :3] = np.asarray(hex_to_rgb(color))[:] / 255.
+        c_rgba[:, 3] = firing_rates/float(max(firing_rates))
+        plt.scatter(
+            np.asarray(network.torus_layer_positions)[:, 0],
+            np.asarray(network.torus_layer_positions)[:, 1],
+            c=c_rgba
+        )
 
         plt.imshow(
             network.color_map,
