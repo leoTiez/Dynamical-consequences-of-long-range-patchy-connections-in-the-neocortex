@@ -1020,7 +1020,6 @@ def create_perlin_stimulus_map(
 
     tuning_to_neuron_map = {stimulus: [] for stimulus in range(num_stimulus_discr)}
     neuron_to_tuning_map = {}
-    tuning_weight_vector = np.zeros(len(nodes))
 
     c_map = perlin_noise(size_layer, resolution=resolution, spacing=spacing)
 
@@ -1048,32 +1047,23 @@ def create_perlin_stimulus_map(
             alpha=0.4
         )
 
-    for n in nodes:
-        p = tp.GetPosition([n])[0]
-        # Grid positions
-        x_grid, y_grid = coordinates_to_cmap_index(size_layer, p, spacing)
-
-        stim_class = color_map[x_grid, y_grid]
-
-        if n in inh_neurons:
-            tuning_weight_vector[n - min_idx] = 1.
-            if plot:
-                plt.plot(p[0], p[1], marker='o', markerfacecolor='k', markeredgewidth=0)
-        else:
-            tuning_to_neuron_map[stim_class].append(n)
-            neuron_to_tuning_map[n] = stim_class
-            tuning_weight_vector[n - min_idx] = stim_class / float(num_stimulus_discr - 1)
-
-            if plot:
-                plt.plot(
-                    p[0],
-                    p[1],
-                    marker='o',
-                    markerfacecolor=list(mcolors.TABLEAU_COLORS.items())[stim_class][0],
-                    markeredgewidth=0
-                )
+    positions = np.asarray(tp.GetPosition(nodes))
+    inh_mask = np.zeros(len(nodes)).astype('bool')
+    inh_mask[np.asarray(inh_neurons) - min(nodes)] = True
+    x_grid, y_grid = coordinates_to_cmap_index(size_layer, positions[~inh_mask], spacing)
+    stim_class = color_map[x_grid, y_grid]
+    zip_node_class = list(zip(np.asarray(nodes)[~inh_mask].tolist(), stim_class.tolist()))
+    neuron_to_tuning_map.update(zip_node_class)
+    for c in range(num_stimulus_discr):
+        stimulus_class_list = list(filter(lambda x: x[1] == c, zip_node_class))
+        stim_nodes, _ = zip(*stimulus_class_list)
+        tuning_to_neuron_map[c] = stim_nodes
 
     if plot:
+        c = np.full(len(nodes), '#000000')
+        c[~inh_mask] = np.asarray(list(mcolors.TABLEAU_COLORS.items()))[stim_class, 1]
+        positions = np.asarray(positions)
+        plt.scatter(positions[:, 0], positions[:, 1], c=c.tolist())
         plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=num_stimulus_discr)
         if not save_plot:
             plt.show()
@@ -1082,7 +1072,7 @@ def create_perlin_stimulus_map(
             if plot_name is None:
                 plot_name = "stimulus_tuning_map.png"
             plt.savefig(curr_dir + "/figures/" + plot_name)
-    return tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map
+    return tuning_to_neuron_map, neuron_to_tuning_map, color_map
 
 
 def create_stimulus_tuning_map(
