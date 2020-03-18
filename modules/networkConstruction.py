@@ -16,6 +16,12 @@ import nest
 GLOBAL_CONNECTIVITY = 0.0123
 R_MAX = 8.
 
+TUNING_FUNCTION = {
+    "step": 0,
+    "gauss": 1,
+    "linear": 2
+}
+
 
 def _create_location_based_patches(
         layer,
@@ -1020,7 +1026,6 @@ def create_perlin_stimulus_map(
 
     tuning_to_neuron_map = {stimulus: [] for stimulus in range(num_stimulus_discr)}
     neuron_to_tuning_map = {}
-    tuning_weight_vector = np.zeros(len(nodes))
 
     c_map = perlin_noise(size_layer, resolution=resolution, spacing=spacing)
 
@@ -1048,32 +1053,23 @@ def create_perlin_stimulus_map(
             alpha=0.4
         )
 
-    for n in nodes:
-        p = tp.GetPosition([n])[0]
-        # Grid positions
-        x_grid, y_grid = coordinates_to_cmap_index(size_layer, p, spacing)
-
-        stim_class = color_map[x_grid, y_grid]
-
-        if n in inh_neurons:
-            tuning_weight_vector[n - min_idx] = 1.
-            if plot:
-                plt.plot(p[0], p[1], marker='o', markerfacecolor='k', markeredgewidth=0)
-        else:
-            tuning_to_neuron_map[stim_class].append(n)
-            neuron_to_tuning_map[n] = stim_class
-            tuning_weight_vector[n - min_idx] = stim_class / float(num_stimulus_discr - 1)
-
-            if plot:
-                plt.plot(
-                    p[0],
-                    p[1],
-                    marker='o',
-                    markerfacecolor=list(mcolors.TABLEAU_COLORS.items())[stim_class][0],
-                    markeredgewidth=0
-                )
+    positions = np.asarray(tp.GetPosition(nodes))
+    inh_mask = np.zeros(len(nodes)).astype('bool')
+    inh_mask[np.asarray(inh_neurons) - min(nodes)] = True
+    x_grid, y_grid = coordinates_to_cmap_index(size_layer, positions[~inh_mask], spacing)
+    stim_class = color_map[x_grid, y_grid]
+    zip_node_class = list(zip(np.asarray(nodes)[~inh_mask].tolist(), stim_class.tolist()))
+    neuron_to_tuning_map.update(zip_node_class)
+    for c in range(num_stimulus_discr):
+        stimulus_class_list = list(filter(lambda x: x[1] == c, zip_node_class))
+        stim_nodes, _ = zip(*stimulus_class_list)
+        tuning_to_neuron_map[c] = stim_nodes
 
     if plot:
+        c = np.full(len(nodes), '#000000')
+        c[~inh_mask] = np.asarray(list(mcolors.TABLEAU_COLORS.items()))[stim_class, 1]
+        positions = np.asarray(positions)
+        plt.scatter(positions[:, 0], positions[:, 1], c=c.tolist())
         plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=num_stimulus_discr)
         if not save_plot:
             plt.show()
@@ -1082,7 +1078,7 @@ def create_perlin_stimulus_map(
             if plot_name is None:
                 plot_name = "stimulus_tuning_map.png"
             plt.savefig(curr_dir + "/figures/" + plot_name)
-    return tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map
+    return tuning_to_neuron_map, neuron_to_tuning_map, color_map
 
 
 def create_stimulus_tuning_map(
@@ -1181,8 +1177,8 @@ def step_tuning_curve(
     :return: True if neuron reacts, False otherwise
     """
     return np.logical_and(
-        stimulus_tuning * tuning_discr_steps <= input_stimulus / multiplier,
-        input_stimulus / multiplier < (stimulus_tuning + 1) * tuning_discr_steps
+        stimulus_tuning * tuning_discr_steps + 1 <= input_stimulus / multiplier,
+        input_stimulus / multiplier < (stimulus_tuning + 1) * tuning_discr_steps + 1
     )
 
 
@@ -1193,38 +1189,40 @@ def continuous_tuning_curve(
         sigma=None,
         max_value=255.
 ):
-    stimulus_shape = input_stimulus.shape
+
+    sigma = sigma if sigma is not None else tuning_discr_steps
     mu = stimulus_tuning * tuning_discr_steps
-    response = stats.norm.pdf(
-        input_stimulus.reshape(-1),
-        mu,
-        sigma if sigma is not None else tuning_discr_steps
-    ).reshape(stimulus_shape)
 
-    max_response = stats.norm.pdf(
-        [mu],
-        mu,
-        sigma if sigma is not None else tuning_discr_steps
-    )[0]
-
-    return response * max_value / max_response
+    return max_value * np.exp((input_stimulus - mu)**2 / float(-2 * sigma**2))
 
 
-def _set_input_current(neuron, current_dict, synaptic_strength):
+def linear_tuning(
+        input_stimulus,
+        stimulus_tuning,
+        tuning_discr_steps
+):
+    intercept = stimulus_tuning * tuning_discr_steps
+    return stimulus_tuning * input_stimulus - intercept, stimulus_tuning, intercept
+
+
+def _set_input_current(neuron, current_dict, synaptic_strength, use_dc=True):
     connections = nest.GetConnections(target=[neuron])
     sources = nest.GetStatus(connections, "source")
     source_types = np.asarray(list(nest.GetStatus(sources, "element_type")))
-    dc_generator = np.array([])
+    generator = np.array([])
     if len(source_types) > 0:
-        dc_generator = np.asarray(sources)[source_types == "stimulator"]
+        generator = np.asarray(sources)[source_types == "stimulator"]
 
-    if dc_generator.size == 0:
-        dc_generator = nest.Create("dc_generator", n=1, params=current_dict)[0]
+    if generator.size == 0:
+        if use_dc:
+            generator = nest.Create("dc_generator", n=1, params=current_dict)[0]
+        else:
+            generator = nest.Create("poisson_generator", n=1, params=current_dict)[0]
         syn_spec = {"weight": synaptic_strength}
-        nest.Connect([dc_generator], [neuron], syn_spec=syn_spec)
+        nest.Connect([generator], [neuron], syn_spec=syn_spec)
     else:
-        dc_generator = dc_generator[0]
-        nest.SetStatus([dc_generator], current_dict)
+        generator = generator[0]
+        nest.SetStatus([generator], current_dict)
 
 
 def same_input_current(layer, synaptic_strength, connect_prob, value=255/2., rf_size=(10, 10)):
@@ -1232,6 +1230,58 @@ def same_input_current(layer, synaptic_strength, connect_prob, value=255/2., rf_
     neurons = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
     for neuron in neurons:
         _set_input_current(neuron, current_dict, synaptic_strength)
+
+
+def convert_step_tuning(target_node, rf, neuron_tuning, tuning_discr_step, indices, adj_mat, min_target):
+    amplitude = np.zeros(rf.shape)
+
+    mask = np.where(
+        step_tuning_curve(
+            rf,
+            neuron_tuning,
+            tuning_discr_step
+        )
+    )
+    amplitude[mask] = 255.
+    indices = indices[mask]
+    nonzero_mask = np.flatnonzero(np.asarray(amplitude)[mask])
+    adj_mat[indices.reshape(-1)[nonzero_mask], target_node - min_target] = 255. / (
+            rf + np.finfo("float64").eps)[mask].reshape(-1)[nonzero_mask].astype("float64")
+
+    return amplitude
+
+
+def convert_gauss_tuning(
+        target_node,
+        rf,
+        neuron_tuning,
+        tuning_discr_step,
+        indices,
+        adj_mat,
+        min_target,
+):
+    amplitude = continuous_tuning_curve(rf, neuron_tuning, tuning_discr_step)
+    rf = rf.astype("float64")
+    rf[rf == 0] = np.finfo("float64").eps
+    adj_mat[indices.reshape(-1), target_node - min_target] = amplitude.reshape(-1) / rf.reshape(-1).astype("float64")
+
+    return amplitude
+
+
+def convert_linear_tuning(
+        target_node,
+        rf,
+        neuron_tuning,
+        tuning_discr_step,
+        indices,
+        adj_mat,
+        min_target
+):
+    amplitude, slope, intercept = linear_tuning(rf, neuron_tuning, tuning_discr_step)
+    adj_mat[indices.reshape(-1), target_node - min_target] = slope
+    adj_mat[-1, target_node - min_target] = - amplitude.size * intercept
+
+    return amplitude
 
 
 def create_connections_rf(
@@ -1242,8 +1292,9 @@ def create_connections_rf(
         inh_neurons,
         synaptic_strength=1.,
         rf_size=(10, 10),
-        use_continuous_tuning=True,
+        tuning_function=TUNING_FUNCTION["step"],
         p_rf=0.3,
+        use_dc=True,
         multiplier=1.,
         plot_src_target=False,
         save_plot=False,
@@ -1277,13 +1328,26 @@ def create_connections_rf(
         "upper_right": [rf_size[1] // 2, rf_size[0] // 2]
     }
     num_tuning_discr = max(neuron_to_tuning_map.values()) + 1
-    tuning_discr_step = 256 / float(num_tuning_discr)
+    tuning_discr_step = 256. / float(num_tuning_discr)
     min_id_target = min(target_node_ids)
-    adj_mat = np.zeros((image.size, len(target_node_ids)))
+    adj_mat = np.zeros((image.size + 1, len(target_node_ids) + 1))
+    adj_mat[-1, -1] = 1.
+
+    tuning_fun = None
+    if tuning_function == TUNING_FUNCTION["step"]:
+        tuning_fun = convert_step_tuning
+    elif tuning_function == TUNING_FUNCTION["gauss"]:
+        tuning_fun = convert_gauss_tuning
+    elif tuning_function == TUNING_FUNCTION["linear"]:
+        tuning_fun = convert_linear_tuning
+    else:
+        raise ValueError("The passed tuning function is not supported")
 
     counter = 0
     rf_list = []
     index_values = np.arange(0, image.size, 1).astype('int').reshape(image.shape)
+
+    amplitudes = []
     for target_node, rf_center in zip(target_node_ids, rf_centers):
         upper_left = (np.asarray(rf_center) + np.asarray(mask_specs["lower_left"])).astype('int')
         lower_right = (np.asarray(rf_center) + np.asarray(mask_specs["upper_right"])).astype('int')
@@ -1310,27 +1374,30 @@ def create_connections_rf(
             connections = np.random.binomial(1, p_rf, size=rf.size)
         indices = indices[connections.astype('bool').reshape(rf.shape)]
         rf = rf[connections.astype('bool').reshape(rf.shape)]
-        amplitude = np.zeros(rf.shape)
         if target_node not in inh_neurons:
-            if not use_continuous_tuning:
-                amplitude[
-                    np.where(
-                        step_tuning_curve(
-                            rf,
-                            neuron_to_tuning_map[target_node],
-                            tuning_discr_step
-                        )
-                    )
-                ] = 255.
-            else:
-                amplitude = continuous_tuning_curve(rf, neuron_to_tuning_map[target_node], tuning_discr_step)
+            amplitude = tuning_fun(
+                target_node,
+                rf,
+                neuron_to_tuning_map[target_node],
+                tuning_discr_step,
+                indices,
+                adj_mat,
+                min_id_target
+            )
         else:
             amplitude = rf
+            adj_mat[indices.reshape(-1), target_node - min_id_target] = 1.
 
-        current_dict = {"amplitude": float(amplitude.sum()) * multiplier}
-        _set_input_current(target_node, current_dict, synaptic_strength)
+        amplitudes.append(amplitude.sum())
+        if use_dc:
+            current_dict = {"amplitude": float(amplitude.sum()) * multiplier}
+        else:
+            max_rate = rf.size * 255.
+            rate = 1000. * amplitude.sum() / max_rate
+            synaptic_strength = 1.
+            current_dict = {"rate": rate * multiplier}
 
-        adj_mat[indices.reshape(-1), target_node - min_id_target] = 1
+        _set_input_current(target_node, current_dict, synaptic_strength, use_dc=use_dc)
 
         if counter == plot_point:
             if plot_src_target:
@@ -1372,4 +1439,34 @@ def create_connections_rf(
 
         counter += 1
 
+    if plot_src_target:
+        import modules.stimulusReconstruction as sr
+        applied_current = np.arange(0, 255)
+        ad = np.zeros((255, 1))
+        for tune in range(num_tuning_discr):
+            plt.plot(
+                applied_current,
+                tuning_fun(0, applied_current, tune, 255./4., applied_current, ad, 0)
+            )
+        if not save_plot:
+            plt.show()
+        else:
+            curr_dir = os.getcwd()
+            plt.savefig(curr_dir + "/figures/tuning_function.png")
+            plt.close()
+
+        recons = sr.direct_stimulus_reconstruction(
+            np.asarray(amplitudes),
+            adj_mat
+        )
+
+        _, ax = plt.subplots(1, 2)
+        ax[0].imshow(recons, cmap='gray')
+        ax[1].imshow(image, cmap='gray', vmin=0, vmax=255)
+        if not save_plot:
+            plt.show()
+        else:
+            curr_dir = os.getcwd()
+            plt.savefig(curr_dir + "/figures/reconstruction_based_on_current.png")
+            plt.close()
     return adj_mat

@@ -96,13 +96,14 @@ def plot_connections(
     x_source, y_source = zip(*source_positions)
     plt.plot(x_source, y_source, 'o')
 
-    target_positions = tp.GetPosition(target_nodes)
-    x_target, y_target = zip(*target_positions)
-    plt.plot(x_target, y_target, 'o')
+    if len(target_nodes) > 0:
+        target_positions = tp.GetPosition(target_nodes)
+        x_target, y_target = zip(*target_positions)
+        plt.plot(x_target, y_target, 'o')
 
-    for s in source_positions:
-        for t in target_positions:
-            plt.plot([s[0], t[0]], [s[1], t[1]], color="k")
+        for s in source_positions:
+            for t in target_positions:
+                plt.plot([s[0], t[0]], [s[1], t[1]], color="k")
 
     if color_mask is not None:
         plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=color_mask.max()+1)
@@ -162,8 +163,11 @@ def perlin_noise(size_layer=50, resolution=(5, 5), spacing=0.01):
 
 
 def coordinates_to_cmap_index(layer_size, position, spacing):
-    y = np.floor(((layer_size / 2.) + position[0]) / spacing).astype('int')
-    x = np.floor(((layer_size / 2.) + position[1]) / spacing).astype('int')
+    position = np.asarray(position)
+    if len(position.shape) <= 1:
+        position = np.asarray([position])
+    y = np.floor(((layer_size / 2.) + position[:, 0]) / spacing).astype('int')
+    x = np.floor(((layer_size / 2.) + position[:, 1]) / spacing).astype('int')
 
     return x, y
 
@@ -177,3 +181,13 @@ def dot_product_perlin(x_grid, y_grid, x, y, gradients):
 def lerp_perlin(a, b, weight):
     return (1. - weight) * a + weight * b
 
+
+def sort_nodes_space(nodes, axis=0):
+    pos = tp.GetPosition(nodes)
+    nodes_pos = list(zip(nodes, pos))
+    if axis == 0:
+        nodes_pos.sort(key=lambda p: (p[1][0], p[1][1]))
+    elif axis == 1:
+        nodes_pos.sort(key=lambda p: (p[1][1], p[1][0]))
+    nodes, pos = zip(*nodes_pos)
+    return nodes, pos
