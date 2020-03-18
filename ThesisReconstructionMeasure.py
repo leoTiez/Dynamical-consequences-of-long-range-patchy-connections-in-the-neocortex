@@ -31,7 +31,7 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
     # Define values
     # #################################################################################################################
     simulation_time = 1000.
-    num_neurons = int(1e3)
+    num_neurons = int(1e4)
     cap_s = 1.
     inh_weight = -15.
     all_same_input_current = False
@@ -139,10 +139,9 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
         if VERBOSITY > 0:
             print("\n#####################\tReconstruct stimulus")
 
-        mask = None
         reconstruction = direct_stimulus_reconstruction(
-            firing_rates[mask],
-            network.ff_weight_mat[:, mask],
+            firing_rates,
+            network.ff_weight_mat,
         )
         response_fft = fourier_trans(reconstruction)
 
@@ -153,10 +152,9 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
             fig[1].imshow(np.abs(stimulus_fft), norm=LogNorm(vmin=5))
 
         if VERBOSITY > 1:
-            _, fig_2 = plt.subplots(1, 3)
+            _, fig_2 = plt.subplots(1, 2)
             fig_2[0].imshow(reconstruction, cmap='gray')
             fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
-            fig_2[2].imshow(network.color_map, cmap=custom_cmap())
             plt.show()
 
         return input_stimulus, reconstruction
