@@ -1403,7 +1403,7 @@ def create_connections_rf(
             if plot_src_target:
                 target_layer_size = nest.GetStatus(target_layer, "topology")[0]["extent"][0]
 
-                fig, ax = plt.subplots(1, 2, sharex='none', sharey='none')
+                fig, ax = plt.subplots(1, 2, sharex='none', sharey='none', figsize=(10, 5))
                 ax[0].axis((0, retina_size[1], 0, retina_size[0]))
 
                 color_list = list(mcolors.TABLEAU_COLORS.items())
@@ -1443,11 +1443,14 @@ def create_connections_rf(
         import modules.stimulusReconstruction as sr
         applied_current = np.arange(0, 255)
         ad = np.zeros((255, 1))
+        plt.figure(figsize=(10, 5))
         for tune in range(num_tuning_discr):
             plt.plot(
                 applied_current,
                 tuning_fun(0, applied_current, tune, 255./4., applied_current, ad, 0)
             )
+        plt.xlabel("Current I in nA")
+        plt.ylabel("Stimulus intensity")
         if not save_plot:
             plt.show()
         else:
@@ -1460,7 +1463,7 @@ def create_connections_rf(
             adj_mat
         )
 
-        _, ax = plt.subplots(1, 2)
+        _, ax = plt.subplots(1, 2, figsize=(10, 5))
         ax[0].imshow(recons, cmap='gray')
         ax[1].imshow(image, cmap='gray', vmin=0, vmax=255)
         if not save_plot:
