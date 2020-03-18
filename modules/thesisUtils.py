@@ -10,6 +10,7 @@ import matplotlib.patches as patches
 import matplotlib.colors as mcolors
 import matplotlib.cm as cm
 
+import nest
 import nest.topology as tp
 
 
@@ -191,3 +192,47 @@ def sort_nodes_space(nodes, axis=0):
         nodes_pos.sort(key=lambda p: (p[1][1], p[1][0]))
     nodes, pos = zip(*nodes_pos)
     return nodes, pos
+
+
+def get_in_out_degree(nodes, node_tree=None, node_pos=None, r_loc=0.5, r_p=None, size_layer=8.):
+    in_degree = []
+    out_degree = []
+
+    in_degree_loc = []
+    out_degree_loc = []
+
+    in_degree_lr = []
+    out_degree_lr = []
+
+    min_id = min(nodes)
+    for node in nodes:
+        out_connect = nest.GetConnections(source=[node])
+        in_connect = nest.GetConnections(target=[node])
+        out_degree.append(len(out_connect))
+        in_degree.append(len(in_connect))
+
+        if node_tree is not None and node_pos is not None:
+            out_partners = set(nest.GetStatus(out_connect, "target"))
+            in_partners = set(nest.GetStatus(in_connect, "source"))
+            pos = node_pos[node - min_id]
+
+            if r_p is None:
+                r_p = r_loc / 2.
+
+            min_distance_lr = r_loc + r_p
+            max_distance_lr = np.sqrt(size_layer ** 2 + size_layer ** 2) / 2. - r_p
+
+            # Local in/out degree
+            connect_partners = set((np.asarray(node_tree.query_ball_point(pos, r_loc)) + min_id).tolist())
+            in_degree_loc.append(len(connect_partners.intersection(in_partners)))
+            out_degree_loc.append(len(connect_partners.intersection(out_partners)))
+
+            # Long range in/out degree
+            inner_nodes = (np.asarray(node_tree.query_ball_point(pos, min_distance_lr)) + min_id).tolist()
+            outer_nodes = (np.asarray(node_tree.query_ball_point(pos, max_distance_lr)) + min_id).tolist()
+            patchy_partners = set(outer_nodes).difference(set(inner_nodes))
+            in_degree_lr.append(len(patchy_partners.intersection(in_partners)))
+            out_degree_lr.append(len(patchy_partners.intersection(out_partners)))
+
+    return in_degree, out_degree, in_degree_loc, out_degree_loc, in_degree_lr, out_degree_lr
+
