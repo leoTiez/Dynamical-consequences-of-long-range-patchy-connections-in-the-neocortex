@@ -1329,6 +1329,16 @@ def create_connections_rf(
     adj_mat = np.zeros((image.size + 1, len(target_node_ids) + 1))
     adj_mat[-1, -1] = 1.
 
+    tuning_fun = None
+    if tuning_function == TUNING_FUNCTION["step"]:
+        tuning_fun = convert_step_tuning
+    elif tuning_function == TUNING_FUNCTION["gauss"]:
+        tuning_fun = convert_gauss_tuning
+    elif tuning_function == TUNING_FUNCTION["linear"]:
+        tuning_fun = convert_linear_tuning
+    else:
+        raise ValueError("The passed tuning function is not supported")
+
     counter = 0
     rf_list = []
     index_values = np.arange(0, image.size, 1).astype('int').reshape(image.shape)
@@ -1361,15 +1371,6 @@ def create_connections_rf(
         indices = indices[connections.astype('bool').reshape(rf.shape)]
         rf = rf[connections.astype('bool').reshape(rf.shape)]
         if target_node not in inh_neurons:
-            tuning_fun = None
-            if tuning_function == TUNING_FUNCTION["step"]:
-                tuning_fun = convert_step_tuning
-            elif tuning_function == TUNING_FUNCTION["gauss"]:
-                tuning_fun = convert_gauss_tuning
-            elif tuning_function == TUNING_FUNCTION["linear"]:
-                tuning_fun = convert_linear_tuning
-            else:
-                raise ValueError("The passed tuning function is not supported")
             amplitude = tuning_fun(
                 target_node,
                 rf,
@@ -1434,7 +1435,7 @@ def create_connections_rf(
         for tune in range(num_tuning_discr):
             plt.plot(
                 applied_current,
-                convert_gauss_tuning(0, applied_current, tune, 255./4., applied_current, ad, 0)
+                tuning_fun(0, applied_current, tune, 255./4., applied_current, ad, 0)
             )
         if not save_plot:
             plt.show()
