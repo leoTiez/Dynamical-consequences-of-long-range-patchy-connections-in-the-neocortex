@@ -1205,21 +1205,24 @@ def linear_tuning(
     return stimulus_tuning * input_stimulus - intercept, stimulus_tuning, intercept
 
 
-def _set_input_current(neuron, current_dict, synaptic_strength):
+def _set_input_current(neuron, current_dict, synaptic_strength, use_dc=True):
     connections = nest.GetConnections(target=[neuron])
     sources = nest.GetStatus(connections, "source")
     source_types = np.asarray(list(nest.GetStatus(sources, "element_type")))
-    dc_generator = np.array([])
+    generator = np.array([])
     if len(source_types) > 0:
-        dc_generator = np.asarray(sources)[source_types == "stimulator"]
+        generator = np.asarray(sources)[source_types == "stimulator"]
 
-    if dc_generator.size == 0:
-        dc_generator = nest.Create("dc_generator", n=1, params=current_dict)[0]
+    if generator.size == 0:
+        if use_dc:
+            generator = nest.Create("dc_generator", n=1, params=current_dict)[0]
+        else:
+            generator = nest.Create("poisson_generator", n=1, params=current_dict)[0]
         syn_spec = {"weight": synaptic_strength}
-        nest.Connect([dc_generator], [neuron], syn_spec=syn_spec)
+        nest.Connect([generator], [neuron], syn_spec=syn_spec)
     else:
-        dc_generator = dc_generator[0]
-        nest.SetStatus([dc_generator], current_dict)
+        generator = generator[0]
+        nest.SetStatus([generator], current_dict)
 
 
 def same_input_current(layer, synaptic_strength, connect_prob, value=255/2., rf_size=(10, 10)):
@@ -1291,6 +1294,7 @@ def create_connections_rf(
         rf_size=(10, 10),
         tuning_function=TUNING_FUNCTION["step"],
         p_rf=0.3,
+        use_dc=True,
         multiplier=1.,
         plot_src_target=False,
         save_plot=False,
@@ -1385,8 +1389,15 @@ def create_connections_rf(
             adj_mat[indices.reshape(-1), target_node - min_id_target] = 1.
 
         amplitudes.append(amplitude.sum())
-        current_dict = {"amplitude": float(amplitude.sum()) * multiplier}
-        _set_input_current(target_node, current_dict, synaptic_strength)
+        if use_dc:
+            current_dict = {"amplitude": float(amplitude.sum()) * multiplier}
+        else:
+            max_rate = rf.size * 255.
+            rate = 1000. * amplitude.sum() / max_rate
+            synaptic_strength = 1.
+            current_dict = {"rate": rate * multiplier}
+
+        _set_input_current(target_node, current_dict, synaptic_strength, use_dc=use_dc)
 
         if counter == plot_point:
             if plot_src_target:
