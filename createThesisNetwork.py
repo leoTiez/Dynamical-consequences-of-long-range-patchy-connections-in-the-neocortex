@@ -40,6 +40,7 @@ class NeuronalNetworkBase:
             layer_size=8.,
             spacing_perlin=0.01,
             resolution_perlin=(15, 15),
+            use_dc=True,
             verbosity=0,
             save_plots=False,
             **kwargs
@@ -67,6 +68,8 @@ class NeuronalNetworkBase:
 
         self.spacing_perlin = spacing_perlin
         self.resolution_perlin = resolution_perlin
+
+        self.use_dc = use_dc
 
         self.verbosity = verbosity
         self.save_plots = save_plots
@@ -219,6 +222,7 @@ class NeuronalNetworkBase:
             tuning_function=self.tuning_function,
             p_rf=self.p_rf,
             rf_size=self.rf_size,
+            use_dc=self.use_dc,
             plot_src_target=self.plot_rf_relation,
             retina_size=self.input_stimulus.shape,
             save_plot=self.save_plots
