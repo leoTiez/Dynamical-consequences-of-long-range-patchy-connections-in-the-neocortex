@@ -106,11 +106,12 @@ def direct_stimulus_reconstruction(
     :param tuning_weight_vector: The weight vector for the neurons with stimulus preference, e.g. feature class / #class
     :return: Reconstructed stimulus
     """
-    inv_ff_weight_mat = np.linalg.pinv(ff_weight_mat)
+    weight_mat = ff_weight_mat[:, None]
+    inv_ff_weight_mat = np.linalg.pinv(weight_mat)
     firing_rates_int = np.ones(firing_rates.size + 1)
     firing_rates_int[:firing_rates.size] = firing_rates
     reconstruction = firing_rates_int.dot(inv_ff_weight_mat)
-    reconstruction = reconstruction[:-1]
+    reconstruction = reconstruction.reshape(-1)[:-1]
     return reconstruction.reshape(int(np.sqrt(reconstruction.size)), int(np.sqrt(reconstruction.size)))
 
 
