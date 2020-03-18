@@ -1429,6 +1429,19 @@ def create_connections_rf(
 
     if plot_src_target:
         import modules.stimulusReconstruction as sr
+        applied_current = np.arange(0, 255)
+        ad = np.zeros((255, 1))
+        for tune in range(num_tuning_discr):
+            plt.plot(
+                applied_current,
+                convert_gauss_tuning(0, applied_current, tune, 255./4., applied_current, ad, 0)
+            )
+        if not save_plot:
+            plt.show()
+        else:
+            curr_dir = os.getcwd()
+            plt.savefig(curr_dir + "/figures/tuning_function.png")
+            plt.close()
 
         recons = sr.direct_stimulus_reconstruction(
             np.asarray(amplitudes),
