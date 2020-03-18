@@ -43,6 +43,7 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
     capacitance = 80.
     time_constant = 20.
     tuning_function = TUNING_FUNCTION["gauss"]
+    use_dc = False
 
     # Note: when using the same input current for all neurons, we obtain synchrony, and due to the refactory phase
     # all recurrent connections do not have any effect
@@ -61,6 +62,7 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
         capacitance=capacitance,
         time_constant=time_constant,
         tuning_function=tuning_function,
+        use_dc=use_dc,
         verbosity=VERBOSITY
     )
     network.create_network()
