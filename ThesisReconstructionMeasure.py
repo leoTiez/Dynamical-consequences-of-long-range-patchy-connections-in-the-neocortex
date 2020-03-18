@@ -66,6 +66,11 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
         verbosity=VERBOSITY
     )
     network.create_network()
+
+    if VERBOSITY > 2:
+        print("\n#####################\tPlot in/out degree distribution")
+        network.connect_distribution()
+
     firing_rates, (spikes_s, time_s) = network.simulate(simulation_time)
 
     if VERBOSITY > 0:
@@ -74,6 +79,7 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
 
     if VERBOSITY > 2:
         print("\n#####################\tPlot firing pattern over time")
+        plt.figure(figsize=(10, 5))
         positions = np.asarray(tp.GetPosition(spikes_s.tolist()))
         plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=network.num_stim_discr)
 
@@ -90,6 +96,7 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
 
     if VERBOSITY > 2:
         print("\n#####################\tPlot firing pattern over space")
+        plt.figure(figsize=(10, 5))
         plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=network.num_stim_discr)
 
         inh_mask = np.zeros(len(network.torus_layer_nodes)).astype('bool')
@@ -149,12 +156,12 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
 
         if VERBOSITY > 3:
             from matplotlib.colors import LogNorm
-            _, fig = plt.subplots(1, 2)
+            _, fig = plt.subplots(1, 2, figsize=(10, 5))
             fig[0].imshow(np.abs(response_fft), norm=LogNorm(vmin=5))
             fig[1].imshow(np.abs(stimulus_fft), norm=LogNorm(vmin=5))
 
         if VERBOSITY > 1:
-            _, fig_2 = plt.subplots(1, 2)
+            _, fig_2 = plt.subplots(1, 2, figsize=(10, 5))
             fig_2[0].imshow(reconstruction, cmap='gray')
             fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
             plt.show()
