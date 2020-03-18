@@ -4,7 +4,9 @@
 from modules.networkConstruction import *
 from modules.createStimulus import *
 from modules.networkAnalysis import *
+from modules.thesisUtils import get_in_out_degree
 
+from collections import Counter, OrderedDict
 from scipy.spatial import KDTree
 import nest
 
@@ -284,6 +286,32 @@ class NeuronalNetworkBase:
             plot_name=plot_name,
             color_mask=self.color_map
         )
+
+    def connect_distribution(self, plot_name="in_out_deg_dist.png"):
+        # Check ups
+        if self.torus_layer_nodes is None:
+            raise ValueError("The sensory nodes have not been created yet. Run create_layer")
+
+        in_degree, out_degree, _, _, _, _ = get_in_out_degree(self.torus_layer_nodes)
+
+        in_deg_dist = OrderedDict(sorted(Counter(in_degree).items()))
+        out_deg_dist = OrderedDict(sorted(Counter(out_degree).items()))
+
+        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+        ax[0].bar(list(in_deg_dist.keys()), list(in_deg_dist.values()))
+        ax[0].set_xlabel("Indegree total")
+        ax[0].set_ylabel("Number of nodes")
+
+        ax[1].bar(list(out_deg_dist.keys()), list(out_deg_dist.values()))
+        ax[1].set_xlabel("Outdegree total")
+        ax[1].set_ylabel("Number of nodes")
+
+        if self.save_plots:
+            curr_dir = os.getcwd()
+            plt.savefig(curr_dir + "/figures/" + plot_name)
+        else:
+            plt.show()
+
     # #################################################################################################################
     # Getter / Setter
     # #################################################################################################################
@@ -533,6 +561,48 @@ class LocalNetwork(NeuronalNetworkBase):
         else:
             raise ValueError("The passed connection type %s is not accepted." % self.loc_connection_type)
 
+    def connect_distribution(self, plot_name="in_out_deg_dist.png"):
+        # Check ups
+        if self.torus_layer_nodes is None:
+            raise ValueError("The sensory nodes have not been created yet. Run create_layer")
+
+        in_degree, out_degree, in_degree_loc, out_degree_loc, _, _ = get_in_out_degree(
+            self.torus_layer_nodes,
+            node_tree=self.torus_layer_tree,
+            node_pos=self.torus_layer_positions,
+            r_loc=self.r_loc,
+            size_layer=self.layer_size
+        )
+
+        in_deg_dist = OrderedDict(sorted(Counter(in_degree).items()))
+        out_deg_dist = OrderedDict(sorted(Counter(out_degree).items()))
+
+        in_deg_dist_loc = OrderedDict(sorted(Counter(in_degree_loc).items()))
+        out_deg_dist_loc = OrderedDict(sorted(Counter(out_degree_loc).items()))
+
+        fig, ax = plt.subplots(2, 2, figsize=(10, 5))
+        ax[0][0].bar(list(in_deg_dist.keys()), list(in_deg_dist.values()))
+        ax[0][0].set_xlabel("Indegree total")
+        ax[0][0].set_ylabel("Number of nodes")
+
+        ax[0][1].bar(list(out_deg_dist.keys()), list(out_deg_dist.values()))
+        ax[0][1].set_xlabel("Outdegree total")
+        ax[0][1].set_ylabel("Number of nodes")
+
+        ax[1][0].bar(list(in_deg_dist_loc.keys()), list(in_deg_dist_loc.values()))
+        ax[1][0].set_xlabel("Indegree local")
+        ax[1][0].set_ylabel("Number of nodes")
+
+        ax[1][1].bar(list(out_deg_dist_loc.keys()), list(out_deg_dist_loc.values()))
+        ax[1][1].set_xlabel("Outdegree local")
+        ax[1][1].set_ylabel("Number of nodes")
+
+        if self.save_plots:
+            curr_dir = os.getcwd()
+            plt.savefig(curr_dir + "/figures/" + plot_name)
+        else:
+            plt.show()
+
     def create_network(self):
         NeuronalNetworkBase.create_network(self)
         self.create_local_connections()
@@ -668,6 +738,59 @@ class PatchyNetwork(LocalNetwork):
                 save_plot=self.save_plots,
                 color_mask=self.color_map
             )
+
+    def connect_distribution(self, plot_name="in_out_deg_dist.png"):
+        # Check ups
+        if self.torus_layer_nodes is None:
+            raise ValueError("The sensory nodes have not been created yet. Run create_layer")
+
+        in_degree, out_degree, in_degree_loc, out_degree_loc, in_degree_lr, out_degree_lr = get_in_out_degree(
+            self.torus_layer_nodes,
+            node_tree=self.torus_layer_tree,
+            node_pos=self.torus_layer_positions,
+            r_loc=self.r_loc,
+            size_layer=self.layer_size
+        )
+
+        in_deg_dist = OrderedDict(sorted(Counter(in_degree).items()))
+        out_deg_dist = OrderedDict(sorted(Counter(out_degree).items()))
+
+        in_deg_dist_loc = OrderedDict(sorted(Counter(in_degree_loc).items()))
+        out_deg_dist_loc = OrderedDict(sorted(Counter(out_degree_loc).items()))
+
+        in_deg_dist_lr = OrderedDict(sorted(Counter(in_degree_lr).items()))
+        out_deg_dist_lr = OrderedDict(sorted(Counter(out_degree_lr).items()))
+
+        fig, ax = plt.subplots(3, 2, figsize=(10, 5))
+        ax[0][0].bar(list(in_deg_dist.keys()), list(in_deg_dist.values()))
+        ax[0][0].set_xlabel("Indegree total")
+        ax[0][0].set_ylabel("Number of nodes")
+
+        ax[0][1].bar(list(out_deg_dist.keys()), list(out_deg_dist.values()))
+        ax[0][1].set_xlabel("Outdegree total")
+        ax[0][1].set_ylabel("Number of nodes")
+
+        ax[1][0].bar(list(in_deg_dist_loc.keys()), list(in_deg_dist_loc.values()))
+        ax[1][0].set_xlabel("Indegree local")
+        ax[1][0].set_ylabel("Number of nodes")
+
+        ax[1][1].bar(list(out_deg_dist_loc.keys()), list(out_deg_dist_loc.values()))
+        ax[1][1].set_xlabel("Outdegree local")
+        ax[1][1].set_ylabel("Number of nodes")
+
+        ax[2][0].bar(list(in_deg_dist_lr.keys()), list(in_deg_dist_lr.values()))
+        ax[2][0].set_xlabel("Indegree long-range")
+        ax[2][0].set_ylabel("Number of nodes")
+
+        ax[2][1].bar(list(out_deg_dist_lr.keys()), list(out_deg_dist_lr.values()))
+        ax[2][1].set_xlabel("Outdegree long-range")
+        ax[2][1].set_ylabel("Number of nodes")
+
+        if self.save_plots:
+            curr_dir = os.getcwd()
+            plt.savefig(curr_dir + "/figures/" + plot_name)
+        else:
+            plt.show()
 
     def create_network(self):
         LocalNetwork.create_network(self)
