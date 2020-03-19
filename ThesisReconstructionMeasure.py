@@ -14,7 +14,7 @@ from webcolors import hex_to_rgb
 import nest
 
 
-VERBOSITY = 4
+VERBOSITY = 3
 nest.set_verbosity("M_ERROR")
 
 
@@ -31,12 +31,12 @@ def main_lr(network_type=NETWORK_TYPE["local_circ_patchy_random"], input_type=IN
     # Define values
     # #################################################################################################################
     simulation_time = 1000.
-    num_neurons = int(1e4)
+    num_neurons = int(1e3)
     cap_s = 1.
     inh_weight = -15.
     all_same_input_current = False
-    p_loc = 0.5
-    p_lr = .2
+    p_loc = 0.4
+    p_lr = .1
     p_rf = 0.7
     pot_threshold = -55.
     pot_reset = -70.
@@ -216,7 +216,7 @@ if __name__ == '__main__':
         import matplotlib
         matplotlib.use("Agg")
 
-    main_lr(network_type=NETWORK_TYPE["local_circ_patchy_sd"], input_type=INPUT_TYPE["perlin"], reconstruct=True)
+    # main_lr(network_type=NETWORK_TYPE["local_circ_patchy_sd"], input_type=INPUT_TYPE["perlin"], reconstruct=True)
     # main_mi(input_type=INPUT_TYPE["perlin"], num_trials=3)
-    # main_error(input_type=INPUT_TYPE["plain"], num_trials=5)
+    main_error(input_type=INPUT_TYPE["plain"], num_trials=5)
 
