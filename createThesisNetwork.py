@@ -297,7 +297,7 @@ class NeuronalNetworkBase:
         in_deg_dist = OrderedDict(sorted(Counter(in_degree).items()))
         out_deg_dist = OrderedDict(sorted(Counter(out_degree).items()))
 
-        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+        fig, ax = plt.subplots(1, 2, figsize=(10, 10))
         ax[0].bar(list(in_deg_dist.keys()), list(in_deg_dist.values()))
         ax[0].set_xlabel("Indegree total")
         ax[0].set_ylabel("Number of nodes")
@@ -580,7 +580,7 @@ class LocalNetwork(NeuronalNetworkBase):
         in_deg_dist_loc = OrderedDict(sorted(Counter(in_degree_loc).items()))
         out_deg_dist_loc = OrderedDict(sorted(Counter(out_degree_loc).items()))
 
-        fig, ax = plt.subplots(2, 2, figsize=(10, 5))
+        fig, ax = plt.subplots(2, 2, figsize=(10, 10))
         ax[0][0].bar(list(in_deg_dist.keys()), list(in_deg_dist.values()))
         ax[0][0].set_xlabel("Indegree total")
         ax[0][0].set_ylabel("Number of nodes")
@@ -761,7 +761,7 @@ class PatchyNetwork(LocalNetwork):
         in_deg_dist_lr = OrderedDict(sorted(Counter(in_degree_lr).items()))
         out_deg_dist_lr = OrderedDict(sorted(Counter(out_degree_lr).items()))
 
-        fig, ax = plt.subplots(3, 2, figsize=(10, 5))
+        fig, ax = plt.subplots(3, 2, figsize=(10, 10))
         ax[0][0].bar(list(in_deg_dist.keys()), list(in_deg_dist.values()))
         ax[0][0].set_xlabel("Indegree total")
         ax[0][0].set_ylabel("Number of nodes")
