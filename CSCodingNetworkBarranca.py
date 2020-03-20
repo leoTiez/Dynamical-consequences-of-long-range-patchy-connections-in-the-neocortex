@@ -35,6 +35,7 @@ def main(compute_mi=False):
     """
     Main function
     :param compute_mi: Flag to determine whether to compute the mutual information MI
+    :return None
     """
     images = ["dots50.png", "monkey50.png", "kangaroo50.png"]
     input_data = []
