@@ -65,7 +65,7 @@ def stimulus_reconstruction(
     :param stimulus_size: number of the input stimulus values
     :param tuning_weight_vector: The weight vector for the neurons with stimulus preference, e.g. feature class / #class
     :param verbosity: Boolean parameter to set whether to show output from solver
-    :return:
+    :return: Reconstructed stimulus
     """
     # Use that for the Kronecker product inv(A kron B) == inv(A) kron inv(B)
     cosine_tranform = idct(np.identity(int(np.sqrt(stimulus_size))), norm="ortho", axis=0)
@@ -102,8 +102,7 @@ def direct_stimulus_reconstruction(
     """
     Reconstruction of stimulus based on the knowledge of stimulus tuning of neurons
     :param firing_rates: Firing rates of the neurons
-    :param rec_sens_adj_mat: Adjacency matrix from receptors to sensory neurons
-    :param tuning_weight_vector: The weight vector for the neurons with stimulus preference, e.g. feature class / #class
+    :param ff_weight_mat: Weight matrix of the feedforward weights
     :return: Reconstructed stimulus
     """
     weight_mat = ff_weight_mat[:, None]
@@ -116,6 +115,11 @@ def direct_stimulus_reconstruction(
 
 
 def fourier_trans(signal):
+    """
+    Fourier transformation of a two dimensional signal, e.g. image
+    :param signal: The input image signal
+    :return: Fourier transformation of the image
+    """
     return fft2(signal)
 
 
