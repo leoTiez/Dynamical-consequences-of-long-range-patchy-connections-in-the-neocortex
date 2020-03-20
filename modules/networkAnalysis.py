@@ -7,6 +7,15 @@ import nest
 
 
 def spatial_variance(node_tree, node_pos, firing_rates, r_neighborhood=0.3):
+    """
+    Compute spatial variance via retrieving all nodes within a giving distance and compute the variance
+    in their firing rate
+    :param node_tree: The nodes positions organised in a tree
+    :param node_pos: The positions of the nodes
+    :param firing_rates: The firing rates
+    :param r_neighborhood: The radius of the neighborhood
+    :return: The variance of the firing rate withing this neighborhood
+    """
     variance = []
     for pos in node_pos:
         neighborhood = np.asarray(node_tree.query_ball_point(pos, r_neighborhood))
@@ -17,6 +26,12 @@ def spatial_variance(node_tree, node_pos, firing_rates, r_neighborhood=0.3):
 
 
 def mutual_information_hist(input_data, firing_rates):
+    """
+    Compute the mutual information between the input data and the firing rates based on the established histograms
+    :param input_data: The input images as a list of image vectors
+    :param firing_rates: The firing rates as a list of vectors
+    :return: The mutual information
+    """
     hist_input, bins_input = np.histogram(np.mean(input_data, axis=0))
     hist_f_rate, bins_f_rate = np.histogram(np.mean(firing_rates, axis=0))
 
@@ -50,6 +65,12 @@ def mutual_information_img(input_data, reconstruction_data):
 
 
 def error_distance(input_data, reconstructed_data):
+    """
+    Computes the normalised Eucledian distance between the original image and the reconstructed image
+    :param input_data: The input image
+    :param reconstructed_data: The reconstructed image
+    :return: The normalised error
+    """
     # Normalise stimuli
     input_data = input_data.astype('float') / float(input_data.max())
     reconstructed_data = reconstructed_data.astype('float') / float(reconstructed_data.max())
@@ -60,6 +81,15 @@ def error_distance(input_data, reconstructed_data):
 
 
 def set_values_in_adjacency_matrix(connect_values, adj_mat, min_src, min_target, use_weights=True):
+    """
+    Set the values in the adjacency / weight matrix
+    :param connect_values: The connections for which the value needs to be set
+    :param adj_mat: The adjacency / weight matrix
+    :param min_src: The minimum source id
+    :param min_target: The minimum target id
+    :param use_weights: Flag to determine whether weights or adjacency values are to be set
+    :return: The updated adjacency / weight matrix
+    """
     weights = nest.GetStatus(connect_values, "weight")
     for n, w in zip(connect_values, weights):
         if use_weights:
@@ -137,5 +167,12 @@ def determine_ffweight(
         max_value=255.,
         max_in_curr=450.,
 ):
+    """
+    Determines the feedforward weight by computing the maximal injected current and to what current it should be scaled
+    :param rf_size: Size of the receptive field
+    :param max_value: Maximal intensity value that is injected per pixel
+    :param max_in_curr: Maximal current in nA
+    :return: The feedforward weight
+    """
     return max_in_curr / float(rf_size[0] * rf_size[1] * max_value)
 
