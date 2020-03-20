@@ -23,6 +23,7 @@ def convert_image_to_orientation_map(image, magnitude_threshold=50, num_orientat
     :param image: The actual image
     :param magnitude_threshold: The threshold that determines an edge
     :param num_orientation_ranges: Number of classes that are discriminated
+    :param kwargs: Additional parameters that are passed because of the factory method that should not cause an error
     :return: The image with only the edges colored
     """
     # Derivatives
@@ -63,6 +64,8 @@ def create_image_bar(orientation, bar_width=5, size=(50, 50), shuffle=False, **k
     :param orientation: Orientation of the bar
     :param bar_width: width of the bar
     :param size: Size of the image
+    :param shuffle: Flag to determiner whether image pixels should be shuffled
+    :param kwargs: Additional parameters that are passed because of the factory method that should not cause and error
     :return: Image with bar
     """
     img = np.zeros(size, dtype='uint8')
@@ -98,23 +101,20 @@ def image_with_spatial_correlation(
     Create image with circles such that there is a spatial correlation of pixels
     :param num_circles: Number of circles
     :param radius: Radius of each circle
-    :param size_img: Size of the image
+    :param size: Size of the image
     :param background_noise: Flag for creating background noise. If False, the background is black
+    :param shuffle: randomly shuffle image pixels
     :return: Image with circles for spatial correlation of color
     """
-    if background_noise:
-        image = np.random.randint(0, 256, size).astype('float')
-    else:
-        image = np.zeros(size)
-    rng = np.random.RandomState(1)
-    x_coordinates = rng.choice(size[0], size=num_circles)
-    y_coordinates = rng.choice(size[1], size=num_circles)
+    x_coordinates = np.random.choice(size[0], size=num_circles)
+    y_coordinates = np.random.choice(size[1], size=num_circles)
 
+    image = np.zeros(size)
     for x, y in zip(x_coordinates, y_coordinates):
         if background_noise:
-            intensity = rng.choice(range(0, 256))
+            intensity = np.random.choice(range(0, 256))
         else:
-            intensity = rng.choice(range(10, 256))
+            intensity = np.random.choice(range(10, 256))
         image = cv2.circle(image, (x, y), radius=radius, color=int(intensity), thickness=-1)
 
     if shuffle:
@@ -125,6 +125,14 @@ def image_with_spatial_correlation(
 
 
 def perlin_image(size=50, resolution=(5, 5), **kwargs):
+    """
+    Create an image with spatial correlation using the Perlin noise distribution
+    :param size: Size of the image. It takes only a single integer and assumes the image to be quadratic
+    :param resolution: Resolution of the Perlin mesh with the randomly sampled vectors
+    :param kwargs: Additional parameters that might be passed because of the factory method that should not cause
+    an error
+    :return: Perlin noise image
+    """
     perlin_img = perlin_noise(size, resolution=resolution, spacing=1)
     perlin_img -= perlin_img.min()
     perlin_img = 255. * perlin_img / perlin_img.max()
@@ -132,11 +140,23 @@ def perlin_image(size=50, resolution=(5, 5), **kwargs):
 
 
 def plain_stimulus(size=(50, 50), intensity=255):
+    """
+    Create a simple image with a single shade everywhere
+    :param size: Size of the image
+    :param intensity: Pixel intensity
+    :return: The created image
+    """
     img = np.full(size, intensity)
     return img
 
 
 def stimulus_factory(input_type=INPUT_TYPE["plain"], **kwargs):
+    """
+    Stimulus factory method
+    :param input_type: The input type that is to be created
+    :param kwargs: Additional parameters that are needed for the respective functions that create the image
+    :return: The created image
+    """
     if input_type == INPUT_TYPE["circles"]:
         input_stimulus = image_with_spatial_correlation(**kwargs)
     elif input_type == INPUT_TYPE["bar"]:
@@ -161,6 +181,7 @@ def stimulus_factory(input_type=INPUT_TYPE["plain"], **kwargs):
 def test_main():
     """
     Test main
+    :return None
     """
     image = load_image("monkey50.png", path="../test-input/")
     orient_map = convert_image_to_orientation_map(image)
