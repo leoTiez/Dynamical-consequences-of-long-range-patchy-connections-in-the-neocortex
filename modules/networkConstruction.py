@@ -3,6 +3,7 @@ from modules.thesisUtils import *
 from modules.networkAnalysis import *
 
 import warnings
+from pathlib import Path
 import numpy as np
 import scipy.stats as stats
 import matplotlib.patches as patches
@@ -222,7 +223,7 @@ def create_torus_layer_uniform(
     :param time_const: Time constant of the neurons
     :param capacitance: Capacitance of the neurons
     :param size_layer: Size of the layer
-    :return: neural layer
+    :return: neural layer, spike detector and mutlimeter
     """
     # Calculate positions
     positions = np.random.uniform(- size_layer / 2., size_layer / 2., size=(num_neurons, 2)).tolist()
@@ -303,8 +304,22 @@ def create_random_connections(
         inh_weight=-1.,
         plot=False,
         save_plot=False,
+        save_prefix="",
         color_mask=None
 ):
+    """
+    Establish random connections
+    :param layer: The neural layer
+    :param inh_neurons: The ids of the inhibitory neurons
+    :param connect_dict: The connection dict that specifies the connection rules
+    :param cap_s: The excitatory weight
+    :param inh_weight: The inhibitory weight
+    :param plot: Flag to determine whether a plot should be created
+    :param save_plot: Flag to determine whether the plot should be saved. If set to False it is displayed instead
+    :param save_prefix: An additional naming prefix that can be set if the plot is saved
+    :param color_mask: Optional tuning map that can be used to color the background of the neurons
+    :return: None
+    """
     # Define connection parameters
     nodes = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
     exc_nodes = list(set(nodes).difference(inh_neurons))
@@ -328,18 +343,17 @@ def create_random_connections(
             layer_size=layer_size,
             color_mask=color_mask,
             save_plot=save_plot,
+            save_prefix=save_prefix,
             plot_name="random_local_connections.png"
         )
 
 
-def create_local_circular_connections(
+def create_local_circular_connections_topology(
         layer,
-        node_tree,
-        inh_neurons,
-        inh_weight=-1.,
         r_loc=0.5,
-        cap_s=1.,
-        connect_dict=None,
+        p_loc=0.7,
+        allow_autapses=False,
+        allow_multapses=False,
         plot=False,
         save_plot=False,
         color_mask=None
@@ -354,6 +368,65 @@ def create_local_circular_connections(
     :param plot: Flag for plotting connections
     :param save_plot: Flag for saving the plot. If not plotted the parameter is ignored
     :param color_mask: Color/orientation map for neurons. If not plotted the parameter is ignored
+    """
+
+    # Define mask
+    mask_dict = {
+        "circular": {"radius": r_loc}
+    }
+
+    # Define connection parameters
+    connection_dict = {
+        "connection_type": "divergent",
+        "mask": mask_dict,
+        "kernel": p_loc,
+        "allow_autapses": allow_autapses,
+        "allow_multapses": allow_multapses,
+        "synapse_model": "static_synapse"
+    }
+
+    tp.ConnectLayers(layer, layer, connection_dict)
+
+    if plot:
+        node = nest.GetNodes(layer)[0]
+        node_conn = nest.GetConnections([node])
+        target_nodes = nest.GetStatus(node_conn, "targets")
+        plot_connections(
+            [node],
+            target_nodes,
+            color_mask=color_mask,
+            save_plot=save_plot,
+            plot_name="circular_local_connections.png"
+        )
+
+
+def create_local_circular_connections(
+        layer,
+        node_tree,
+        inh_neurons,
+        inh_weight=-1.,
+        r_loc=0.5,
+        cap_s=1.,
+        connect_dict=None,
+        plot=False,
+        save_plot=False,
+        save_prefix="",
+        color_mask=None
+):
+    """
+    Create local connections with in a circular radius
+    :param layer: The layer where the local connections should be established
+    :param node_tree: Positons of the nodes organised in a tree
+    :param inh_neurons: IDs of the inhibitory neurons
+    :param inh_weight: The weight for inhibitory connections
+    :param r_loc: radius for local connections
+    :param cap_s: The weight for excitatory connections
+    :param connect_dict: Dictionary that specifies the connection rules
+    :param plot: Flag for plotting connections
+    :param save_plot: Flag for saving the plot. If not plotted the parameter is ignored
+    :param save_prefix: Naming prefix that can be used if the plot is saved
+    :param color_mask: Color/orientation map for neurons. If not plotted the parameter is ignored
+    :return None
     """
 
     if connect_dict is None:
@@ -386,6 +459,7 @@ def create_local_circular_connections(
                     layer_size=layer_size,
                     save_plot=save_plot,
                     plot_name="circular_local_connections.png",
+                    save_prefix=save_prefix,
                     color_mask=color_mask,
                 )
 
@@ -445,17 +519,24 @@ def create_random_patches(
         p_p=None,
         plot=True,
         save_plot=False,
+        save_prefix="",
         color_mask=None
 ):
     """
     Create random long range patchy connections. To every neuron a single link is established instead of
     taking axonal morphology into account.
     :param layer: Layer in which the connections should be established
+    :param inh_neurons: The IDs of the inhibitory neurons
     :param r_loc: Radius for local connections
     :param p_loc: Probability for local connections
     :param num_patches: Number of patches that should be created
+    :param cap_s: The excitatory weight
     :param p_p: Probability to establish long-range patchy connections. If none, prob. is calculated according to Voges
-                paper
+    paper
+    :param plot: Flag to determine whether the connections of an example should be plotted
+    :param save_plot: Flag to determine whether the plot should be saved. Is ignored if the plot flag is set to False
+    :param save_prefix: Naming prefix for saved plots
+    :param color_mask: The color mask for the tuning areas of neurons
     :return Nodes of the layer for debugging purposes (plotting)
     """
     # Calculate the parameters for the patches
@@ -503,6 +584,7 @@ def create_random_patches(
             layer_size=layer_size,
             color_mask=color_mask,
             save_plot=save_plot,
+            save_prefix=save_prefix,
             plot_name="random_lr_patches.png"
         )
     # Return nodes of layer for debugging
@@ -612,7 +694,7 @@ def create_partially_overlapping_patches(
     Create partially overlapping patches for long-range connections
     :param layer: Layer in which the connections should be established
     :param r_loc: Radius of local connections
-    :param p_loc: Probility of local connections
+    :param p_loc: Probability of local connections
     :param size_boxes: Size of a sublayer that defines the set of possible patches a neuron in this patch can create
     links to
     :param num_patches: Number of patches per neuron
@@ -650,18 +732,25 @@ def create_stimulus_based_local_connections(
         connect_dict=None,
         plot=False,
         save_plot=False,
+        save_prefix="",
         color_mask=None
 ):
     """
     Create local connections only to neurons with same stimulus feature preference
     :param layer: Layer with neurons
+    :param node_tree: Node positions organised in a tree
     :param neuron_to_tuning_map: Dictionary mapping from neurons to their respective tuning preference
     :param tuning_to_neuron_map: Dictionary mapping from tuning preference to all neurons with that preference
+    :param inh_nodes: IDs of inhibitory nodes
+    :param inh_weight: Weight of the inhibitory connections
     :param r_loc: Radius within which local connections can be established
-    :param connect_dict: Conenction dictionary specifying the connection parameter
+    :param cap_s: Excitatory weight
+    :param connect_dict: Connection dictionary specifying the connection parameter
     :param plot: Flag for plotting
     :param save_plot: Flag for saving the plot. If plot is False this parameter is ignored
+    :param save_prefix: Naming prefix for the saved plots. Is ignored if the plot is not saved
     :param color_mask: Color/orientation map for plotting. If plot is False this parameter is ignored
+    :return None
     """
     if connect_dict is None:
         connect_dict = {
@@ -697,6 +786,7 @@ def create_stimulus_based_local_connections(
                     local_targets,
                     layer_size=layer_size,
                     save_plot=save_plot,
+                    save_prefix=save_prefix,
                     plot_name="stimulus_dependent_local_connections.png",
                     color_mask=color_mask,
                 )
@@ -718,6 +808,7 @@ def create_stimulus_based_patches_random(
         filter_patches=True,
         plot=False,
         save_plot=False,
+        save_prefix="",
         color_mask=None
 ):
     """
@@ -725,15 +816,22 @@ def create_stimulus_based_patches_random(
     :param layer: Layer with neurons
     :param neuron_to_tuning_map: Dictionary mapping from neurons to their respective tuning preference
     :param tuning_to_neuron_map: Dictionary mapping from tuning preference to all neurons with that preference
+    :param inh_neurons: IDs of inhibitory neurons
+    :param node_tree: Node positions organised in a tree
     :param num_patches: Number of patches that are created
     :param r_loc: Radius for local connections
     :param p_loc: Probability for local connections. If p_p or the connect dict is not None this parameter is ignored
     :param p_p: Probability for patchy connections
+    :param cap_s: Excitatory weight
     :param r_p: Patchy radius. If None it is half of the local radius
     :param connect_dict: Dictionary specifying the connections that are to establish
+    :param filter_patches: If set to True only long-range connections are established to neurons with the same stimulus
+    preference in the radius around the center
     :param plot: Flag for plotting
     :param save_plot: Flag for saving the plot. If plot is set to False this parameter is ignored
+    :param save_prefix: Naming prefix for the saved plot. Ignored if plot is not saved
     :param color_mask: Color/orientation map. If plot is set to False this parameter is ignored
+    :return None
     """
     size_layer = nest.GetStatus(layer, "topology")[0]["extent"][0]
     # Calculate parameters for the patches
@@ -813,6 +911,7 @@ def create_stimulus_based_patches_random(
                     size_layer,
                     color_mask=color_mask,
                     save_plot=save_plot,
+                    save_prefix=save_prefix,
                     plot_name="stimulus_dependent_lr_patchy_connections.png"
                 )
 
@@ -829,6 +928,7 @@ def set_synaptic_strength(
     :param adj_mat: Adjacency matrix for the connections
     :param cap_s: Weight for the connections
     :param divide_by_num_connect: Flag for dividing the weight through the number of established connections
+    :return None
     """
     num_connec = adj_mat.sum()
     if num_connec == 0:
@@ -849,6 +949,7 @@ def create_input_current_generator(
     to an integer value representing the intensity in Ampere A
     :param input_stimulus: Grayscale input stimulus with integer values between 0 and 256
     :param organise_on_grid: Flag for organising current generators on a grid to represent receptors
+    :param multiplier: factor that is multiplied to the injected current
     :return: Tuple with ids for the dc generator devices
     """
     assert np.all(input_stimulus < 256) and np.all(input_stimulus >= 0)
@@ -931,6 +1032,7 @@ def create_connections_random(
     :param target_nodes: Target nodes
     :param indegree: Number of pre-synaptic nodes per neuron
     :param connection_strength: Synaptic weight of the connections
+    :return None
     """
     connect_dict = {
         "rule": "fixed_indegree",
@@ -953,6 +1055,17 @@ def create_random_stimulus_map(
         save_plot=False,
         plot_name=None
 ):
+    """
+    Create Stimulus map that randomly allocates a stimulus class to a grid cell
+    :param layer: Neural layer
+    :param inh_neurons: IDs of inhibitory neurons
+    :param num_stimulus_discr: The number of stimlus feature classes that can be discriminated
+    :param spacing: The size of a grid cell
+    :param plot: If set to True, a plot is created
+    :param save_plot: If set to True, the plot is saved. If plot is set to False it's ignored
+    :param plot_name: Name of the plot
+    :return: Tuning to neuron map, neuron to tuning mao, tuning weight vector, color map
+    """
     size_layer = nest.GetStatus(layer, "topology")[0]["extent"][0]
     nodes = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
     min_idx = min(nodes)
@@ -1018,8 +1131,22 @@ def create_perlin_stimulus_map(
         spacing=0.1,
         plot=False,
         save_plot=False,
-        plot_name=None
+        plot_name=None,
+        save_prefix=""
 ):
+    """
+    Create stimulus map that is based on the Perlin noise distribution
+    :param layer: Neural layer
+    :param inh_neurons: IDs of inhibitory neurons
+    :param num_stimulus_discr: Number of stimulus feature classes that can be discriminated
+    :param resolution: Perlin noise resolution defines the mesh of randomly created values and vectors
+    :param spacing: Size of a single cell in x and y direction of the mesh for the interpolated values
+    :param plot: If set to True the tuning map is plotted
+    :param save_plot: If set to True the tuning map is saved. This is ignored if plot is set to False
+    :param plot_name: Name of the saved plot. Is ignored if save_plot and plot is set to True
+    :param save_prefix: Naming prefix of the saved plot
+    :return: Tuning to neuron map, neuron to tuning map, color map
+    """
     size_layer = nest.GetStatus(layer, "topology")[0]["extent"][0]
     nodes = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
     min_idx = min(nodes)
@@ -1075,9 +1202,10 @@ def create_perlin_stimulus_map(
             plt.show()
         else:
             curr_dir = os.getcwd()
+            Path(curr_dir + "/figures/in-out-dist/").mkdir(parents=True, exist_ok=True)
             if plot_name is None:
                 plot_name = "stimulus_tuning_map.png"
-            plt.savefig(curr_dir + "/figures/" + plot_name)
+            plt.savefig(curr_dir + "/figures/in-out-dist/%s_%s" % (save_prefix, plot_name))
     return tuning_to_neuron_map, neuron_to_tuning_map, color_map
 
 
@@ -1174,6 +1302,7 @@ def step_tuning_curve(
     :param input_stimulus: The input stimulus
     :param stimulus_tuning: The tuning of the neuron (identifier for the class)
     :param tuning_discr_steps: The number of discriminated stimulus features
+    :param multiplier: Factor that is multiplied to the injected current
     :return: True if neuron reacts, False otherwise
     """
     return np.logical_and(
@@ -1189,7 +1318,15 @@ def continuous_tuning_curve(
         sigma=None,
         max_value=255.
 ):
-
+    """
+    Gaussian shaped tuning function
+    :param input_stimulus: Input from the recpetive field
+    :param stimulus_tuning: Tuning class
+    :param tuning_discr_steps: Total number of tuning classes
+    :param sigma: Standard derivation
+    :param max_value: Maximal value of the peak
+    :return: Tuning
+    """
     sigma = sigma if sigma is not None else tuning_discr_steps
     mu = stimulus_tuning * tuning_discr_steps
 
@@ -1201,11 +1338,26 @@ def linear_tuning(
         stimulus_tuning,
         tuning_discr_steps
 ):
+    """
+    Linear tuning function
+    :param input_stimulus: Input stimulus from the recpetive fields
+    :param stimulus_tuning: Tuning class
+    :param tuning_discr_steps: Total number of tuning classes
+    :return: Tuning
+    """
     intercept = stimulus_tuning * tuning_discr_steps
     return stimulus_tuning * input_stimulus - intercept, stimulus_tuning, intercept
 
 
 def _set_input_current(neuron, current_dict, synaptic_strength, use_dc=True):
+    """
+    Set the input current or the spiking rate
+    :param neuron: Neuron for which the input is set
+    :param current_dict: Defining current specification
+    :param synaptic_strength: Weight
+    :param use_dc: If set to True a DC generator is used, otherwise a Poisson generator
+    :return:
+    """
     connections = nest.GetConnections(target=[neuron])
     sources = nest.GetStatus(connections, "source")
     source_types = np.asarray(list(nest.GetStatus(sources, "element_type")))
@@ -1225,14 +1377,30 @@ def _set_input_current(neuron, current_dict, synaptic_strength, use_dc=True):
         nest.SetStatus([generator], current_dict)
 
 
-def same_input_current(layer, synaptic_strength, connect_prob, value=255/2., rf_size=(10, 10)):
-    current_dict = {"amplitude": (rf_size[0] * rf_size[1]) * value * connect_prob}
+def same_input_current(layer, synaptic_strength, connect_prob, value=255/2., rf_size=(10, 10), use_dc=False):
+    if use_dc:
+        current_dict = {"amplitude": (rf_size[0] * rf_size[1]) * value * connect_prob}
+    else:
+        rate = 1000. * value * connect_prob / 255.
+        current_dict = {"rate": rate}
     neurons = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
     for neuron in neurons:
         _set_input_current(neuron, current_dict, synaptic_strength)
 
 
 def convert_step_tuning(target_node, rf, neuron_tuning, tuning_discr_step, indices, adj_mat, min_target):
+    """
+    Convert the values from the receptive field to an activation according to the step function
+    :param target_node: Node that receives input from the receptive field
+    :param rf: The receptive field values
+    :param neuron_tuning: Tuning class of the neuron
+    :param tuning_discr_step: The margin of a single step that is within a class. If there are 4 classes the step size
+    for every class is 255 / 4
+    :param indices: The indices that correspond to the receptive field
+    :param adj_mat: The adjacency / weight matrix
+    :param min_target: Minimum id of the sensory neurons
+    :return: Amplitudes
+    """
     amplitude = np.zeros(rf.shape)
 
     mask = np.where(
@@ -1260,6 +1428,18 @@ def convert_gauss_tuning(
         adj_mat,
         min_target,
 ):
+    """
+    Convert the values from the receptive field to an activation according to the Gauss function
+    :param target_node: Node that receives input from the receptive field
+    :param rf: The receptive field values
+    :param neuron_tuning: Tuning class of the neuron
+    :param tuning_discr_step: The margin of a single step that is within a class. If there are 4 classes the step size
+    for every class is 255 / 4
+    :param indices: The indices that correspond to the receptive field
+    :param adj_mat: The adjacency / weight matrix
+    :param min_target: Minimum id of the sensory neurons
+    :return: Amplitudes
+    """
     amplitude = continuous_tuning_curve(rf, neuron_tuning, tuning_discr_step)
     rf = rf.astype("float64")
     rf[rf == 0] = np.finfo("float64").eps
@@ -1277,6 +1457,18 @@ def convert_linear_tuning(
         adj_mat,
         min_target
 ):
+    """
+    Convert the values from the receptive field to an activation according to a linear function
+    :param target_node: Node that receives input from the receptive field
+    :param rf: The receptive field values
+    :param neuron_tuning: Tuning class of the neuron
+    :param tuning_discr_step: The margin of a single step that is within a class. If there are 4 classes the step size
+    for every class is 255 / 4
+    :param indices: The indices that correspond to the receptive field
+    :param adj_mat: The adjacency / weight matrix
+    :param min_target: Minimum id of the sensory neurons
+    :return: Amplitudes
+    """
     amplitude, slope, intercept = linear_tuning(rf, neuron_tuning, tuning_discr_step)
     adj_mat[indices.reshape(-1), target_node - min_target] = slope
     adj_mat[-1, target_node - min_target] = - amplitude.size * intercept
@@ -1298,24 +1490,29 @@ def create_connections_rf(
         multiplier=1.,
         plot_src_target=False,
         save_plot=False,
-        non_changing_connections=True,
+        save_prefix="",
+        non_changing_connections=False,
         plot_point=10,
         retina_size=(100, 100)
 ):
     """
     Create receptive fields for sensory neurons and establishes connections
-    :param src_layer: Source layer, i.e. the retina layer with receptors
+    :param image: Input image
     :param target_layer: Target layer, i.e. the layer with sensory neurons
     :param rf_centers: The centers of the receptive fields
     :param neuron_to_tuning_map: The map from neuron to stimulus tuning
+    :param inh_neurons: IDs of inhibitory neurons
     :param rf_size: The size of a receptive field
-    :param connect_dict: Dictionary defining the connection values. If None default values are used
+    :param tuning_function: The tuning function of the sensory neurons
     :param synaptic_strength: Synaptic weight for the connections
-    :param ignore_weights: Flag for creating the adjacency matrix. If set to True, all connections are considered in
-                             the matrix, whereas if it is set to False, only connections with non-zero weight
-                             are considered
+    :param p_rf: Connection probability to the cells in the receptive field
+    :param use_dc: If set to True a DC is injected, otherwise a Poisson spike train
+    :param multiplier: Factor that is multiplied to the injected current
     :param plot_src_target: Flag for plotting
     :param save_plot: Flag for saving the plot. If plot_src_target is False this parameter is ignored
+    :param save_prefix: Naming prefix for the saved plot. Is ignored if save_plot or plot is False
+    :param non_changing_connections: If set to True, the function establishes the same conenctions if the other
+    parameters remain unchanged
     :param plot_point: Number determining after how many established connections the plot is made
     :param retina_size: Size of the retina / input layer
     :return: Adjacency matrix from receptors to sensory nodes
@@ -1432,7 +1629,8 @@ def create_connections_rf(
 
                 if save_plot:
                     curr_dir = os.getcwd()
-                    plt.savefig(curr_dir + "/figures/receptive_fields.png")
+                    Path(curr_dir + "/figures/rf/").mkdir(parents=True, exist_ok=True)
+                    plt.savefig(curr_dir + "/figures/rf/%s_receptive_fields.png" % save_prefix)
                     plt.close()
                 else:
                     plt.show()
@@ -1455,7 +1653,8 @@ def create_connections_rf(
             plt.show()
         else:
             curr_dir = os.getcwd()
-            plt.savefig(curr_dir + "/figures/tuning_function.png")
+            Path(curr_dir + "/figures/rf/").mkdir(parents=True, exist_ok=True)
+            plt.savefig(curr_dir + "/figures/rf/%s_tuning_function.png" % save_prefix)
             plt.close()
 
         recons = sr.direct_stimulus_reconstruction(
@@ -1470,6 +1669,7 @@ def create_connections_rf(
             plt.show()
         else:
             curr_dir = os.getcwd()
-            plt.savefig(curr_dir + "/figures/reconstruction_based_on_current.png")
+            Path(curr_dir + "/figures/rf/").mkdir(parents=True, exist_ok=True)
+            plt.savefig(curr_dir + "/figures/%s_reconstruction_based_on_current.png" % save_prefix)
             plt.close()
     return adj_mat
