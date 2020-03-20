@@ -20,6 +20,13 @@ def main_eigenvalue_spec(
         input_type=INPUT_TYPE["plain"],
         save_plot=False
 ):
+    """
+    The main function to compute eigenvalue spectrum
+    :param network_type: The network type. This must be an integer number defined in the NETWORK_TYPE dictionary
+    :param input_type: The input type. This must be an integer number defined in the INPUT_TYPE dictionary
+    :param save_plot: If set to True the plot is saved. If False the plot is displayed
+    :return: None
+    """
     # load input stimulus
     stimulus_size = (50, 50)
     input_stimulus = stimulus_factory(input_type, size=stimulus_size)
