@@ -19,10 +19,17 @@ VERBOSITY = 3
 nest.set_verbosity("M_ERROR")
 
 
+PARAMETER_DICT = {
+    "tuning": 0,
+    "clusters": 1
+}
+
+
 def main_lr(
         network_type=NETWORK_TYPE["local_circ_patchy_random"],
         input_type=INPUT_TYPE["plain"],
         reconstruct=True,
+        cluster=(15, 15),
         tuning_function=TUNING_FUNCTION["gauss"],
         write_to_file=False,
         save_prefix='',
@@ -84,6 +91,7 @@ def main_lr(
         capacitance=capacitance,
         time_constant=time_constant,
         tuning_function=tuning_function,
+        resolution_perlin=cluster,
         use_dc=use_dc,
         save_prefix=save_prefix,
         save_plots=save_plots,
@@ -97,8 +105,10 @@ def main_lr(
 
     firing_rates, (spikes_s, time_s) = network.simulate(simulation_time)
     if write_to_file:
-        fr_file = open("%s_firing_rates.txt" % save_prefix, "w+")
-        fr_file.write(firing_rates)
+        curr_dir = os.getcwd()
+        Path(curr_dir + "/firing_rates_files/").mkdir(exist_ok=True, parents=True)
+        fr_file = open(curr_dir + "/firing_rates_files/%s_firing_rates.txt" % save_prefix, "w+")
+        fr_file.write(str(firing_rates.tolist()))
         fr_file.close()
 
     if VERBOSITY > 0:
@@ -179,9 +189,9 @@ def main_lr(
         return input_stimulus, firing_rates, mean_variance
 
     else:
-        # #################################################################################################################
+        # #############################################################################################################
         # Reconstruct stimulus
-        # #################################################################################################################
+        # #############################################################################################################
         # Reconstruct input stimulus
         if VERBOSITY > 0:
             print("\n#####################\tReconstruct stimulus")
@@ -218,39 +228,112 @@ def main_lr(
         return input_stimulus, reconstruction
 
 
-def main_mi(input_type=INPUT_TYPE["plain"], num_trials=5):
+def main_mi(
+        input_type=INPUT_TYPE["plain"],
+        network_type=NETWORK_TYPE["random"],
+        tuning_function=TUNING_FUNCTION["gauss"],
+        cluster=(15, 15),
+        num_trials=5
+):
     """
     Computes the mutual information that is averaged over several trials
     :param input_type: The input type. This is an integer number defined in the INPUT_TYPE dictionary
     :param num_trials: The number of trials that are conducted
     :return: None
     """
-    # Define parameters outside  the loop
-    for network_type in list(NETWORK_TYPE.keys()):
+    network_name = NETWORK_TYPE.keys()[network_type]
+    input_name = INPUT_TYPE.keys()[input_type]
+
+    if tuning_function is None:
+        for tuning in TUNING_FUNCTION.values():
+            input_stimuli = []
+            firing_rates = []
+            variance = []
+            tuning_name = TUNING_FUNCTION.keys()[tuning_function]
+            for i in range(num_trials):
+                input_stimulus, firing_rate, corr = main_lr(
+                    network_type=network_type,
+                    input_type=input_type,
+                    reconstruct=False,
+                    tuning_function=tuning,
+                    cluster=cluster,
+                    write_to_file=True,
+                    save_prefix="error_%s_%s_%s_no_%s" % (network_name, input_name, tuning_name, i)
+                )
+                input_stimuli.append(input_stimulus.reshape(-1))
+                firing_rates.append(firing_rate.reshape(-1))
+                variance.append(corr)
+
+            mutual_information = mutual_information_hist(input_stimuli, firing_rates)
+            print("\n#####################\tMutual Information MI for network type %s, tuning function %s"
+                  " and input type %s: %s \n"
+                  % (network_name, tuning_name, input_name, mutual_information))
+            print("\n#####################\tSpatial variance for network type %s, tuning function %s "
+                  "and input type %s: %s \n"
+                  % (network_name, tuning_name, input_name, np.asarray(variance).mean()))
+
+    elif cluster is None:
+        cluster_range = np.arange(0, 20, 1)
+        cluster = zip(cluster_range, cluster_range)
+
+        for c in cluster:
+            input_stimuli = []
+            firing_rates = []
+            variance = []
+            tuning_name = TUNING_FUNCTION.keys()[tuning_function]
+            for i in range(num_trials):
+                input_stimulus, firing_rate, corr = main_lr(
+                    network_type=network_type,
+                    input_type=input_type,
+                    reconstruct=False,
+                    tuning_function=tuning_function,
+                    cluster=c,
+                    write_to_file=True,
+                    save_prefix="error_%s_%s_%s_no_%s" % (network_name, input_name, tuning_name, i)
+                )
+                input_stimuli.append(input_stimulus.reshape(-1))
+                firing_rates.append(firing_rate.reshape(-1))
+                variance.append(corr)
+
+            mutual_information = mutual_information_hist(input_stimuli, firing_rates)
+            print("\n#####################\tMutual Information MI for network type %s, cluster %s"
+                  " and input type %s: %s \n"
+                  % (network_name, c, input_name, mutual_information))
+
+            print("\n#####################\tSpatial variance for network type %s, tuning function %s "
+                  "and input type %s: %s \n"
+                  % (network_name, c, input_name, np.asarray(variance).mean()))
+
+    else:
         input_stimuli = []
         firing_rates = []
         variance = []
-        for _ in range(num_trials):
+        tuning_name = TUNING_FUNCTION.keys()[tuning_function]
+        for i in range(num_trials):
             input_stimulus, firing_rate, corr = main_lr(
-                network_type=NETWORK_TYPE[network_type],
+                network_type=network_type,
                 input_type=input_type,
-                reconstruct=False
+                reconstruct=False,
+                tuning_function=tuning_function,
+                cluster=cluster,
+                write_to_file=True,
+                save_prefix="error_%s_%s_%s_no_%s" % (network_name, input_name, tuning_name, i)
             )
             input_stimuli.append(input_stimulus.reshape(-1))
             firing_rates.append(firing_rate.reshape(-1))
             variance.append(corr)
 
         mutual_information = mutual_information_hist(input_stimuli, firing_rates)
-        print("\n#####################\tMutual Information MI for network type %s and input type %s: %s \n"
-              % (network_type, input_type, mutual_information))
-        print("\n#####################\tSpatial variance for network type %s and input type %s: %s \n"
-              % (network_type, input_type, np.asarray(variance).mean()))
-
+        print("\n#####################\tMutual Information MI for network type %s, and input type %s: %s \n"
+              % (network_name, input_name, mutual_information))
+        print("\n#####################\tSpatial variance for network type %s, and input type %s: %s \n"
+              % (network_name, input_name, np.asarray(variance).mean()))
 
 def main_error(
         input_type=INPUT_TYPE["plain"],
         network_type=NETWORK_TYPE["random"],
         tuning_function=TUNING_FUNCTION["gauss"],
+        cluster=(15, 15),
         num_trials=5
 ):
     """
@@ -258,31 +341,79 @@ def main_error(
     :param input_type: The input type. This is an integer number defined in the INPUT_TYPE dictionary
     :param network_type: The network type. This is an integer number defined in the NETWORK_TYPE dictionary
     :param tuning_function: The tuning function. This is an integer number defined in the TUNING_FUNCTION dictionary
+    :param cluster: The cluster of the perlin noise
     :param num_trials: The number of trials
     :return: None
     """
-    network_name = NETWORK_TYPE.keys()[network_type]
-    input_name = INPUT_TYPE.keys()[input_type]
-    tuning_name = TUNING_FUNCTION.keys()[network_type]
+    network_name = list(NETWORK_TYPE.keys())[network_type]
+    input_name = list(INPUT_TYPE.keys())[input_type]
+    if tuning_function is None:
+        for tuning in TUNING_FUNCTION.values():
+            errors = []
+            tuning_name = list(TUNING_FUNCTION.keys())[tuning]
+            for i in range(num_trials):
+                input_stimulus, reconstruction = main_lr(
+                    network_type=network_type,
+                    input_type=input_type,
+                    reconstruct=True,
+                    tuning_function=tuning,
+                    cluster=cluster,
+                    write_to_file=True,
+                    save_prefix="error_%s_%s_%s_no_%s" % (network_name, input_name, tuning_name, i)
+                )
+                errors.append(error_distance(input_stimulus, reconstruction))
 
-    errors = []
-    for i in range(num_trials):
-        input_stimulus, reconstruction = main_lr(
-            network_type=network_type,
-            input_type=input_type,
-            reconstruct=True,
-            tuning_function=tuning_function,
-            write_to_file=True,
-            save_prefix="error_%s_%s_%s_no_%s" % (network_name, input_name, tuning_name, i)
-        )
-        errors.append(error_distance(input_stimulus, reconstruction))
+            mean_error = np.mean(np.asarray(errors))
+            error_variance = np.var(np.asarray(errors))
+            print("\n#####################\tMean Error for network type %s, tuning function %s and input type %s: %s \n"
+                  % (network_name, tuning_name, input_name, mean_error))
+            print("\n#####################\tError variance for network type %s, tuning function %s and input"
+                  " type %s: %s \n" % (network_name, tuning_name, input_name, error_variance))
+    elif cluster is None:
+        cluster_range = np.arange(0, 20, 1)
+        cluster = zip(cluster_range, cluster_range)
+        for c in cluster:
+            errors = []
+            tuning_name = TUNING_FUNCTION.keys()[tuning_function]
+            for i in range(num_trials):
+                input_stimulus, reconstruction = main_lr(
+                    network_type=network_type,
+                    input_type=input_type,
+                    reconstruct=True,
+                    tuning_function=tuning_function,
+                    cluster=c,
+                    write_to_file=True,
+                    save_prefix="error_%s_%s_%s_no_%s" % (network_name, input_name, tuning_name, i)
+                )
+                errors.append(error_distance(input_stimulus, reconstruction))
 
-    mean_error = np.mean(np.asarray(errors))
-    error_variance = np.var(np.asarray(errors))
-    print("\n#####################\tMean Error for network type %s and input type %s: %s \n"
-          % (network_name, input_name, mean_error))
-    print("\n#####################\tError variance for network type %s and input type %s: %s \n"
-          % (network_name, input_name, error_variance))
+            mean_error = np.mean(np.asarray(errors))
+            error_variance = np.var(np.asarray(errors))
+            print("\n#####################\tMean Error for network type %s, cluster size %s and input type %s: %s \n"
+                  % (network_name, c, input_name, mean_error))
+            print("\n#####################\tError variance for network type %s, cluster size %s and input"
+                  " type %s: %s \n" % (network_name, c, input_name, error_variance))
+    else:
+        errors = []
+        tuning_name = TUNING_FUNCTION.keys()[tuning_function]
+        for i in range(num_trials):
+            input_stimulus, reconstruction = main_lr(
+                network_type=network_type,
+                input_type=input_type,
+                reconstruct=True,
+                tuning_function=tuning_function,
+                cluster=c,
+                write_to_file=True,
+                save_prefix="error_%s_%s_%s_no_%s" % (network_name, input_name, tuning_name, i)
+            )
+            errors.append(error_distance(input_stimulus, reconstruction))
+
+        mean_error = np.mean(np.asarray(errors))
+        error_variance = np.var(np.asarray(errors))
+        print("\n#####################\tMean Error for network type %s, and input type %s: %s \n"
+              % (network_name, input_name, mean_error))
+        print("\n#####################\tError variance for network type %s, and input"
+              " type %s: %s \n" % (network_name,  input_name, error_variance))
 
 
 if __name__ == '__main__':
@@ -290,7 +421,9 @@ if __name__ == '__main__':
     experiment = None
     network_type = None
     input_type = None
-    tuning_function = None
+    tuning_function = TUNING_FUNCTION["gauss"]
+    cluster = (15, 15)
+    num_trials = 10
 
     if cmd_params.seed:
         np.random.seed(0)
@@ -312,11 +445,34 @@ if __name__ == '__main__':
         raise ValueError("Please pass a valid network as parameter")
 
     if cmd_params.input in list(INPUT_TYPE.keys()):
-        input_type = NETWORK_TYPE[cmd_params.input]
+        input_type = INPUT_TYPE[cmd_params.input]
     else:
         raise ValueError("Please pass a valid input type as parameter")
 
+    if cmd_params.parameter in list(PARAMETER_DICT.keys()):
+        if cmd_params.parameter.lower() == "tuning":
+            tuning_function = None
+        elif cmd_params.parameter.lower() == "cluster":
+            if network_type == NETWORK_TYPE["random"]:
+                raise ValueError("Cannot run experiments about the cluster size with a random network")
+
+            cluster = None
+
+    if cmd_params.num_trials is not None:
+        num_trials = cmd_params.num_trials
+
     # main_lr(network_type=NETWORK_TYPE["local_circ_patchy_sd"], input_type=INPUT_TYPE["perlin"], reconstruct=True)
 
-    experiment(network_type=network_type, input_type=input_type, num_trials=10)
+    print("Start experiment %s for network %s given the input %s."
+          " The parameter %s is changed."
+          " The number of trials is %s"
+          % (cmd_params.experiment, cmd_params.network, cmd_params.input, cmd_params.parameter, cmd_params.num_trials))
+
+    experiment(
+        network_type=network_type,
+        input_type=input_type,
+        tuning_function=tuning_function,
+        cluster=cluster,
+        num_trials=10
+    )
 
