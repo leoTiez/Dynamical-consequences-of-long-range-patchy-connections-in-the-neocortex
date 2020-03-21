@@ -55,7 +55,7 @@ def main_eigenvalue_spec(
 
 def main():
     for network_type in list(NETWORK_TYPE.keys()):
-        main_eigenvalue_spec(network_type=NETWORK_TYPE[network_type])
+        main_eigenvalue_spec(network_type=NETWORK_TYPE[network_type], save_plot=True)
 
 
 if __name__ == '__main__':
