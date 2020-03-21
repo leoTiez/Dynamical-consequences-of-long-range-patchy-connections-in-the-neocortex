@@ -241,15 +241,15 @@ def main_mi(
     :param num_trials: The number of trials that are conducted
     :return: None
     """
-    network_name = NETWORK_TYPE.keys()[network_type]
-    input_name = INPUT_TYPE.keys()[input_type]
+    network_name = list(NETWORK_TYPE.keys())[network_type]
+    input_name = list(INPUT_TYPE.keys())[input_type]
 
     if tuning_function is None:
         for tuning in TUNING_FUNCTION.values():
             input_stimuli = []
             firing_rates = []
             variance = []
-            tuning_name = TUNING_FUNCTION.keys()[tuning_function]
+            tuning_name = list(TUNING_FUNCTION.keys())[tuning_function]
             for i in range(num_trials):
                 input_stimulus, firing_rate, corr = main_lr(
                     network_type=network_type,
@@ -280,7 +280,7 @@ def main_mi(
             input_stimuli = []
             firing_rates = []
             variance = []
-            tuning_name = TUNING_FUNCTION.keys()[tuning_function]
+            tuning_name = list(TUNING_FUNCTION.keys())[tuning_function]
             for i in range(num_trials):
                 input_stimulus, firing_rate, corr = main_lr(
                     network_type=network_type,
@@ -308,7 +308,7 @@ def main_mi(
         input_stimuli = []
         firing_rates = []
         variance = []
-        tuning_name = TUNING_FUNCTION.keys()[tuning_function]
+        tuning_name = list(TUNING_FUNCTION.keys())[tuning_function]
         for i in range(num_trials):
             input_stimulus, firing_rate, corr = main_lr(
                 network_type=network_type,
@@ -374,7 +374,7 @@ def main_error(
         cluster = zip(cluster_range, cluster_range)
         for c in cluster:
             errors = []
-            tuning_name = TUNING_FUNCTION.keys()[tuning_function]
+            tuning_name = list(TUNING_FUNCTION.keys())[tuning_function]
             for i in range(num_trials):
                 input_stimulus, reconstruction = main_lr(
                     network_type=network_type,
@@ -395,14 +395,14 @@ def main_error(
                   " type %s: %s \n" % (network_name, c, input_name, error_variance))
     else:
         errors = []
-        tuning_name = TUNING_FUNCTION.keys()[tuning_function]
+        tuning_name = list(TUNING_FUNCTION.keys())[tuning_function]
         for i in range(num_trials):
             input_stimulus, reconstruction = main_lr(
                 network_type=network_type,
                 input_type=input_type,
                 reconstruct=True,
                 tuning_function=tuning_function,
-                cluster=c,
+                cluster=cluster,
                 write_to_file=True,
                 save_prefix="error_%s_%s_%s_no_%s" % (network_name, input_name, tuning_name, i)
             )
