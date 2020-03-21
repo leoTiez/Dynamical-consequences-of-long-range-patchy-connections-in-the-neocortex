@@ -47,6 +47,7 @@ class NeuronalNetworkBase:
             verbosity=0,
             save_plots=False,
             save_prefix='',
+            **kwargs
     ):
         """
         Neural network base class
@@ -76,6 +77,7 @@ class NeuronalNetworkBase:
         :param verbosity: Verbosity flag handles amount of output and created plot
         :param save_plots: Flag determines whether plots are saved or shown
         :param save_prefix: A saving prefix that can be used before every image to distinguish between different
+        :param kwargs: Key work arguments that are not necessary
         experiments and trials
         """
 
@@ -474,6 +476,8 @@ class RandomNetwork(NeuronalNetworkBase):
         res_perlin = int(layer_size * np.sqrt(num_sensory))
         resolution_perlin = (res_perlin, res_perlin)
         self.__dict__.update(kwargs)
+        kwargs.pop("resolution_perlin", None)
+        kwargs.pop("spacing_perlin", None)
         NeuronalNetworkBase.__init__(
             self,
             input_stimulus,
