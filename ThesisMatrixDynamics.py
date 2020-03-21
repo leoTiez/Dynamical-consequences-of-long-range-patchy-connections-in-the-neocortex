@@ -73,6 +73,16 @@ if __name__ == '__main__':
         import matplotlib
         matplotlib.use("Agg")
 
-    main_matrix_dynamics(network_type=NETWORK_TYPE["local_circ_patchy_sd"], input_type=INPUT_TYPE["plain"])
+    if cmd_params.network in list(NETWORK_TYPE.keys()):
+        network_type = NETWORK_TYPE[cmd_params.network]
+    else:
+        raise ValueError("Please pass a valid network as parameter")
+
+    if cmd_params.input in list(INPUT_TYPE.keys()):
+        input_type = INPUT_TYPE[cmd_params.input]
+    else:
+        raise ValueError("Please pass a valid input type as parameter")
+
+    main_matrix_dynamics(network_type=network_type, input_type=input_type)
 
 
