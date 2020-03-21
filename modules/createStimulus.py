@@ -133,6 +133,8 @@ def perlin_image(size=50, resolution=(5, 5), **kwargs):
     an error
     :return: Perlin noise image
     """
+    if type(size) == tuple:
+        size = size[0]
     perlin_img = perlin_noise(size, resolution=resolution, spacing=1)
     perlin_img -= perlin_img.min()
     perlin_img = 255. * perlin_img / perlin_img.max()
