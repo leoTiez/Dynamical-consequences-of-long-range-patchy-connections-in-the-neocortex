@@ -150,7 +150,7 @@ def plot_connections(
         plot_name = "connections.png"
     if save_plot:
         curr_dir = os.getcwd()
-        Path(curr_dir + "/figures/connections/")
+        Path(curr_dir + "/figures/connections/").mkdir(exist_ok=True, parents=True)
         plt.savefig(curr_dir + "/figures/connections/%s_%s" % (save_prefix, plot_name))
         plt.close()
     else:
