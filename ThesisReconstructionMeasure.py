@@ -15,7 +15,7 @@ from webcolors import hex_to_rgb
 import nest
 
 
-VERBOSITY = 3
+VERBOSITY = 4
 nest.set_verbosity("M_ERROR")
 
 
