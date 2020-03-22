@@ -38,6 +38,12 @@ NETWORK_DICT = {
 
 
 def create_distant_connections(torus_layer, connection_type=NETWORK_DICT["np"]):
+    """
+    Create network specific long-distance connections
+    :param torus_layer: The neural sheet
+    :param connection_type: The connection type. This is an integer number defined in the NETWORK_DICT dictionary
+    :return: Nodes of the layer or the sublayer for debugging purposes
+    """
     if connection_type == NETWORK_DICT["np"]:
         debug_layer = create_distant_np_connections(torus_layer)
     elif connection_type == NETWORK_DICT["random"]:
@@ -55,8 +61,12 @@ def create_distant_connections(torus_layer, connection_type=NETWORK_DICT["np"]):
 
 
 def main_create_eigenspectra_plots():
-    torus_layer = create_torus_layer_uniform()
-    create_local_circular_connections(torus_layer)
+    """
+    Compute the eigenvalue spectra and plot them
+    :return: None
+    """
+    torus_layer, _, _ = create_torus_layer_uniform()
+    create_local_circular_connections_topology(torus_layer)
 
     for key in NETWORK_DICT:
         _ = create_distant_connections(torus_layer, connection_type=NETWORK_DICT[key])
@@ -77,6 +87,7 @@ def main(
     :param plot_target: Flag to plot targets to control established connections
     :param num_plot_tagets: Plot connections of the num_plot_targts-th node
     :param use_lr_connection_type: Define the type of long range connections
+    :return None
     """
     torus_layer = create_torus_layer_uniform()
     if plot_torus:

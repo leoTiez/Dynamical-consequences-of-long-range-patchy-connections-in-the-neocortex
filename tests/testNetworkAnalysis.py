@@ -36,28 +36,11 @@ class NetworkAnalysisTest(unittest.TestCase):
             adj_mat,
             min(nodes),
             min(nodes),
-            ignore_weights=True
         )
 
         self.assertEqual(adj_mat[0, 1], 1, "Adjacency has not been set between 0 and 1")
         self.assertEqual(adj_mat[0, 2], 1, "Adjacency has not been set between 0 and 2")
         self.assertEqual(adj_mat[2, 3], 1, "Adjacency has not been set between 2 and 3")
-
-        con_2_3 = nest.GetConnections(source=[nodes[2]], target=[nodes[3]])
-        nest.SetStatus(con_2_3, {"weight": 0.})
-
-        adj_mat = np.zeros((num_nodes, num_nodes))
-        adj_mat = na.set_values_in_adjacency_matrix(
-            conn,
-            adj_mat,
-            min(nodes),
-            min(nodes),
-            ignore_weights=False
-        )
-
-        self.assertEqual(adj_mat[0, 1], 1, "Adjacency has not been set between 0 and 1")
-        self.assertEqual(adj_mat[0, 2], 1, "Adjacency has not been set between 0 and 2")
-        self.assertEqual(adj_mat[2, 3], 0, "Weight has not been taken into account between 2 and 3")
 
     def test_create_adjacency_matrix(self):
         num_nodes = 4
@@ -106,6 +89,13 @@ class NetworkAnalysisTest(unittest.TestCase):
         mi = na.mutual_information_hist(input_data, recon_data)
 
         self.assertEqual(mi, 0., "MI not computed correctly")
+
+        input_data = np.random.randint(0, 256, size=(30, 30))
+        recon_data = input_data.copy() * 40
+
+        mi_self = na.mutual_information_hist(input_data, input_data)
+        mi_scaled = na.mutual_information_hist(input_data, recon_data)
+        self.assertEqual(mi_scaled, mi_self, "MI not same if rescaled")
 
 
 if __name__ == '__main__':

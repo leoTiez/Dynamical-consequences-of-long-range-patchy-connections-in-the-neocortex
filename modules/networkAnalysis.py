@@ -6,7 +6,46 @@ from collections import Counter
 import nest
 
 
-def mutual_information_hist(input_data, reconstruction_data):
+def spatial_variance(node_tree, node_pos, firing_rates, r_neighborhood=0.3):
+    """
+    Compute spatial variance via retrieving all nodes within a giving distance and compute the variance
+    in their firing rate
+    :param node_tree: The nodes positions organised in a tree
+    :param node_pos: The positions of the nodes
+    :param firing_rates: The firing rates
+    :param r_neighborhood: The radius of the neighborhood
+    :return: The variance of the firing rate withing this neighborhood
+    """
+    variance = []
+    for pos in node_pos:
+        neighborhood = np.asarray(node_tree.query_ball_point(pos, r_neighborhood))
+        nbh_fr = firing_rates[neighborhood.astype('int')]
+        variance.append(np.cov(nbh_fr[nbh_fr > 0]))
+
+    return np.nanmean(np.asarray(variance))
+
+
+def mutual_information_hist(input_data, firing_rates):
+    """
+    Compute the mutual information between the input data and the firing rates based on the established histograms
+    :param input_data: The input images as a list of image vectors
+    :param firing_rates: The firing rates as a list of vectors
+    :return: The mutual information
+    """
+    hist_input, bins_input = np.histogram(np.mean(input_data, axis=0))
+    hist_f_rate, bins_f_rate = np.histogram(np.mean(firing_rates, axis=0))
+
+    prob_in = hist_input / float(np.sum(hist_input))
+    prob_f_rate = hist_f_rate / float(np.sum(hist_f_rate))
+
+    ind_prob = prob_in[:, None] * prob_f_rate[None, :]
+    joint_hist, _, _ = np.histogram2d(np.mean(input_data, axis=0), np.mean(input_data, axis=0), bins=[bins_input, bins_f_rate])
+    joint_prob = joint_hist / float(np.sum(joint_hist))
+    non_zero_indices = joint_prob > 0
+    return np.sum(joint_prob[non_zero_indices] * np.log(joint_prob[non_zero_indices] / ind_prob[non_zero_indices]))
+
+
+def mutual_information_img(input_data, reconstruction_data):
     """
     Compute mutual information based on histogram of arrays
     :param input_data: The original stimulus
@@ -25,9 +64,37 @@ def mutual_information_hist(input_data, reconstruction_data):
     return np.sum(joint_xy_p[non_zero_indices] * np.log(joint_xy_p[non_zero_indices] / mult_xy_p[non_zero_indices]))
 
 
-def set_values_in_adjacency_matrix(connect_values, adj_mat, min_src, min_target, ignore_weights=True):
-    for n in connect_values:
-        if ignore_weights or (not ignore_weights and nest.GetStatus([n], "weight")[0] > 0):
+def error_distance(input_data, reconstructed_data):
+    """
+    Computes the normalised Eucledian distance between the original image and the reconstructed image
+    :param input_data: The input image
+    :param reconstructed_data: The reconstructed image
+    :return: The normalised error
+    """
+    # Normalise stimuli
+    input_data = input_data.astype('float') / float(input_data.max())
+    reconstructed_data = reconstructed_data.astype('float') / float(reconstructed_data.max())
+
+    error = np.linalg.norm(input_data - reconstructed_data)
+    normalised_error = error / np.linalg.norm(input_data)
+    return normalised_error
+
+
+def set_values_in_adjacency_matrix(connect_values, adj_mat, min_src, min_target, use_weights=True):
+    """
+    Set the values in the adjacency / weight matrix
+    :param connect_values: The connections for which the value needs to be set
+    :param adj_mat: The adjacency / weight matrix
+    :param min_src: The minimum source id
+    :param min_target: The minimum target id
+    :param use_weights: Flag to determine whether weights or adjacency values are to be set
+    :return: The updated adjacency / weight matrix
+    """
+    weights = nest.GetStatus(connect_values, "weight")
+    for n, w in zip(connect_values, weights):
+        if use_weights:
+            adj_mat[n[0] - min_src, n[1] - min_target] = w
+        elif w > 0:
             adj_mat[n[0] - min_src, n[1] - min_target] = 1
 
     return adj_mat
@@ -45,7 +112,8 @@ def create_adjacency_matrix(src_nodes, target_nodes):
     connect_values = [
         connection for connection in connect_values if nest.GetStatus([connection], "target")[0] in target_nodes
     ]
-    adjacency_mat = np.zeros((int(len(src_nodes)), int(len(target_nodes))), dtype='uint8')
+
+    adjacency_mat = np.zeros((len(src_nodes), len(target_nodes)))
     adjacency_mat = set_values_in_adjacency_matrix(connect_values, adjacency_mat, min(src_nodes), min(target_nodes))
     return adjacency_mat
 
@@ -65,7 +133,6 @@ def eigenvalue_analysis(matrix, plot=True, save_plot=False, fig_name=None, fig_p
         plt.plot(eigenvalues.real, eigenvalues.imag, 'k,')
         plt.xlabel("Re($\lambda$)")
         plt.ylabel("Im($\lambda$)")
-        plt.axis((-20, 60, -20, 20))
         if not save_plot:
             plt.show()
         else:
@@ -93,4 +160,19 @@ def get_firing_rates(spike_train, nodes, simulation_time):
         firing_rates[int(value) - min(nodes)] = number / float(simulation_time / 1000.)
 
     return firing_rates
+
+
+def determine_ffweight(
+        rf_size,
+        max_value=255.,
+        max_in_curr=450.,
+):
+    """
+    Determines the feedforward weight by computing the maximal injected current and to what current it should be scaled
+    :param rf_size: Size of the receptive field
+    :param max_value: Maximal intensity value that is injected per pixel
+    :param max_in_curr: Maximal current in nA
+    :return: The feedforward weight
+    """
+    return max_in_curr / float(rf_size[0] * rf_size[1] * max_value)
 

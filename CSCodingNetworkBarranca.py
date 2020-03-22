@@ -35,6 +35,7 @@ def main(compute_mi=False):
     """
     Main function
     :param compute_mi: Flag to determine whether to compute the mutual information MI
+    :return None
     """
     images = ["dots50.png", "monkey50.png", "kangaroo50.png"]
     input_data = []
@@ -62,12 +63,13 @@ def main(compute_mi=False):
         num_sensor_connections = indegree_sen_sen * num_sensors
         threshold_pot = 1e3
         capacitance = 1e12
+        multiplier = 1e12
         # In the recent state: The Barranca neuron does not perform as well as the predefined iaf neuron with a
         # delta spike
         use_barranca = False
 
         # Create network nodes
-        receptor_nodes = create_input_current_generator(image)
+        receptor_nodes = create_input_current_generator(image, multiplier=multiplier)
         sensory_nodes, spike_detect, multi_meter = create_sensory_nodes(
             num_neurons=num_sensors,
             threshold_pot=threshold_pot,

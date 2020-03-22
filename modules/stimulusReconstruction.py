@@ -3,7 +3,7 @@ import cvxpy as cvx
 
 from modules.thesisUtils import *
 import numpy as np
-from scipy.fft import idct, fft2, fftfreq
+from scipy.fftpack import idct, fft2, fftfreq
 
 
 def _observations_from_linear_model(
@@ -65,7 +65,7 @@ def stimulus_reconstruction(
     :param stimulus_size: number of the input stimulus values
     :param tuning_weight_vector: The weight vector for the neurons with stimulus preference, e.g. feature class / #class
     :param verbosity: Boolean parameter to set whether to show output from solver
-    :return:
+    :return: Reconstructed stimulus
     """
     # Use that for the Kronecker product inv(A kron B) == inv(A) kron inv(B)
     cosine_tranform = idct(np.identity(int(np.sqrt(stimulus_size))), norm="ortho", axis=0)
@@ -97,29 +97,29 @@ def stimulus_reconstruction(
 
 def direct_stimulus_reconstruction(
         firing_rates,
-        rec_sens_adj_mat,
-        tuning_weight_vector
+        ff_weight_mat
 ):
     """
     Reconstruction of stimulus based on the knowledge of stimulus tuning of neurons
     :param firing_rates: Firing rates of the neurons
-    :param rec_sens_adj_mat: Adjacency matrix from receptors to sensory neurons
-    :param tuning_weight_vector: The weight vector for the neurons with stimulus preference, e.g. feature class / #class
+    :param ff_weight_mat: Weight matrix of the feedforward weights
     :return: Reconstructed stimulus
     """
-    reconstruction = np.zeros(rec_sens_adj_mat.shape[0])
-    sorted_rates = sorted(zip(firing_rates, range(firing_rates.size)), key=lambda l: l[0])
-    for _, idx in sorted_rates:
-        reduced_vector = np.zeros(firing_rates.shape)
-        reduced_vector[idx] = firing_rates[idx]
-        reconstruction += rec_sens_adj_mat.dot(tuning_weight_vector * reduced_vector)
-
-    reconstruction /= reconstruction.max()
-    reconstruction *= 255
+    weight_mat = ff_weight_mat[:, None]
+    inv_ff_weight_mat = np.linalg.pinv(weight_mat)
+    firing_rates_int = np.ones(firing_rates.size + 1)
+    firing_rates_int[:firing_rates.size] = firing_rates
+    reconstruction = firing_rates_int.dot(inv_ff_weight_mat)
+    reconstruction = reconstruction.reshape(-1)[:-1]
     return reconstruction.reshape(int(np.sqrt(reconstruction.size)), int(np.sqrt(reconstruction.size)))
 
 
 def fourier_trans(signal):
+    """
+    Fourier transformation of a two dimensional signal, e.g. image
+    :param signal: The input image signal
+    :return: Fourier transformation of the image
+    """
     return fft2(signal)
 
 
