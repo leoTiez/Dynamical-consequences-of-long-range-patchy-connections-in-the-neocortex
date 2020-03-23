@@ -142,6 +142,7 @@ def eigenvalue_analysis(matrix, plot=True, save_plot=False, fig_name=None, fig_p
             if fig_name is None:
                 fig_name = "eigenvalue_spec.png"
             plt.savefig(fig_path + fig_name)
+            plt.close()
 
     return eigenvalues, eigenvectors
 
