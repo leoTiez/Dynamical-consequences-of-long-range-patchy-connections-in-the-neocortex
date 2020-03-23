@@ -136,6 +136,7 @@ def main_lr(
             curr_dir = os.getcwd()
             Path(curr_dir + "/figures/firing_rate").mkdir(parents=True, exist_ok=True)
             plt.savefig(curr_dir + "/figures/firing_rate/%s_firing_time.png" % save_prefix)
+            plt.close()
 
     if VERBOSITY > 2:
         print("\n#####################\tPlot firing pattern over space")
@@ -183,6 +184,7 @@ def main_lr(
             curr_dir = os.getcwd()
             Path(curr_dir + "/figures/firing_rate").mkdir(parents=True, exist_ok=True)
             plt.savefig(curr_dir + "/figures/firing_rate/%s_firing_space.png" % save_prefix)
+            plt.close()
 
     mean_variance = spatial_variance(network.torus_layer_tree, network.torus_layer_positions, firing_rates)
     if all_same_input_current or not reconstruct:
@@ -213,6 +215,7 @@ def main_lr(
                 curr_dir = os.getcwd()
                 Path(curr_dir + "/figures/fourier").mkdir(parents=True, exist_ok=True)
                 plt.savefig(curr_dir + "/figures/fourier/%s_fourier_trans.png" % save_prefix)
+                plt.close()
 
         if VERBOSITY > 1:
             _, fig_2 = plt.subplots(1, 2, figsize=(10, 5))
@@ -224,6 +227,7 @@ def main_lr(
                 curr_dir = os.getcwd()
                 Path(curr_dir + "/figures/reconstruction").mkdir(parents=True, exist_ok=True)
                 plt.savefig(curr_dir + "/figures/reconstruction/%s_reconstruction.png" % save_prefix)
+                plt.close()
 
         return input_stimulus, reconstruction
 
