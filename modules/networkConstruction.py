@@ -1117,9 +1117,11 @@ def create_random_stimulus_map(
             plt.show()
         else:
             curr_dir = os.getcwd()
+            Path(curr_dir + "/figures/tuning-map/").mkdir(exist_ok=True, parents=True)
             if plot_name is None:
                 plot_name = "random_tuning_map.png"
-            plt.savefig(curr_dir + "/figures/" + plot_name)
+            plt.savefig(curr_dir + "/figures/tuning-map/" + plot_name)
+            plt.close()
     return tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map
 
 
@@ -1202,10 +1204,11 @@ def create_perlin_stimulus_map(
             plt.show()
         else:
             curr_dir = os.getcwd()
-            Path(curr_dir + "/figures/in-out-dist/").mkdir(parents=True, exist_ok=True)
+            Path(curr_dir + "/figures/tuning-map/").mkdir(parents=True, exist_ok=True)
             if plot_name is None:
                 plot_name = "stimulus_tuning_map.png"
-            plt.savefig(curr_dir + "/figures/in-out-dist/%s_%s" % (save_prefix, plot_name))
+            plt.savefig(curr_dir + "/figures/tuning-map/%s_%s" % (save_prefix, plot_name))
+            plt.close()
     return tuning_to_neuron_map, neuron_to_tuning_map, color_map
 
 
@@ -1215,7 +1218,8 @@ def create_stimulus_tuning_map(
         stimulus_per_row=2,
         plot=False,
         save_plot=False,
-        plot_name=None
+        plot_name=None,
+        save_prefix=""
 ):
     """
     Create the stimulus tuning map for neurons
@@ -1225,6 +1229,8 @@ def create_stimulus_tuning_map(
     :param plot: Flag for plotting
     :param save_plot: Flag for saving the plot. If plot is set to False this parameter is ignored
     :param plot_name: Name of the saved plot file. If plot is set to False this parameter is ignored
+    :param save_prefix: Naming prefix that can be set before the plot name. If plot or save_plot is set to False this
+    parameter is ignored
     :return: Map from stimulus feature class to neuron, map form neuron to stimulus feature class, vector with weights
             for their respective class, e.g. class of neurons / # classes
     """
@@ -1283,9 +1289,11 @@ def create_stimulus_tuning_map(
             plt.close()
         else:
             curr_dir = os.getcwd()
+            Path(curr_dir + "/figures/tuning-map/").mkdir(parents=True, exist_ok=True)
             if plot_name is None:
-                plot_name = "stimulus_tuning_map.png"
-            plt.savefig(curr_dir + "/figures/" + plot_name)
+                plot_name = "stimulus_tuning_map_squared.png"
+            plt.savefig(curr_dir + "/figures/tuning-map/%s_%s" % (save_prefix, plot_name))
+            plt.close()
 
     return tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map
 
