@@ -1653,10 +1653,12 @@ def create_connections_rf(
         for tune in range(num_tuning_discr):
             plt.plot(
                 applied_current,
-                tuning_fun(0, applied_current, tune, 255./4., applied_current, ad, 0)
+                tuning_fun(0, applied_current, tune, 255./4., applied_current, ad, 0),
+                label="Class %s" % tune
             )
         plt.xlabel("Current I in nA")
         plt.ylabel("Stimulus intensity")
+        plt.legend()
         if not save_plot:
             plt.show()
         else:
