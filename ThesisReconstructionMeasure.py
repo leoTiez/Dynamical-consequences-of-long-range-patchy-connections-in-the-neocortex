@@ -420,7 +420,12 @@ if __name__ == '__main__':
     if cmd_params.num_trials is not None:
         num_trials = cmd_params.num_trials
 
-    # main_lr(network_type=NETWORK_TYPE["local_circ_patchy_sd"], input_type=INPUT_TYPE["perlin"], reconstruct=True)
+    # main_lr(
+    #     network_type=NETWORK_TYPE["local_circ_patchy_sd"],
+    #     input_type=INPUT_TYPE["perlin"],
+    #     tuning_function=TUNING_FUNCTION["step"],
+    #     reconstruct=True
+    # )
 
     print("Start experiment %s for network %s given the input %s."
           " The parameter %s is changed."
