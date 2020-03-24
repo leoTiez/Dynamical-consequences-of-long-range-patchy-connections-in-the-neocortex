@@ -9,10 +9,17 @@ import matplotlib.pyplot as plt
 INPUT_TYPE = {
     "plain": 0,
     "perlin": 1,
-    # "bar": 2,
-    # "circles": 3,
+    "natural": 2,
+    "random": 3
+}
+
+INPUT_TYPE_EXTENDED = {
+    "plain": 0,
+    "perlin": 1,
+    "bar": 2,
+    "circles": 3,
     "natural": 4,
-    # "edges": 5,
+    "edges": 5,
     "random": 6
 }
 
