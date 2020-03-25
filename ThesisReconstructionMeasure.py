@@ -283,7 +283,7 @@ def experiment(
                 input_type=input_type,
                 reconstruct=True if exp.lower() == "error" else False,
                 tuning_function=p if tuning_function is None else tuning_function,
-                cluster=p if cluster is None else tuning_function,
+                cluster=p if cluster is None else cluster,
                 num_patches=p if patches is None else patches,
                 write_to_file=True,
                 save_prefix="%s_%s_%s_%s_%s_no_%s" % (
