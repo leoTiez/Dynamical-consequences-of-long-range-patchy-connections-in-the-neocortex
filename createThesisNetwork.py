@@ -43,6 +43,7 @@ class NeuronalNetworkBase:
             layer_size=8.,
             spacing_perlin=0.01,
             resolution_perlin=(15, 15),
+            img_prop=1.,
             use_dc=True,
             verbosity=0,
             save_plots=False,
@@ -72,6 +73,7 @@ class NeuronalNetworkBase:
         :param spacing_perlin: The space between two points in x and y for which an interpolation is computed. This
         value is used for creating the tuning map
         :param resolution_perlin: The resolution of the sampled values
+        :param img_prop: Amount of information of the input image that is presented to the network
         :param use_dc: Flag to determine whether to use a DC as injected current. If set to False a Poisson spike
         generator is used
         :param verbosity: Verbosity flag handles amount of output and created plot
@@ -104,6 +106,8 @@ class NeuronalNetworkBase:
 
         self.spacing_perlin = spacing_perlin
         self.resolution_perlin = resolution_perlin
+
+        self.img_prop = img_prop
 
         self.use_dc = use_dc
 
@@ -269,16 +273,19 @@ class NeuronalNetworkBase:
         if self.verbosity > 0:
             print("\n#####################\tCreate connections between receptors and sensory neurons")
 
+        neurons_with_input = np.random.choice(self.torus_layer_nodes, int(self.img_prop * self.num_sensory)).tolist()
         self.ff_weight_mat = create_connections_rf(
             self.input_stimulus,
-            self.torus_layer,
+            neurons_with_input,
             self.rf_center_map,
             self.neuron_to_tuning_map,
             self.torus_inh_nodes,
+            total_num_target=int(self.num_sensory),
             synaptic_strength=self.ff_weight,
             tuning_function=self.tuning_function,
             p_rf=self.p_rf,
             rf_size=self.rf_size,
+            target_layer_size=self.layer_size,
             use_dc=self.use_dc,
             plot_src_target=self.plot_rf_relation,
             retina_size=self.input_stimulus.shape,
