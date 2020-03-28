@@ -28,6 +28,7 @@ def arg_parse():
     parser.add_argument("--input", type=str)
     parser.add_argument("--parameter", type=str)
     parser.add_argument("--num_trials", type=int)
+    parser.add_argument("--img_prop", type=float)
     parsed_args = parser.parse_args()
 
     return parsed_args
