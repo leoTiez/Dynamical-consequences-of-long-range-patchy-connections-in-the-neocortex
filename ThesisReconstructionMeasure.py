@@ -33,6 +33,7 @@ def main_lr(
         cluster=(15, 15),
         tuning_function=TUNING_FUNCTION["gauss"],
         num_patches=3,
+        img_prop=1.,
         write_to_file=False,
         save_prefix='',
 ):
@@ -44,6 +45,8 @@ def main_lr(
     instead of the reconstruction
     :param tuning_function: The tuning function that is applied by the neurons. This is an integer number defined
     int the TUNING_FUNCTION dictionary
+    :param num_patches: number of patches. If the network does not establish patches this parameter is ignored
+    :param img_prop: Proportion of the image information that is used
     :param write_to_file: If set to true the firing rate is written to an file
     :param save_prefix: Naming prefix that can be set before a file to mark a trial or an experiment
     :return: If reconstruct is set to False, the return values are the input stimulus, firing rates, and
@@ -95,6 +98,7 @@ def main_lr(
         tuning_function=tuning_function,
         resolution_perlin=cluster,
         num_patches=num_patches,
+        img_prop=img_prop,
         use_dc=use_dc,
         save_prefix=save_prefix,
         save_plots=save_plots,
@@ -242,6 +246,7 @@ def experiment(
         exp="error",
         cluster=(15, 15),
         patches=3,
+        img_prop=1.,
         num_trials=5
 ):
     """
@@ -285,13 +290,15 @@ def experiment(
                 tuning_function=p if tuning_function is None else tuning_function,
                 cluster=p if cluster is None else cluster,
                 num_patches=p if patches is None else patches,
+                img_prop=img_prop,
                 write_to_file=True,
-                save_prefix="%s_%s_%s_%s_%s_no_%s" % (
+                save_prefix="%s_%s_%s_%s_%s_img_prop_%s_no_%s" % (
                     exp,
                     network_name,
                     input_name,
                     parameter_str,
                     p if tuning_function is not None else tuning_name,
+                    img_prop,
                     i
                 )
             )
@@ -305,12 +312,13 @@ def experiment(
                 firing_rates.append(firing_rate.reshape(-1))
                 variance.append(corr)
 
-        save_prefix = "%s_%s_%s_%s_%s" % (
+        save_prefix = "%s_%s_%s_%s_%s_img_prop_%s" % (
             exp,
             network_name,
             input_name,
             parameter_str,
-            p if tuning_function is not None else tuning_name
+            p if tuning_function is not None else tuning_name,
+            img_prop
         )
 
         if exp.lower() == "error":
@@ -328,19 +336,23 @@ def experiment(
             error_variance_file.close()
 
             if VERBOSITY > 0:
-                print("\n#####################\tMean Error for network type %s, %s %s and input type %s: %s \n"
+                print("\n#####################\tMean Error for network type %s, %s %s, image proportion %s,"
+                      " and input type %s: %s \n"
                       % (
                           network_name,
                           parameter_str,
                           p if tuning_function is not None else tuning_name,
+                          img_prop,
                           input_name,
                           mean_error
                       ))
-                print("\n#####################\tError variance for network type %s, %s %s and input type %s: %s \n"
+                print("\n#####################\tError variance for network type %s, %s %s, image proportion %s,"
+                      " and input type %s: %s \n"
                       % (
                           network_name,
                           parameter_str,
                           p if tuning_function is not None else tuning_name,
+                          img_prop,
                           input_name,
                           error_variance
                       ))
@@ -358,19 +370,23 @@ def experiment(
             variance_file.close()
 
             if VERBOSITY > 0:
-                print("\n#####################\tMutual Information MI for network type %s, %s %s and input type %s: %s \n"
+                print("\n#####################\tMutual Information MI for network type %s, %s %s, image proportion %s,"
+                      " and input type %s: %s \n"
                       % (
                           network_name,
                           parameter_str,
                           p if tuning_function is not None else tuning_name,
+                          img_prop,
                           input_name,
                           mutual_information
                       ))
-                print("\n#####################\tSpatial variance for network type %s, %s %s and input type %s: %s \n"
+                print("\n#####################\tSpatial variance for network type %s, %s %s, image proportion %s,"
+                      " and input type %s: %s \n"
                       % (
                           network_name,
                           parameter_str,
                           p if tuning_function is not None else tuning_name,
+                          img_prop,
                           input_name,
                           np.asarray(variance).mean()
                       ))
@@ -384,6 +400,7 @@ if __name__ == '__main__':
     cluster = (15, 15)
     num_trials = 10
     patches = 3
+    img_prop = 1.
 
     if cmd_params.seed:
         np.random.seed(0)
@@ -420,17 +437,29 @@ if __name__ == '__main__':
     if cmd_params.num_trials is not None:
         num_trials = cmd_params.num_trials
 
+    if cmd_params.img_prop is not None:
+        img_prop = cmd_params.img_prop
+
     # main_lr(
     #     network_type=NETWORK_TYPE["local_circ_patchy_sd"],
     #     input_type=INPUT_TYPE["perlin"],
     #     tuning_function=TUNING_FUNCTION["step"],
+    #     img_prop=img_prop,
     #     reconstruct=True
     # )
 
     print("Start experiment %s for network %s given the input %s."
           " The parameter %s is changed."
           " The number of trials is %s"
-          % (cmd_params.experiment, cmd_params.network, cmd_params.input, cmd_params.parameter, cmd_params.num_trials))
+          " and the proportion of the image presented to the network os %s"
+          % (
+              cmd_params.experiment,
+              cmd_params.network,
+              cmd_params.input,
+              cmd_params.parameter,
+              num_trials,
+              img_prop,
+          ))
 
     experiment(
         network_type=network_type,
@@ -439,6 +468,7 @@ if __name__ == '__main__':
         exp=cmd_params.experiment,
         cluster=cluster,
         patches=patches,
+        img_prop=img_prop,
         num_trials=10
     )
 
