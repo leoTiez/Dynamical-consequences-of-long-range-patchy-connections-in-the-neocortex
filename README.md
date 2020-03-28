@@ -162,6 +162,8 @@ The possible parameters are
 `--seed` sets a seed for the random number generator. `--agg` changes the matplotlib backend to use the 
 Anti-Grain Geometry C++ library. This is particularly useful if the plots are saved and do not need to be displayed.
 `--num_trials` can be any integer number and sets the number of trials per tested parameter or experiment.
+`--img_prop` defines the sparse sampling, e.g. how many of the sensory neurons participate in reconstructing
+the image.
 
 ## The Jupyter notebook
 To provide play around and test different parameter settings, there is a Jupyter notebook provided.
