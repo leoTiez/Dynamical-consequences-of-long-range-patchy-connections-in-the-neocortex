@@ -12,6 +12,7 @@ def main(params):
     print("\n#####################\t Start with experiments %s" % params.experiment)
 
     num_trials = params.num_trials if params.num_trials is not None else 10
+    img_prop = params.img_prop if params.img_prop is not None else 1.0
 
     for network in NETWORK_TYPE.keys():
         for stimulus in INPUT_TYPE.keys():
@@ -22,8 +23,9 @@ def main(params):
                       "--network=%s "
                       "--input=%s "
                       "--parameter=%s "
+                      "--img_prop=%s "
                       "--num_trials=%s "
-                      % (curr_dir, params.experiment, network, stimulus, params.parameter, num_trials))
+                      % (curr_dir, params.experiment, network, stimulus, params.parameter, img_prop, num_trials))
 
 
 if __name__ == '__main__':

@@ -1486,14 +1486,16 @@ def convert_linear_tuning(
 
 def create_connections_rf(
         image,
-        target_layer,
+        target_node_ids,
         rf_centers,
         neuron_to_tuning_map,
         inh_neurons,
         synaptic_strength=1.,
+        total_num_target=int(1e4),
         rf_size=(10, 10),
         tuning_function=TUNING_FUNCTION["step"],
         p_rf=0.3,
+        target_layer_size=8.,
         use_dc=True,
         multiplier=1.,
         plot_src_target=False,
@@ -1506,7 +1508,7 @@ def create_connections_rf(
     """
     Create receptive fields for sensory neurons and establishes connections
     :param image: Input image
-    :param target_layer: Target layer, i.e. the layer with sensory neurons
+    :param target_node_ids: Neurons in the target layer (i.e. the sheet with sensory neurons) to an input is injected
     :param rf_centers: The centers of the receptive fields
     :param neuron_to_tuning_map: The map from neuron to stimulus tuning
     :param inh_neurons: IDs of inhibitory neurons
@@ -1514,6 +1516,7 @@ def create_connections_rf(
     :param tuning_function: The tuning function of the sensory neurons
     :param synaptic_strength: Synaptic weight for the connections
     :param p_rf: Connection probability to the cells in the receptive field
+    :param target_layer_size: Size of the square sheet with the sensory neurons
     :param use_dc: If set to True a DC is injected, otherwise a Poisson spike train
     :param multiplier: Factor that is multiplied to the injected current
     :param plot_src_target: Flag for plotting
@@ -1525,7 +1528,6 @@ def create_connections_rf(
     :param retina_size: Size of the retina / input layer
     :return: Adjacency matrix from receptors to sensory nodes
     """
-    target_node_ids = nest.GetNodes(target_layer, properties={"element_type": "neuron"})[0]
 
     # Follow the nest convention [columns, rows]
     mask_specs = {
@@ -1535,7 +1537,7 @@ def create_connections_rf(
     num_tuning_discr = max(neuron_to_tuning_map.values()) + 1
     tuning_discr_step = 256. / float(num_tuning_discr)
     min_id_target = min(target_node_ids)
-    adj_mat = np.zeros((image.size + 1, len(target_node_ids) + 1))
+    adj_mat = np.zeros((image.size + 1, total_num_target + 1))
     adj_mat[-1, -1] = 1.
 
     tuning_fun = None
@@ -1606,8 +1608,6 @@ def create_connections_rf(
 
         if counter == plot_point:
             if plot_src_target:
-                target_layer_size = nest.GetStatus(target_layer, "topology")[0]["extent"][0]
-
                 fig, ax = plt.subplots(1, 2, sharex='none', sharey='none', figsize=(10, 5))
                 ax[0].axis((0, retina_size[1], 0, retina_size[0]))
 
