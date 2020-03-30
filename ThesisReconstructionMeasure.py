@@ -29,7 +29,6 @@ PARAMETER_DICT = {
 def main_lr(
         network_type=NETWORK_TYPE["local_circ_patchy_random"],
         input_type=INPUT_TYPE["plain"],
-        reconstruct=True,
         cluster=(15, 15),
         tuning_function=TUNING_FUNCTION["gauss"],
         num_patches=3,
@@ -41,17 +40,14 @@ def main_lr(
     Main function to create a network, simulate and reconstruct the original stimulus
     :param network_type: The type of the network. This is an integer number defined in the NETWORK_TYPE dictionary
     :param input_type: The type of the input. This is an integer number defined in the INPUT_TYPE dictionary
-    :param reconstruct: If set to true the stimulus is reconstructed. If set to False, the spatial variance is returned
-    instead of the reconstruction
+    :param cluster: The size of the Perlin noise mesh
     :param tuning_function: The tuning function that is applied by the neurons. This is an integer number defined
     int the TUNING_FUNCTION dictionary
     :param num_patches: number of patches. If the network does not establish patches this parameter is ignored
     :param img_prop: Proportion of the image information that is used
     :param write_to_file: If set to true the firing rate is written to an file
     :param save_prefix: Naming prefix that can be set before a file to mark a trial or an experiment
-    :return: If reconstruct is set to False, the return values are the input stimulus, firing rates, and
-    the averaged variance of the neighborhood. Otherwise the original input stimulus and the reconstructed stimulus
-    is returned.
+    :return: The original image, the reconstructed image and the firing rates
     """
     # load input stimulus
     input_stimulus = stimulus_factory(input_type)
@@ -193,65 +189,67 @@ def main_lr(
             plt.savefig(curr_dir + "/figures/firing_rate/%s_firing_space.png" % save_prefix)
             plt.close()
 
-    mean_variance = spatial_variance(network.torus_layer_tree, network.torus_layer_positions, firing_rates)
-    if all_same_input_current or not reconstruct:
-        return input_stimulus, firing_rates, mean_variance
+    # #############################################################################################################
+    # Reconstruct stimulus
+    # #############################################################################################################
+    # Reconstruct input stimulus
+    if VERBOSITY > 0:
+        print("\n#####################\tReconstruct stimulus")
 
-    else:
-        # #############################################################################################################
-        # Reconstruct stimulus
-        # #############################################################################################################
-        # Reconstruct input stimulus
-        if VERBOSITY > 0:
-            print("\n#####################\tReconstruct stimulus")
+    reconstruction = direct_stimulus_reconstruction(
+        firing_rates,
+        network.ff_weight_mat,
+    )
+    response_fft = fourier_trans(reconstruction)
 
-        reconstruction = direct_stimulus_reconstruction(
-            firing_rates,
-            network.ff_weight_mat,
-        )
-        response_fft = fourier_trans(reconstruction)
+    if VERBOSITY > 3:
+        from matplotlib.colors import LogNorm
+        _, fig = plt.subplots(1, 2, figsize=(10, 5))
+        fig[0].imshow(np.abs(response_fft), norm=LogNorm(vmin=5))
+        fig[1].imshow(np.abs(stimulus_fft), norm=LogNorm(vmin=5))
+        if not save_plots:
+            plt.show()
+        else:
+            curr_dir = os.getcwd()
+            Path(curr_dir + "/figures/fourier").mkdir(parents=True, exist_ok=True)
+            plt.savefig(curr_dir + "/figures/fourier/%s_fourier_trans.png" % save_prefix)
+            plt.close()
 
-        if VERBOSITY > 3:
-            from matplotlib.colors import LogNorm
-            _, fig = plt.subplots(1, 2, figsize=(10, 5))
-            fig[0].imshow(np.abs(response_fft), norm=LogNorm(vmin=5))
-            fig[1].imshow(np.abs(stimulus_fft), norm=LogNorm(vmin=5))
-            if not save_plots:
-                plt.show()
-            else:
-                curr_dir = os.getcwd()
-                Path(curr_dir + "/figures/fourier").mkdir(parents=True, exist_ok=True)
-                plt.savefig(curr_dir + "/figures/fourier/%s_fourier_trans.png" % save_prefix)
-                plt.close()
+    if VERBOSITY > 1:
+        _, fig_2 = plt.subplots(1, 2, figsize=(10, 5))
+        fig_2[0].imshow(reconstruction, cmap='gray')
+        fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
+        if not save_plots:
+            plt.show()
+        else:
+            curr_dir = os.getcwd()
+            Path(curr_dir + "/figures/reconstruction").mkdir(parents=True, exist_ok=True)
+            plt.savefig(curr_dir + "/figures/reconstruction/%s_reconstruction.png" % save_prefix)
+            plt.close()
 
-        if VERBOSITY > 1:
-            _, fig_2 = plt.subplots(1, 2, figsize=(10, 5))
-            fig_2[0].imshow(reconstruction, cmap='gray')
-            fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
-            if not save_plots:
-                plt.show()
-            else:
-                curr_dir = os.getcwd()
-                Path(curr_dir + "/figures/reconstruction").mkdir(parents=True, exist_ok=True)
-                plt.savefig(curr_dir + "/figures/reconstruction/%s_reconstruction.png" % save_prefix)
-                plt.close()
-
-        return input_stimulus, reconstruction
+    return input_stimulus, reconstruction, firing_rates
 
 
 def experiment(
         input_type=INPUT_TYPE["plain"],
         network_type=NETWORK_TYPE["random"],
         tuning_function=TUNING_FUNCTION["gauss"],
-        exp="error",
         cluster=(15, 15),
         patches=3,
         img_prop=1.,
-        num_trials=5
+        num_trials=10
 ):
     """
     Computes the mutual information that is averaged over several trials
     :param input_type: The input type. This is an integer number defined in the INPUT_TYPE dictionary
+    :param network_type: The network type. This is an integer number defined in the NETWORK_TYPE dictionary
+    :param tuning_function: The tuning function of senory neurons. This is an integer number defined in the
+    TUNING_FUNCTION dictionary
+    :param cluster: The size of the mesh that is used for the Perlin noise distribution of the sensory neurons
+    The parameter is ignored if random network is chosen
+    :param patches: The number of patches. This parameter is ignored if network is chosen that does not make use of
+    patchy connctions
+    :param img_prop: Defines the sparse sampling, i.e. the number of neurons that receive feedforward input.
     :param num_trials: The number of trials that are conducted
     :return: None
     """
@@ -279,21 +277,18 @@ def experiment(
     for p in parameters:
         input_stimuli = []
         firing_rates = []
-        variance = []
         errors = []
         tuning_name = list(TUNING_FUNCTION.keys())[p if tuning_function is None else tuning_function]
         for i in range(num_trials):
-            results = main_lr(
+            input_stimulus, reconstruction, firing_rate = main_lr(
                 network_type=network_type,
                 input_type=input_type,
-                reconstruct=True if exp.lower() == "error" else False,
                 tuning_function=p if tuning_function is None else tuning_function,
                 cluster=p if cluster is None else cluster,
                 num_patches=p if patches is None else patches,
                 img_prop=img_prop,
                 write_to_file=True,
-                save_prefix="%s_%s_%s_%s_%s_img_prop_%s_no_%s" % (
-                    exp,
+                save_prefix="%s_%s_%s_%s_img_prop_%s_no_%s" % (
                     network_name,
                     input_name,
                     parameter_str,
@@ -303,17 +298,11 @@ def experiment(
                 )
             )
 
-            if exp.lower() == "error":
-                input_stimulus, reconstruction = results
-                errors.append(error_distance(input_stimulus, reconstruction))
-            else:
-                input_stimulus, firing_rate, corr = results
-                input_stimuli.append(input_stimulus.reshape(-1))
-                firing_rates.append(firing_rate.reshape(-1))
-                variance.append(corr)
+            errors.append(error_distance(input_stimulus, reconstruction))
+            input_stimuli.append(input_stimulus.reshape(-1))
+            firing_rates.append(firing_rate.reshape(-1))
 
-        save_prefix = "%s_%s_%s_%s_%s_img_prop_%s" % (
-            exp,
+        save_prefix = "%s_%s_%s_%s_img_prop_%s" % (
             network_name,
             input_name,
             parameter_str,
@@ -321,75 +310,57 @@ def experiment(
             img_prop
         )
 
-        if exp.lower() == "error":
-            mean_error = np.mean(np.asarray(errors))
-            error_variance = np.var(np.asarray(errors))
-            curr_dir = os.getcwd()
-            Path(curr_dir + "/error/").mkdir(exist_ok=True, parents=True)
+        mean_error = np.mean(np.asarray(errors))
+        error_variance = np.var(np.asarray(errors))
+        mutual_information = mutual_information_hist(input_stimuli, firing_rates)
+        curr_dir = os.getcwd()
+        Path(curr_dir + "/error/").mkdir(exist_ok=True, parents=True)
 
-            mean_error_file = open(curr_dir + "/error/%s_mean_error.txt" % save_prefix, "w+")
-            mean_error_file.write(str(mean_error))
-            mean_error_file.close()
+        mean_error_file = open(curr_dir + "/error/%s_mean_error.txt" % save_prefix, "w+")
+        mean_error_file.write(str(mean_error))
+        mean_error_file.close()
 
-            error_variance_file = open(curr_dir + "/error/%s_error_variance.txt" % save_prefix, "w+")
-            error_variance_file.write(str(error_variance))
-            error_variance_file.close()
+        error_variance_file = open(curr_dir + "/error/%s_error_variance.txt" % save_prefix, "w+")
+        error_variance_file.write(str(error_variance))
+        error_variance_file.close()
 
-            if VERBOSITY > 0:
-                print("\n#####################\tMean Error for network type %s, %s %s, image proportion %s,"
-                      " and input type %s: %s \n"
-                      % (
-                          network_name,
-                          parameter_str,
-                          p if tuning_function is not None else tuning_name,
-                          img_prop,
-                          input_name,
-                          mean_error
-                      ))
-                print("\n#####################\tError variance for network type %s, %s %s, image proportion %s,"
-                      " and input type %s: %s \n"
-                      % (
-                          network_name,
-                          parameter_str,
-                          p if tuning_function is not None else tuning_name,
-                          img_prop,
-                          input_name,
-                          error_variance
-                      ))
-        else:
-            mutual_information = mutual_information_hist(input_stimuli, firing_rates)
-            curr_dir = os.getcwd()
-            Path(curr_dir + "/mi/").mkdir(exist_ok=True, parents=True)
+        Path(curr_dir + "/mi/").mkdir(exist_ok=True, parents=True)
 
-            mi_file = open(curr_dir + "/mi/%s_mi.txt" % save_prefix, "w+")
-            mi_file.write(str(mutual_information))
-            mi_file.close()
+        mi_file = open(curr_dir + "/mi/%s_mi.txt" % save_prefix, "w+")
+        mi_file.write(str(mutual_information))
+        mi_file.close()
 
-            variance_file = open(curr_dir + "/mi/%s_spatial_variance.txt" % save_prefix, "w+")
-            variance_file.write(str(np.asarray(variance).mean()))
-            variance_file.close()
-
-            if VERBOSITY > 0:
-                print("\n#####################\tMutual Information MI for network type %s, %s %s, image proportion %s,"
-                      " and input type %s: %s \n"
-                      % (
-                          network_name,
-                          parameter_str,
-                          p if tuning_function is not None else tuning_name,
-                          img_prop,
-                          input_name,
-                          mutual_information
-                      ))
-                print("\n#####################\tSpatial variance for network type %s, %s %s, image proportion %s,"
-                      " and input type %s: %s \n"
-                      % (
-                          network_name,
-                          parameter_str,
-                          p if tuning_function is not None else tuning_name,
-                          img_prop,
-                          input_name,
-                          np.asarray(variance).mean()
-                      ))
+        if VERBOSITY > 0:
+            print("\n#####################\tMean Error for network type %s, %s %s, image proportion %s,"
+                  " and input type %s: %s \n"
+                  % (
+                      network_name,
+                      parameter_str,
+                      p if tuning_function is not None else tuning_name,
+                      img_prop,
+                      input_name,
+                      mean_error
+                  ))
+            print("\n#####################\tError variance for network type %s, %s %s, image proportion %s,"
+                  " and input type %s: %s \n"
+                  % (
+                      network_name,
+                      parameter_str,
+                      p if tuning_function is not None else tuning_name,
+                      img_prop,
+                      input_name,
+                      error_variance
+                  ))
+            print("\n#####################\tMutual Information MI for network type %s, %s %s, image proportion %s,"
+                  " and input type %s: %s \n"
+                  % (
+                      network_name,
+                      parameter_str,
+                      p if tuning_function is not None else tuning_name,
+                      img_prop,
+                      input_name,
+                      mutual_information
+                  ))
 
 
 if __name__ == '__main__':
@@ -408,9 +379,6 @@ if __name__ == '__main__':
     if cmd_params.agg:
         import matplotlib
         matplotlib.use("Agg")
-
-    if cmd_params.experiment not in ["error", "mi"]:
-        raise ValueError("Please pass a valid experiment as parameter")
 
     if cmd_params.network in list(NETWORK_TYPE.keys()):
         network_type = NETWORK_TYPE[cmd_params.network]
@@ -448,12 +416,11 @@ if __name__ == '__main__':
     #     reconstruct=True
     # )
 
-    print("Start experiment %s for network %s given the input %s."
+    print("Start experiments for network %s given the input %s."
           " The parameter %s is changed."
           " The number of trials is %s"
           " and the proportion of the image presented to the network os %s"
           % (
-              cmd_params.experiment,
               cmd_params.network,
               cmd_params.input,
               cmd_params.parameter,
@@ -465,7 +432,6 @@ if __name__ == '__main__':
         network_type=network_type,
         input_type=input_type,
         tuning_function=tuning_function,
-        exp=cmd_params.experiment,
         cluster=cluster,
         patches=patches,
         img_prop=img_prop,

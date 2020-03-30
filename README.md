@@ -118,10 +118,10 @@ computes the mutual information based on the histograms that can be created of t
 Note that the latter experiment loses the notion of spatial relations. Run the file via
 
 ```bash
-pyhton3 ThesisReconstructionMeasure --experiment=error --network=loc_circ_patchy_sd --input=perlin [optional: --parameter=tuning -- num_trials=5 --seed --agg]
+pyhton3 ThesisReconstructionMeasure  --network=loc_circ_patchy_sd --input=perlin [optional: --parameter=tuning -- num_trials=5 --seed --agg]
 ``` 
-where the `--experiment` parameter sets the experimental setup. The parameter `--parameter` defines the parameter that is
-under investigation. If none is given, than the default values are used. The `--num_trials` sets the number of conducted
+where the parameter `--parameter` defines the parameter that is under investigation. 
+If none is given, than the default values are used. The `--num_trials` sets the number of conducted
 trials. For more information see below.
 
 Please note that the network is currently under development, and hence, the implementation is not
@@ -131,32 +131,25 @@ browse through the repository and to checkout the implementation at the recent s
 ## Commandline parameters
 ### Network types 
 Possible network types are
-- random
-- local_circ
-- local_sd
-- local_circ_patchy_sd
-- local_circ_patchy_random
-- local_sd_patchy_sd
+- `random`
+- `local_circ`
+- `local_sd`
+- `local_circ_patchy_sd`
+- `local_circ_patchy_random`
+- `local_sd_patchy_sd`
 
 ### Input types
-Possible input types are
-- plain
-- perlin
-- bar (which creates a single bar)
-- circles
-- natural
-- edges
-- random
-
-### Experiments
-The possible experiments are
-- error
-- mi
+Possible input types, that can be chosen by a command line parameter, are
+- `plain`
+- `perlin`
+- `natural`
+- `random`
 
 ### Parameter
 The possible parameters are
-- tuning
-- cluster (which investigates the effect of the size of the local groups of the neurons with similar tuning preference)
+- `tuning`
+- `cluster` (which investigates the effect of the size of the local groups of the neurons with similar tuning preference)
+- `patches` 
 
 ### Miscellaneous
 `--seed` sets a seed for the random number generator. `--agg` changes the matplotlib backend to use the 
