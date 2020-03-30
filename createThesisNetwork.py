@@ -212,10 +212,10 @@ class NeuronalNetworkBase:
             raise ValueError("The spacing of the interpolated values for the Perlin noise is not set "
                              "to a meaningful value. Set it larger than 0."
                              " Current value is %s" % self.spacing_perlin)
-        if self.resolution_perlin[0] < self.num_stim_discr or self.resolution_perlin[1] < self.num_stim_discr:
+        if self.resolution_perlin[0] < 4 or self.resolution_perlin[1] < 4:
             raise ValueError("The resolution of the mesh for the Perlin noise is not set to a meaningful value."
-                             " Set it larger than %s. Current value is %s"
-                             % (self.num_stim_discr, self.resolution_perlin))
+                             " Set it larger equal than %s. Current value is %s"
+                             % (4, self.resolution_perlin))
 
         (self.tuning_to_neuron_map,
          self.neuron_to_tuning_map,
