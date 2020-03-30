@@ -267,7 +267,7 @@ def experiment(
         parameters = TUNING_FUNCTION.values()
         parameter_str = "tuning_function"
     elif cluster is None:
-        cluster_range = np.arange(5, 20, 1)
+        cluster_range = np.arange(4, 20, 1)
         parameters = zip(cluster_range, cluster_range)
         parameter_str = "cluster_size"
     elif patches is None:
@@ -444,7 +444,7 @@ if __name__ == '__main__':
     #     network_type=NETWORK_TYPE["local_circ_patchy_sd"],
     #     input_type=INPUT_TYPE["perlin"],
     #     tuning_function=TUNING_FUNCTION["step"],
-    #     img_prop=img_prop,
+    #     img_prop=1.,
     #     reconstruct=True
     # )
 
