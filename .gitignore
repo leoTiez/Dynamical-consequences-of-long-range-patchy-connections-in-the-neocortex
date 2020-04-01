@@ -12,3 +12,5 @@ __pycache__
 InputFiringRateCorrelation.py
 /firing_rates_files
 /experiments
+/mi
+/error
