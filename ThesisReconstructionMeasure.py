@@ -272,7 +272,7 @@ def experiment(
         parameters = np.arange(1, 5, 1)
         parameter_str = "num_patches"
     if len(parameters) == 0:
-        parameters.append(_)
+        parameters.append("")
 
     for p in parameters:
         input_stimuli = []
@@ -401,6 +401,15 @@ if __name__ == '__main__':
             if network_type == NETWORK_TYPE["random"]:
                 raise ValueError("Cannot run experiments about the cluster size with a random network")
             cluster = None
+
+    if cmd_params.tuning is not None:
+        tuning_function = TUNING_FUNCTION[cmd_params.tuning]
+
+    if cmd_params.cluster is not None:
+        cluster = cmd_params.cluster
+
+    if cmd_params.patches is not None:
+        patches = cmd_params.patches
 
     if cmd_params.num_trials is not None:
         num_trials = cmd_params.num_trials
