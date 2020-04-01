@@ -120,9 +120,25 @@ Note that the latter experiment loses the notion of spatial relations. Run the f
 ```bash
 pyhton3 ThesisReconstructionMeasure  --network=loc_circ_patchy_sd --input=perlin [optional: --parameter=tuning -- num_trials=5 --seed --agg]
 ``` 
-where the parameter `--parameter` defines the parameter that is under investigation. 
+where the parameter `--parameter` defines the parameter that is in question. 
 If none is given, than the default values are used. The `--num_trials` sets the number of conducted
-trials. For more information see below.
+trials. For more information see below. This script can be run for all network and input types via
+
+```bash
+python3 Experiments.py --parameter=parameter
+```
+
+where the value `--parameter=parameter` should be replaced by one of the values defined below.
+
+If results were already obtained and saved in files, these can be read out and used for plotting via the
+`InformationLoss.py` script that can be run via
+
+```bash
+python3 InformationLoss.py [optional: --show --type=bar --path_full=your-path-1 --path-part=your-path-2]
+```
+
+while the parameter values should be replaced by the values that are explained and deined in the Commandline
+parameters section.
 
 Please note that the network is currently under development, and hence, the implementation is not
 final yet. Moreover, more sophisticated explanations are missing. Nevertheless, feel free to 
@@ -157,6 +173,18 @@ Anti-Grain Geometry C++ library. This is particularly useful if the plots are sa
 `--num_trials` can be any integer number and sets the number of trials per tested parameter or experiment.
 `--img_prop` defines the sparse sampling, e.g. how many of the sensory neurons participate in reconstructing
 the image.
+
+### Plotting
+The script `InformationLoss.py` accepts some other parameters. For example the command line parameter
+`type` can have one of the following values
+
+- `bar`: Bar plot to show the error for the full sampling and the reduced sampling + lost information 
+- `gauss`: Gaussian curve to show the error distribution
+
+to define the type of the plot. The parameter `--show` is set when the plots are to be displayed instead of
+saved. The path parameters `--path_full` and `--path_part` can be set to the error files for the full
+sampling and the partial sampling / reduced sampling. Per default, however, these parameters don't need
+to be changed.
 
 ## The Jupyter notebook
 To provide play around and test different parameter settings, there is a Jupyter notebook provided.
