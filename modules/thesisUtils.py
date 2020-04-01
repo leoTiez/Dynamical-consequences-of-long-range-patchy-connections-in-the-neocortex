@@ -15,6 +15,21 @@ import nest
 import nest.topology as tp
 
 
+def arg_parse_plts():
+    """
+    Command line argument parser for the plotting file
+    :return: The command line arguments
+    """
+    parser = argparse.ArgumentParser(description="Accept command line parameters for the creation of plots.")
+    parser.add_argument("--type", type=str, help="Defines plot type. Can be either bar or gauss")
+    parser.add_argument("--show", dest="show", action="store_true", help="Show plots instead of saving them")
+    parser.add_argument("--path_full", type=str, help="Path to reconstruction error files with full sampling")
+    parser.add_argument("--path_part", type=str, help="Path to reconstruction error files with subsampling")
+    parsed_args = parser.parse_args()
+
+    return parsed_args
+
+
 def arg_parse():
     """
     Command line argument parser
@@ -23,11 +38,14 @@ def arg_parse():
     parser = argparse.ArgumentParser(description="Accept command line parameters for the reconstruction tests.")
     parser.add_argument("--agg", dest="agg", action="store_true", help="Use Agg backend for matplotlib")
     parser.add_argument("--seed", dest="seed", action="store_true", help="Seed random number generator")
-    parser.add_argument("--network", type=str)
-    parser.add_argument("--input", type=str)
-    parser.add_argument("--parameter", type=str)
-    parser.add_argument("--num_trials", type=int)
-    parser.add_argument("--img_prop", type=float)
+    parser.add_argument("--network", type=str, help="Defines the network type")
+    parser.add_argument("--input", type=str, help="Defines the input stimulus type")
+    parser.add_argument("--parameter", type=str, help="Defines the parameter that is manipulated during experimenting")
+    parser.add_argument("--tuning", type=str, help="Defines the tuning function")
+    parser.add_argument("--cluster", type=tuple, help="Defines the cluster size")
+    parser.add_argument("--patches", type=int, help="Defines the number of patches")
+    parser.add_argument("--num_trials", type=int, help="Sets the number of trials")
+    parser.add_argument("--img_prop", type=float, help="Sets the sampling rate. Value between 0 and 1")
     parsed_args = parser.parse_args()
 
     return parsed_args

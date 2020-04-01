@@ -11,3 +11,6 @@ __pycache__
 .ipynb_checkpoints
 InputFiringRateCorrelation.py
 /firing_rates_files
+/experiments
+/mi
+/error
