@@ -25,6 +25,10 @@ def arg_parse_plts():
     parser.add_argument("--show", dest="show", action="store_true", help="Show plots instead of saving them")
     parser.add_argument("--path_full", type=str, help="Path to reconstruction error files with full sampling")
     parser.add_argument("--path_part", type=str, help="Path to reconstruction error files with subsampling")
+    parser.add_argument("--network", type=str, help="Defines the network type")
+    parser.add_argument("--input", type=str, help="Defines the input stimulus type")
+    parser.add_argument("--tuning", type=str, help="Defines the tuning function")
+
     parsed_args = parser.parse_args()
 
     return parsed_args
