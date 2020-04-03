@@ -134,11 +134,11 @@ If results were already obtained and saved in files, these can be read out and u
 `InformationLoss.py` script that can be run via
 
 ```bash
-python3 InformationLoss.py [optional: --show --type=bar --path_full=your-path-1 --path-part=your-path-2]
+python3 InformationLoss.py [optional: --show --type=bar --network=network --tuning=tuning --input=input --path_full=your-path-1 --path-part=your-path-2]
 ```
 
 while the parameter values should be replaced by the values that are explained and deined in the Commandline
-parameters section.
+parameters section. If `network`, `tuning` and `input` is not set these values are not particularly filtered.
 
 Please note that the network is currently under development, and hence, the implementation is not
 final yet. Moreover, more sophisticated explanations are missing. Nevertheless, feel free to 
