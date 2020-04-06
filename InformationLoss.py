@@ -33,13 +33,17 @@ def main_error(
     variance_full_l = []
     variance_part_80_l = []
     variance_part_60_l = []
+
     mean_full_l = []
     mean_part_80_l = []
     mean_part_60_l = []
+
     inf_loss_l_full_80 = []
     inf_loss_l_full_60 = []
     inf_loss_l_80_60 = []
+
     label_names = []
+
     part_files_80 = os.listdir(curr_dir + path_part_80)
     part_files_60 = os.listdir(curr_dir + path_part_60)
     for file_full in sorted(os.listdir(curr_dir + path_full)):
@@ -145,7 +149,7 @@ def main_error(
     if plot_type == PLOT_TYPE["bar"]:
         x_axis = np.arange(0, len(label_names))
         fig, ax = plt.subplots(1, 2)
-        fig.set_size_inches(15, 5)
+        fig.set_size_inches(15, 8)
         ax[0].bar(x_axis + 0.0, mean_full_l, label="Error Full", width=0.25)
         ax[0].bar(x_axis + 0.25, mean_part_80_l, label="Error 80%", width=0.25)
         ax[0].bar(x_axis + 0.5, mean_part_60_l, label="Error 60%", width=0.25)
@@ -256,7 +260,7 @@ if __name__ == '__main__':
                     network=network,
                     stimulus=stimulus,
                     attributes=[tuning],
-                    plt_bottom_margin=0.2,
+                    plt_bottom_margin=0.3,
                     plot_type=plt_type,
                     save_plot=save_plot
                 )
