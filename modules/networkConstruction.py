@@ -1496,6 +1496,7 @@ def create_connections_rf(
         tuning_function=TUNING_FUNCTION["step"],
         p_rf=0.3,
         target_layer_size=8.,
+        calc_error=False,
         use_dc=True,
         multiplier=1.,
         plot_src_target=False,
@@ -1645,8 +1646,17 @@ def create_connections_rf(
 
         counter += 1
 
-    if plot_src_target:
+    recons = None
+    if calc_error or plot_src_target:
         import modules.stimulusReconstruction as sr
+        full_ampl = np.zeros(total_num_target)
+        full_ampl[np.asarray(target_node_ids) - min_id_target] = np.asarray(amplitudes)
+        recons = sr.direct_stimulus_reconstruction(
+            full_ampl,
+            adj_mat
+        )
+
+
         applied_current = np.arange(0, 255)
         ad = np.zeros((255, 1))
         plt.figure(figsize=(10, 5))
@@ -1667,19 +1677,7 @@ def create_connections_rf(
             plt.savefig(curr_dir + "/figures/rf/%s_tuning_function.png" % save_prefix)
             plt.close()
 
-        recons = sr.direct_stimulus_reconstruction(
-            np.asarray(amplitudes),
-            adj_mat
-        )
+        plot_reconstruction(image, recons, save_plots=save_plot, save_prefix=save_prefix)
 
-        _, ax = plt.subplots(1, 2, figsize=(10, 5))
-        ax[0].imshow(recons, cmap='gray')
-        ax[1].imshow(image, cmap='gray', vmin=0, vmax=255)
-        if not save_plot:
-            plt.show()
-        else:
-            curr_dir = os.getcwd()
-            Path(curr_dir + "/figures/rf/").mkdir(parents=True, exist_ok=True)
-            plt.savefig(curr_dir + "/figures/%s_reconstruction_based_on_current.png" % save_prefix)
-            plt.close()
-    return adj_mat
+    return adj_mat, recons
+
