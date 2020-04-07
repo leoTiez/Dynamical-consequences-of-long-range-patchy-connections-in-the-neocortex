@@ -335,3 +335,16 @@ def get_in_out_degree(nodes, node_tree=None, node_pos=None, r_loc=0.5, r_p=None,
 
     return in_degree, out_degree, in_degree_loc, out_degree_loc, in_degree_lr, out_degree_lr
 
+
+def plot_reconstruction(input_stimulus, reconstruction, save_plots=False, save_prefix=""):
+    _, fig_2 = plt.subplots(1, 2, figsize=(10, 5))
+    fig_2[0].imshow(reconstruction, cmap='gray')
+    fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
+    if not save_plots:
+        plt.show()
+    else:
+        curr_dir = os.getcwd()
+        Path(curr_dir + "/figures/reconstruction").mkdir(parents=True, exist_ok=True)
+        plt.savefig(curr_dir + "/figures/reconstruction/%s_reconstruction.png" % save_prefix)
+        plt.close()
+
