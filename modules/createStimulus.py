@@ -148,7 +148,7 @@ def perlin_image(size=50, resolution=(5, 5), **kwargs):
     return perlin_img.astype('int')
 
 
-def plain_stimulus(size=(50, 50), intensity=255):
+def plain_stimulus(size=(50, 50), intensity=255, **kwargs):
     """
     Create a simple image with a single shade everywhere
     :param size: Size of the image
