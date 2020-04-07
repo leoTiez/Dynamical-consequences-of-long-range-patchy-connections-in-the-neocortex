@@ -22,7 +22,8 @@ nest.set_verbosity("M_ERROR")
 PARAMETER_DICT = {
     "tuning": 0,
     "clusters": 1,
-    "patches": 2
+    "patches": 2,
+    "perlin": 3
 }
 
 
@@ -31,6 +32,7 @@ def main_lr(
         input_type=INPUT_TYPE["plain"],
         cluster=(15, 15),
         tuning_function=TUNING_FUNCTION["gauss"],
+        perlin_input_cluster=(5, 5),
         num_patches=3,
         img_prop=1.,
         write_to_file=False,
@@ -43,6 +45,8 @@ def main_lr(
     :param cluster: The size of the Perlin noise mesh
     :param tuning_function: The tuning function that is applied by the neurons. This is an integer number defined
     int the TUNING_FUNCTION dictionary
+    :param perlin_input_cluster: Cluster size of the perlin input image. If the input is not perlin, this parameter
+    is ignored
     :param num_patches: number of patches. If the network does not establish patches this parameter is ignored
     :param img_prop: Proportion of the image information that is used
     :param write_to_file: If set to true the firing rate is written to an file
@@ -50,7 +54,7 @@ def main_lr(
     :return: The original image, the reconstructed image and the firing rates
     """
     # load input stimulus
-    input_stimulus = stimulus_factory(input_type)
+    input_stimulus = stimulus_factory(input_type, resolution=perlin_input_cluster)
 
     stimulus_fft = fourier_trans(input_stimulus)
     if VERBOSITY > 4:
@@ -94,6 +98,7 @@ def main_lr(
         tuning_function=tuning_function,
         resolution_perlin=cluster,
         num_patches=num_patches,
+        use_input_neurons=True if NETWORK_TYPE["input_only"] else False,
         img_prop=img_prop,
         use_dc=use_dc,
         save_prefix=save_prefix,
@@ -105,6 +110,11 @@ def main_lr(
     if VERBOSITY > 3:
         print("\n#####################\tPlot in/out degree distribution")
         network.connect_distribution("connect_distribution.png")
+
+    if NETWORK_TYPE["input_only"]:
+        reconstruction = network.input_recon
+        firing_rates = np.zeros(network.num_sensory)
+        return input_stimulus, reconstruction, firing_rates
 
     firing_rates, (spikes_s, time_s) = network.simulate(simulation_time)
     if write_to_file:
@@ -216,16 +226,7 @@ def main_lr(
             plt.close()
 
     if VERBOSITY > 1:
-        _, fig_2 = plt.subplots(1, 2, figsize=(10, 5))
-        fig_2[0].imshow(reconstruction, cmap='gray')
-        fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
-        if not save_plots:
-            plt.show()
-        else:
-            curr_dir = os.getcwd()
-            Path(curr_dir + "/figures/reconstruction").mkdir(parents=True, exist_ok=True)
-            plt.savefig(curr_dir + "/figures/reconstruction/%s_reconstruction.png" % save_prefix)
-            plt.close()
+        plot_reconstruction(input_stimulus, reconstruction, save_plots=save_plots, save_prefix=save_prefix)
 
     return input_stimulus, reconstruction, firing_rates
 
@@ -235,6 +236,7 @@ def experiment(
         network_type=NETWORK_TYPE["random"],
         tuning_function=TUNING_FUNCTION["gauss"],
         cluster=(15, 15),
+        perlin_input_cluster=(5, 5),
         patches=3,
         img_prop=1.,
         num_trials=10
@@ -247,6 +249,7 @@ def experiment(
     TUNING_FUNCTION dictionary
     :param cluster: The size of the mesh that is used for the Perlin noise distribution of the sensory neurons
     The parameter is ignored if random network is chosen
+    :param perlin_input_cluster: Cluster size of the perlin input image
     :param patches: The number of patches. This parameter is ignored if network is chosen that does not make use of
     patchy connctions
     :param img_prop: Defines the sparse sampling, i.e. the number of neurons that receive feedforward input.
@@ -271,7 +274,10 @@ def experiment(
     elif patches is None:
         parameters = np.arange(1, 5, 1)
         parameter_str = "num_patches"
-    if len(parameters) == 0:
+    elif perlin_input_cluster is None:
+        parameters = [(8, 8), (15, 15), (20, 20)]
+        parameter_str = "perlin_cluster_size"
+    if len(list(parameters)) == 0:
         parameters.append("")
 
     for p in parameters:
@@ -286,6 +292,7 @@ def experiment(
                 tuning_function=p if tuning_function is None else tuning_function,
                 cluster=p if cluster is None else cluster,
                 num_patches=p if patches is None else patches,
+                perlin_input_cluster=p if perlin_input_cluster is None else perlin_input_cluster,
                 img_prop=img_prop,
                 write_to_file=True,
                 save_prefix="%s_%s_%s_%s_img_prop_%s_no_%s" % (
@@ -369,6 +376,7 @@ if __name__ == '__main__':
     input_type = None
     tuning_function = TUNING_FUNCTION["gauss"]
     cluster = (15, 15)
+    perlin_input_cluster = (5, 5)
     num_trials = 10
     patches = 3
     img_prop = 1.
@@ -401,6 +409,11 @@ if __name__ == '__main__':
             if network_type == NETWORK_TYPE["random"]:
                 raise ValueError("Cannot run experiments about the cluster size with a random network")
             cluster = None
+        elif cmd_params.parameter.lower() == "perlin":
+            if cmd_params.input is not None:
+                if cmd_params.input.lower() != "perlin":
+                    raise ValueError("Cannot investigate the effect of the perlin size when not using perlin as input")
+            perlin_input_cluster = None
 
     if cmd_params.tuning is not None:
         tuning_function = TUNING_FUNCTION[cmd_params.tuning]
@@ -442,6 +455,7 @@ if __name__ == '__main__':
         input_type=input_type,
         tuning_function=tuning_function,
         cluster=cluster,
+        perlin_input_cluster=perlin_input_cluster,
         patches=patches,
         img_prop=img_prop,
         num_trials=10
