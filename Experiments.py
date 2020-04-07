@@ -15,7 +15,10 @@ def main(params):
     img_prop = params.img_prop if params.img_prop is not None else 1.0
 
     for network in NETWORK_TYPE.keys():
-        for stimulus in INPUT_TYPE.keys():
+        input_list = INPUT_TYPE.keys()
+        if params.parameter.lower() == "perlin":
+            input_list = ["perlin"]
+        for stimulus in input_list:
             if network.lower() == "random" and params.parameter.lower() == "cluster":
                 continue
             if "patchy" not in network.lower() and params.parameter.lower() == "patches":
@@ -26,8 +29,8 @@ def main(params):
                       "--parameter=%s "
                       "--img_prop=%s "
                       "--num_trials=%s "
-                      % (curr_dir, network, stimulus, params.parameter, img_prop, num_trials))
-
+                      % (curr_dir, network, stimulus, params.parameter, img_prop, num_trials)
+                      )
 
 if __name__ == '__main__':
     cmd_params = arg_parse()
