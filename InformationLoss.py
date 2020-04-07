@@ -8,7 +8,7 @@ from modules.networkConstruction import TUNING_FUNCTION
 from modules.thesisUtils import arg_parse_plts
 from modules.createStimulus import INPUT_TYPE
 
-PLOT_TYPE={
+PLOT_TYPE = {
     "bar": 0,
     "gauss": 1,
 }
@@ -20,8 +20,7 @@ def information_loss(error_full, error_part):
 
 def main_error(
         path_full,
-        path_part_80,
-        path_part_60,
+        paths_comparison,
         network="",
         stimulus="",
         attributes=[""],
@@ -31,139 +30,139 @@ def main_error(
 ):
     curr_dir = os.getcwd() + "/"
     variance_full_l = []
-    variance_part_80_l = []
-    variance_part_60_l = []
+    variance_comparison = [[] for _ in range(len(paths_comparison))]
 
     mean_full_l = []
-    mean_part_80_l = []
-    mean_part_60_l = []
+    mean_comparison = [[] for _ in range(len(paths_comparison))]
 
-    inf_loss_l_full_80 = []
-    inf_loss_l_full_60 = []
-    inf_loss_l_80_60 = []
+    total_num_comparison = sum(range(len(paths_comparison) + 1))
+    inf_loss_l = [[] for _ in range(total_num_comparison)]
 
     label_names = []
+    label_names_inf = []
 
-    part_files_80 = os.listdir(curr_dir + path_part_80)
-    part_files_60 = os.listdir(curr_dir + path_part_60)
+    part_files = [os.listdir(curr_dir + path_part) for path_part in paths_comparison]
     for file_full in sorted(os.listdir(curr_dir + path_full)):
         is_mean_error = "mean_error.txt" in file_full
         cut_off_idx = -19 if is_mean_error else -23
-        file_part_80 = list(filter(lambda f: file_full[:cut_off_idx] in f, part_files_80))
-        file_part_60 = list(filter(lambda f: file_full[:cut_off_idx] in f, part_files_60))
-        file_part_80 = list(
-            filter(lambda f: "mean_error.txt" in f if is_mean_error else "error_variance.txt" in f, file_part_80)
-        )
-        file_part_60 = list(
-            filter(lambda f: "mean_error.txt" in f if is_mean_error else "error_variance.txt" in f, file_part_60)
-        )
-
-        if network == "random":
-            file_part_80 = list(
-                filter(
-                    lambda f: network == f.split("_")[0] if is_mean_error else "error_variance.txt" in f.split("_")[0],
-                    file_part_80
-                )
-            )
-            if len(file_part_80) == 0:
-                continue
-
-            file_part_60 = list(
-                filter(
-                    lambda f: network == f.split("_")[0] if is_mean_error else "error_variance.txt" in f.split("_")[0],
-                    file_part_60
-                )
-            )
-            if len(file_part_60) == 0:
-                continue
-
-        file_part_80 = file_part_80[0]
-        file_part_60 = file_part_60[0]
-
         split_full = file_full.split("_")
-        split_part_80 = file_part_80.split("_")
-        split_part_60 = file_part_60.split("_")
-        is_attribute = np.all(
-            np.asarray([a in file_full and a in file_part_80 and a in file_part_60 for a in attributes])
-        )
-        is_patchy = "patchy" in file_full and "patchy" in file_part_80 and "patchy" in file_part_60
-        if "patchy" in network:
-            is_network = (network in file_full and network in file_part_80 and network in file_part_60) and is_patchy
-        elif "random" in network:
-            is_network = network in split_full[0] and network in split_part_80[0] and network in split_part_60[0]
-        elif len(network) == 0:
-            is_network = True
-        else:
-            is_network = (network in file_full and network in file_part_80 and network in file_part_60) \
-                         and not is_patchy
 
-        # use "in" to allow empty strings
-        is_stimulus = stimulus in split_full[-9] and stimulus in split_part_80[-9] and stimulus in split_part_60[-9]
-        if is_attribute and is_network and is_stimulus:
-            path_full = path_full + "/"
-            path_part_80 = path_part_80 + "/"
-            path_part_60 = path_part_60 + "/"
-            if "variance" in file_full and "variance" in file_part_80 and "variance" in file_part_60:
-                var_full_f = open(curr_dir + path_full + file_full, "r")
-                var_part_80_f = open(curr_dir + path_part_80 + file_part_80, "r")
-                var_part_60_f = open(curr_dir + path_part_60 + file_part_60, "r")
-                variance_full_l.append(float(var_full_f.read()))
-                variance_part_80_l.append(float(var_part_80_f.read()))
-                variance_part_60_l.append(float(var_part_60_f.read()))
-                var_full_f.close()
-                var_part_80_f.close()
-                var_part_60_f.close()
-            if "mean" in file_full and "mean" in file_part_80 and "mean" in file_part_60:
-                label = file_full\
-                    .replace(network, "", 1)\
-                    .replace(stimulus, "")\
-                    .replace("function", "")\
-                    .replace("tuning", "")\
-                    .replace("img_prop", "")\
-                    .replace("mean", "")\
-                    .replace("error", "")\
-                    .replace("1.0", "")\
-                    .replace(".txt", "")
+        files_part = []
+        fail = False
+        for file_p in part_files:
+            files_part.append(list(filter(lambda f: file_full[:cut_off_idx] in f, file_p)))
+            files_part[-1] = list(
+                filter(lambda f: "mean_error.txt" in f if is_mean_error else "error_variance.txt" in f, files_part[-1])
+            )
+            if network == "random":
+                files_part[-1] = list(
+                    filter(
+                        lambda f: network == f.split("_")[0] if is_mean_error else "error_variance.txt" in f.split("_")[
+                            0],
+                        files_part[-1]
+                    )
+                )
+                if len(files_part[-1]) == 0:
+                    fail = True
+                    break
 
-                for a in attributes:
-                    label = label.replace(a, "")
+            files_part[-1] = files_part[-1][0]
+            split_part = files_part[-1].split("_")
+            is_attribute = np.all(np.asarray([a in file_full and a in files_part[-1] for a in attributes]))
+            is_patchy = "patchy" in file_full and "patchy" in files_part[-1]
+            if "patchy" in network:
+                is_network = (network in file_full and network in files_part[-1]) and is_patchy
+            elif "random" in network:
+                is_network = network in split_full[0] and network in split_part[0]
+            elif len(network) == 0:
+                is_network = True
+            else:
+                is_network = (network in file_full and network in files_part[-1]) and not is_patchy
+            # use "in" to allow empty strings
+            is_stimulus = stimulus in split_full[-9] and stimulus in split_part[-9]
 
-                label = label.replace("__", "").replace("_", " ")
-                label_names.append(label)
-                mean_full_f = open(curr_dir + path_full + file_full, "r")
-                mean_part_80_f = open(curr_dir + path_part_80 + file_part_80, "r")
-                mean_part_60_f = open(curr_dir + path_part_60 + file_part_60, "r")
-                mean_full_l.append(float(mean_full_f.read()))
-                mean_part_80_l.append(float(mean_part_80_f.read()))
-                mean_part_60_l.append(float(mean_part_60_f.read()))
-                mean_full_f.close()
-                mean_part_80_f.close()
-                mean_part_60_f.close()
+            if not (is_attribute and is_network and is_stimulus):
+                fail = True
+                break
+        if fail:
+            continue
 
-                if mean_full_l[-1] < 0 or mean_part_80_l[-1] < 0 or mean_part_60_l[-1] < 0:
+        path_full = path_full + "/"
+        if "variance" in file_full:
+            var_full_f = open(curr_dir + path_full + file_full, "r")
+            variance_full_l.append(float(var_full_f.read()))
+            var_full_f.close()
+            for p_part, f_part, var in zip(paths_comparison, files_part, variance_comparison):
+                var_f_part = open(curr_dir + p_part + "/" + f_part, "r")
+                var.append(float(var_f_part.read()))
+                var_f_part.close()
+
+        if "mean" in file_full:
+            label = file_full \
+                .replace(network, "", 1) \
+                .replace(stimulus, "") \
+                .replace("function", "") \
+                .replace("tuning", "") \
+                .replace("img_prop", "") \
+                .replace("mean", "") \
+                .replace("error", "") \
+                .replace("1.0", "") \
+                .replace(".txt", "")
+
+            for a in attributes:
+                label = label.replace(a, "")
+
+            label = label.replace("__", "").replace("_", " ")
+            label_names.append(label)
+
+            mean_full_f = open(curr_dir + path_full + file_full, "r")
+            mean_full_l.append(float(mean_full_f.read()))
+            mean_full_f.close()
+            if mean_full_l[-1] < 0:
+                raise ValueError("Negative Error is not possible")
+            for p_part, f_part, mean in zip(paths_comparison, files_part, mean_comparison):
+                mean_f_part = open(curr_dir + p_part + "/" + f_part, "r")
+                mean.append(float(mean_f_part.read()))
+                mean_f_part.close()
+
+                if mean[-1] < 0:
                     raise ValueError("Negative Error is not possible")
-                inf_loss_l_full_80.append(information_loss(mean_full_l[-1], mean_part_80_l[-1]))
-                inf_loss_l_full_60.append(information_loss(mean_full_l[-1], mean_part_60_l[-1]))
-                inf_loss_l_80_60.append(information_loss(mean_part_80_l[-1], mean_part_60_l[-1]))
+
+            counter = 0
+            for num, mean in enumerate(mean_comparison):
+                inf_loss_l[counter].append(information_loss(mean_full_l[-1], mean[-1]))
+                counter += 1
+                for mean_comp in mean_comparison[num + 1:]:
+                    inf_loss_l[counter].append(information_loss(mean[-1], mean_comp[-1]))
+                    counter += 1
+
+    for num in range(len(mean_comparison)):
+        label_names_inf.append("Full:%s percent" % (100 - 20 * (num + 1)))
+        for num_inner in range(num + 1, len(mean_comparison)):
+            label_names_inf.append("%s:%s percent" % (100 - 20 * (num + 1), 100 - 20 * (num_inner + 1)))
 
     if plot_type == PLOT_TYPE["bar"]:
         x_axis = np.arange(0, len(label_names))
         fig, ax = plt.subplots(1, 2)
         fig.set_size_inches(15, 8)
+
+        spacing = np.linspace(0, 1, len(mean_comparison) + 3)[1:-1]
         ax[0].bar(x_axis + 0.0, mean_full_l, label="Error Full", width=0.25)
-        ax[0].bar(x_axis + 0.25, mean_part_80_l, label="Error 80%", width=0.25)
-        ax[0].bar(x_axis + 0.5, mean_part_60_l, label="Error 60%", width=0.25)
+        for num, mean, s in zip(range(len(mean_comparison)), mean_comparison, spacing):
+            ax[0].bar(x_axis + s, mean, label="Error %s percent" % (100 - 20 * (num + 1)), width=spacing[0])
+
         ax[0].set_ylim(0., 1.)
-        ax[0].set_xticks(ticks=x_axis + 0.25)
+        ax[0].set_xticks(ticks=x_axis + spacing[0])
         ax[0].set_xticklabels(labels=label_names, rotation=80)
         ax[0].set_title("Reconstruction Error with sparse sampling.")
         ax[0].set_ylabel("Error")
         ax[0].legend()
 
-        ax[1].bar(x_axis + 0.0, inf_loss_l_full_80, label="Lost Information Full:80%", width=0.25)
-        ax[1].bar(x_axis + 0.25, inf_loss_l_full_60, label="Lost Information Full:60%", width=0.25)
-        ax[1].bar(x_axis + 0.5, inf_loss_l_80_60, label="Lost Information 80%:60%", width=0.25)
-        ax[1].set_xticks(ticks=x_axis + 0.25)
+        spacing = np.linspace(0, 1, len(inf_loss_l) + 3)[:-1]
+        for label, il, s in zip(label_names_inf, inf_loss_l, spacing):
+            ax[1].bar(x_axis + s, il, label="Lost Information %s" % label, width=spacing[1])
+            ax[1].set_xticks(ticks=x_axis + spacing[1])
+
         ax[1].set_xticklabels(labels=label_names, rotation=80)
         ax[1].set_ylim(-.5, 1.)
         ax[1].set_title("Lost information with sparse sampling.")
@@ -209,8 +208,7 @@ if __name__ == '__main__':
     plt_type = PLOT_TYPE["bar"]
     save_plot = True
     path_full = "experiments/error-full/error"
-    path_part_80 = "experiments/error-80-net/error"
-    path_part_60 = "experiments/error-60-net/error"
+    path_comparison = ["experiments/error-80-net/error", "experiments/error-60-net/error"]
     networks = [""]
     tunings = [""]
     stimuli = [""]
@@ -222,9 +220,6 @@ if __name__ == '__main__':
 
     if cmd_par.path_full is not None:
         path_full = cmd_par.path_full
-
-    if cmd_par.path_part is not None:
-        path_part = cmd_par.path_part
 
     if cmd_par.network is not None:
         if cmd_par.network.lower() == "all":
@@ -255,8 +250,7 @@ if __name__ == '__main__':
             for stimulus in stimuli:
                 main_error(
                     path_full=path_full,
-                    path_part_80=path_part_80,
-                    path_part_60=path_part_60,
+                    paths_comparison=path_comparison,
                     network=network,
                     stimulus=stimulus,
                     attributes=[tuning],
