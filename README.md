@@ -134,7 +134,7 @@ If results were already obtained and saved in files, these can be read out and u
 `InformationLoss.py` script that can be run via
 
 ```bash
-python3 InformationLoss.py [optional: --show --type=bar --network=network --tuning=tuning --input=input --path_full=your-path-1 --path-part=your-path-2]
+python3 InformationLoss.py [optional: --show --type=bar --network=network --tuning=tuning --input=input --path_full=your-path-1]
 ```
 
 while the parameter values should be replaced by the values that are explained and deined in the Commandline
@@ -166,6 +166,7 @@ The possible parameters are
 - `tuning`
 - `cluster` (which investigates the effect of the size of the local groups of the neurons with similar tuning preference)
 - `patches` 
+- `perlin`
 
 ### Miscellaneous
 `--seed` sets a seed for the random number generator. `--agg` changes the matplotlib backend to use the 
@@ -182,9 +183,8 @@ The script `InformationLoss.py` accepts some other parameters. For example the c
 - `gauss`: Gaussian curve to show the error distribution
 
 to define the type of the plot. The parameter `--show` is set when the plots are to be displayed instead of
-saved. The path parameters `--path_full` and `--path_part` can be set to the error files for the full
-sampling and the partial sampling / reduced sampling. Per default, however, these parameters don't need
-to be changed.
+saved. The path parameters `--path_full` can be set to the error file for the full
+sampling. Per default, however, these parameters don't need to be changed.
 
 ## The Jupyter notebook
 To provide play around and test different parameter settings, there is a Jupyter notebook provided.
