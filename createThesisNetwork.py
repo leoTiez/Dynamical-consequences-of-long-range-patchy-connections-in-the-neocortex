@@ -19,7 +19,8 @@ NETWORK_TYPE = {
     "local_sd": 2,
     "local_circ_patchy_sd": 3,
     "local_circ_patchy_random": 4,
-    "local_sd_patchy_sd": 5
+    "local_sd_patchy_sd": 5,
+    "input_only": 6
 }
 
 
@@ -44,6 +45,7 @@ class NeuronalNetworkBase:
             spacing_perlin=0.01,
             resolution_perlin=(15, 15),
             img_prop=1.,
+            use_input_neurons=False,
             use_dc=True,
             verbosity=0,
             save_plots=False,
@@ -74,6 +76,7 @@ class NeuronalNetworkBase:
         value is used for creating the tuning map
         :param resolution_perlin: The resolution of the sampled values
         :param img_prop: Amount of information of the input image that is presented to the network
+        :param use_input_neurons: If set to True, the reconstruction error based on input is used
         :param use_dc: Flag to determine whether to use a DC as injected current. If set to False a Poisson spike
         generator is used
         :param verbosity: Verbosity flag handles amount of output and created plot
@@ -109,6 +112,7 @@ class NeuronalNetworkBase:
 
         self.img_prop = img_prop
 
+        self.use_input_neurons = use_input_neurons
         self.use_dc = use_dc
 
         self.verbosity = verbosity
@@ -135,6 +139,7 @@ class NeuronalNetworkBase:
         self.ff_weight_mat = None
         self.adj_sens_sens_mat = None
         self.rf_center_map = None
+        self.input_recon = None
 
     def determine_ffweight(self):
         """
@@ -274,7 +279,7 @@ class NeuronalNetworkBase:
             print("\n#####################\tCreate connections between receptors and sensory neurons")
 
         neurons_with_input = np.random.choice(self.torus_layer_nodes, int(self.img_prop * self.num_sensory)).tolist()
-        self.ff_weight_mat = create_connections_rf(
+        self.ff_weight_mat, self.input_recon = create_connections_rf(
             self.input_stimulus,
             neurons_with_input,
             self.rf_center_map,
@@ -286,6 +291,7 @@ class NeuronalNetworkBase:
             p_rf=self.p_rf,
             rf_size=self.rf_size,
             target_layer_size=self.layer_size,
+            calc_error=self.use_input_neurons,
             use_dc=self.use_dc,
             plot_src_target=self.plot_rf_relation,
             retina_size=self.input_stimulus.shape,
@@ -540,6 +546,8 @@ class RandomNetwork(NeuronalNetworkBase):
         :return: None
         """
         NeuronalNetworkBase.create_network(self)
+        if self.use_input_neurons:
+            return
         self.create_random_connections()
 
 
@@ -707,6 +715,8 @@ class LocalNetwork(NeuronalNetworkBase):
         :return: None
         """
         NeuronalNetworkBase.create_network(self)
+        if self.use_input_neurons:
+            return
         self.create_local_connections()
 
 
@@ -887,6 +897,8 @@ class PatchyNetwork(LocalNetwork):
         :return:
         """
         LocalNetwork.create_network(self)
+        if self.use_input_neurons:
+            return
         self.create_lr_connections()
 
 
@@ -934,6 +946,11 @@ def network_factory(input_stimulus, network_type=NETWORK_TYPE["local_circ_patchy
             input_stimulus,
             loc_connection_type="sd",
             lr_connection_type="sd",
+            **kwargs
+        )
+    elif network_type == NETWORK_TYPE["input_only"]:
+        network = NeuronalNetworkBase(
+            input_stimulus,
             **kwargs
         )
     else:
