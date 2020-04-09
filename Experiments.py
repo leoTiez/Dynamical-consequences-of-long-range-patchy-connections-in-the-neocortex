@@ -14,7 +14,7 @@ def main(params):
     num_trials = params.num_trials if params.num_trials is not None else 10
     if params.img_prop is not None:
         if str(params.img_prop) != "all":
-            img_prop = [params.img_prop]
+            img_prop = [float(params.img_prop)]
         else:
             img_prop = [1.0, 0.8, 0.6, 0.4]
     else:
