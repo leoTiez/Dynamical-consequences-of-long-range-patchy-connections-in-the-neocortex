@@ -57,10 +57,16 @@ def main_lr(
     input_stimulus = stimulus_factory(input_type, resolution=perlin_input_cluster)
 
     stimulus_fft = fourier_trans(input_stimulus)
-    if VERBOSITY > 4:
-        plt.imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
-        plt.show()
-
+    if VERBOSITY > 2:
+        if not write_to_file:
+            plt.imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
+            plt.show()
+        else:
+            curr_dir = os.getcwd()
+            Path(curr_dir + "/figures/input").mkdir(parents=True, exist_ok=True)
+            plt.savefig(curr_dir + "/figures/input/%s_input.png" % save_prefix)
+            plt.close()
+            
     # #################################################################################################################
     # Define values
     # #################################################################################################################
@@ -280,12 +286,25 @@ def experiment(
     if len(list(parameters)) == 0:
         parameters.append("")
 
+    curr_dir = os.getcwd()
+    Path(curr_dir + "/error/").mkdir(exist_ok=True, parents=True)
+    Path(curr_dir + "/mi/").mkdir(exist_ok=True, parents=True)
+
     for p in parameters:
         input_stimuli = []
         firing_rates = []
         errors = []
         tuning_name = list(TUNING_FUNCTION.keys())[p if tuning_function is None else tuning_function]
         for i in range(num_trials):
+            save_prefix = "%s_%s_%s_%s_img_prop_%s_no_%s" % (
+                network_name,
+                input_name,
+                parameter_str,
+                p if tuning_function is not None else tuning_name,
+                img_prop,
+                i
+            )
+
             input_stimulus, reconstruction, firing_rate = main_lr(
                 network_type=network_type,
                 input_type=input_type,
@@ -295,17 +314,15 @@ def experiment(
                 perlin_input_cluster=p if perlin_input_cluster is None else perlin_input_cluster,
                 img_prop=img_prop,
                 write_to_file=True,
-                save_prefix="%s_%s_%s_%s_img_prop_%s_no_%s" % (
-                    network_name,
-                    input_name,
-                    parameter_str,
-                    p if tuning_function is not None else tuning_name,
-                    img_prop,
-                    i
-                )
+                save_prefix=save_prefix
             )
 
-            errors.append(error_distance(input_stimulus, reconstruction))
+            ed = error_distance(input_stimulus, reconstruction)
+            ed_file = open(curr_dir + "/error/%s_error_distance.txt" % save_prefix, "w+")
+            ed_file.write(str(ed))
+            ed_file.close()
+
+            errors.append(ed)
             input_stimuli.append(input_stimulus.reshape(-1))
             firing_rates.append(firing_rate.reshape(-1))
 
@@ -320,8 +337,6 @@ def experiment(
         mean_error = np.mean(np.asarray(errors))
         error_variance = np.var(np.asarray(errors))
         mutual_information = mutual_information_hist(input_stimuli, firing_rates)
-        curr_dir = os.getcwd()
-        Path(curr_dir + "/error/").mkdir(exist_ok=True, parents=True)
 
         mean_error_file = open(curr_dir + "/error/%s_mean_error.txt" % save_prefix, "w+")
         mean_error_file.write(str(mean_error))
@@ -330,8 +345,6 @@ def experiment(
         error_variance_file = open(curr_dir + "/error/%s_error_variance.txt" % save_prefix, "w+")
         error_variance_file.write(str(error_variance))
         error_variance_file.close()
-
-        Path(curr_dir + "/mi/").mkdir(exist_ok=True, parents=True)
 
         mi_file = open(curr_dir + "/mi/%s_mi.txt" % save_prefix, "w+")
         mi_file.write(str(mutual_information))
