@@ -98,7 +98,7 @@ def main_lr(
         tuning_function=tuning_function,
         resolution_perlin=cluster,
         num_patches=num_patches,
-        use_input_neurons=True if NETWORK_TYPE["input_only"] else False,
+        use_input_neurons=True if network_type == NETWORK_TYPE["input_only"] else False,
         img_prop=img_prop,
         use_dc=use_dc,
         save_prefix=save_prefix,
@@ -111,7 +111,7 @@ def main_lr(
         print("\n#####################\tPlot in/out degree distribution")
         network.connect_distribution("connect_distribution.png")
 
-    if NETWORK_TYPE["input_only"]:
+    if network_type == NETWORK_TYPE["input_only"]:
         reconstruction = network.input_recon
         firing_rates = np.zeros(network.num_sensory)
         return input_stimulus, reconstruction, firing_rates
