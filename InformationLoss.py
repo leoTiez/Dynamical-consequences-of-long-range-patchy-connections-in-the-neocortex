@@ -14,6 +14,22 @@ PLOT_TYPE = {
 }
 
 
+def check_naming(file_name, file_split, attributes, network, stimulus):
+    is_attribute = np.all(np.asarray([a in file_name for a in attributes]))
+    is_patchy = "patchy" in file_name
+    if "patchy" in network:
+        is_network = network in file_name and is_patchy
+    elif "random" in network:
+        is_network = network in file_split
+    elif len(network) == 0:
+        is_network = True
+    else:
+        is_network = network in file_name and not is_patchy
+    # use "in" to allow empty strings
+    is_stimulus = stimulus in file_split[-9]
+    return is_attribute, is_network, is_stimulus
+
+
 def information_loss(error_full, error_part):
     return error_part - error_full
 
@@ -47,6 +63,10 @@ def main_error(
         cut_off_idx = -19 if is_mean_error else -23
         split_full = file_full.split("_")
 
+        is_attribute, is_network, is_stimulus = check_naming(file_full, split_full, attributes, network, stimulus)
+        if not (is_attribute and is_network and is_stimulus):
+            continue
+
         files_part = []
         fail = False
         for file_p in part_files:
@@ -68,18 +88,13 @@ def main_error(
 
             files_part[-1] = files_part[-1][0]
             split_part = files_part[-1].split("_")
-            is_attribute = np.all(np.asarray([a in file_full and a in files_part[-1] for a in attributes]))
-            is_patchy = "patchy" in file_full and "patchy" in files_part[-1]
-            if "patchy" in network:
-                is_network = (network in file_full and network in files_part[-1]) and is_patchy
-            elif "random" in network:
-                is_network = network in split_full[0] and network in split_part[0]
-            elif len(network) == 0:
-                is_network = True
-            else:
-                is_network = (network in file_full and network in files_part[-1]) and not is_patchy
-            # use "in" to allow empty strings
-            is_stimulus = stimulus in split_full[-9] and stimulus in split_part[-9]
+            is_attribute, is_network, is_stimulus = check_naming(
+                files_part[-1],
+                split_part,
+                attributes,
+                network,
+                stimulus
+            )
 
             if not (is_attribute and is_network and is_stimulus):
                 fail = True
@@ -143,31 +158,34 @@ def main_error(
 
     if plot_type == PLOT_TYPE["bar"]:
         x_axis = np.arange(0, len(label_names))
-        fig, ax = plt.subplots(1, 2)
+        fig = plt.gcf()
         fig.set_size_inches(15, 8)
+        ax_1 = fig.add_subplot(1, 2 if len(paths_comparison) > 0 else 1, 1)
 
         spacing = np.linspace(0, 1, len(mean_comparison) + 3)[1:-1]
-        ax[0].bar(x_axis + 0.0, mean_full_l, label="Error Full", width=0.25)
+        ax_1.bar(x_axis + 0.0, mean_full_l, label="Error Full", width=0.25)
         for num, mean, s in zip(range(len(mean_comparison)), mean_comparison, spacing):
-            ax[0].bar(x_axis + s, mean, label="Error %s percent" % (100 - 20 * (num + 1)), width=spacing[0])
+            ax_1.bar(x_axis + s, mean, label="Error %s percent" % (100 - 20 * (num + 1)), width=spacing[0])
 
-        ax[0].set_ylim(0., 1.)
-        ax[0].set_xticks(ticks=x_axis + spacing[0])
-        ax[0].set_xticklabels(labels=label_names, rotation=80)
-        ax[0].set_title("Reconstruction Error with sparse sampling.")
-        ax[0].set_ylabel("Error")
-        ax[0].legend()
+        ax_1.set_ylim(0., 1.)
+        ax_1.set_xticks(ticks=x_axis) # + spacing[0])
+        ax_1.set_xticklabels(labels=label_names, rotation=80)
+        ax_1.set_title("Reconstruction Error with sparse sampling.")
+        ax_1.set_ylabel("Error")
+        ax_1.legend()
 
-        spacing = np.linspace(0, 1, len(inf_loss_l) + 3)[:-1]
-        for label, il, s in zip(label_names_inf, inf_loss_l, spacing):
-            ax[1].bar(x_axis + s, il, label="Lost Information %s" % label, width=spacing[1])
-            ax[1].set_xticks(ticks=x_axis + spacing[1])
+        if len(paths_comparison) > 0:
+            ax_2 = fig.add_subplot(1, 2, 2)
+            spacing = np.linspace(0, 1, len(inf_loss_l) + 3)[:-1]
+            for label, il, s in zip(label_names_inf, inf_loss_l, spacing):
+                ax_2.bar(x_axis + s, il, label="Lost Information %s" % label, width=spacing[1])
+                ax_2.set_xticks(ticks=x_axis + spacing[1])
 
-        ax[1].set_xticklabels(labels=label_names, rotation=80)
-        ax[1].set_ylim(-.5, 1.)
-        ax[1].set_title("Lost information with sparse sampling.")
-        ax[1].set_ylabel("Lost information")
-        ax[1].legend()
+            ax_2.set_xticklabels(labels=label_names, rotation=80)
+            ax_2.set_ylim(-.5, 1.)
+            ax_2.set_title("Lost information with sparse sampling.")
+            ax_2.set_ylabel("Lost information")
+            ax_2.legend()
 
         plt.subplots_adjust(bottom=plt_bottom_margin)
         if not save_plot:
@@ -207,11 +225,14 @@ if __name__ == '__main__':
 
     plt_type = PLOT_TYPE["bar"]
     save_plot = True
-    path_full = "experiments/error-full/error"
-    path_comparison = ["experiments/error-80-net/error", "experiments/error-60-net/error"]
+    # path_full = "experiments/error-full/error"
+    # path_comparison = ["experiments/error-80-net/error", "experiments/error-60-net/error", "experiments/error-40-net/error"]
+    path_full = "experiments/patchy-exp-full/error"
+    path_comparison = ["experiments/patchy-exp-80/error"]
     networks = [""]
     tunings = [""]
     stimuli = [""]
+    attributes = [""]
     if cmd_par.type is not None:
         plt_type = PLOT_TYPE[cmd_par.type]
 
@@ -245,15 +266,20 @@ if __name__ == '__main__':
         else:
             raise ValueError("Not a valid stimulus type")
 
+    if cmd_par.attributes is not None:
+        attributes = list(map(str, cmd_par.attributes.strip('[]').split(',')))
+
     for network in networks:
         for tuning in tunings:
             for stimulus in stimuli:
+                att = attributes.copy()
+                att.append(tuning)
                 main_error(
                     path_full=path_full,
                     paths_comparison=path_comparison,
                     network=network,
                     stimulus=stimulus,
-                    attributes=[tuning],
+                    attributes=att,
                     plt_bottom_margin=0.3,
                     plot_type=plt_type,
                     save_plot=save_plot
