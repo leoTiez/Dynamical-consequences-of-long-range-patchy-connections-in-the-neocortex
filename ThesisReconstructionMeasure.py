@@ -441,7 +441,7 @@ if __name__ == '__main__':
         num_trials = cmd_params.num_trials
 
     if cmd_params.img_prop is not None:
-        img_prop = cmd_params.img_prop
+        img_prop = float(cmd_params.img_prop)
 
     # main_lr(
     #     network_type=NETWORK_TYPE["local_circ_patchy_sd"],
