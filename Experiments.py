@@ -21,14 +21,15 @@ def main(params):
         img_prop = [1.0]
 
     for network in NETWORK_TYPE.keys():
+        if network.lower() == "random" and params.parameter.lower() == "cluster":
+            continue
+        if "patchy" not in network.lower() and params.parameter.lower() == "patches":
+            continue
+
         input_list = INPUT_TYPE.keys()
         if params.parameter.lower() == "perlin":
             input_list = ["perlin"]
         for stimulus in input_list:
-            if network.lower() == "random" and params.parameter.lower() == "cluster":
-                continue
-            if "patchy" not in network.lower() and params.parameter.lower() == "patches":
-                continue
             for ip in img_prop:
                 os.system("python3 %s/ThesisReconstructionMeasure.py "
                           "--network=%s "
