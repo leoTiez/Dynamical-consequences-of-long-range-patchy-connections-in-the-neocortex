@@ -134,7 +134,7 @@ If results were already obtained and saved in files, these can be read out and u
 `InformationLoss.py` script that can be run via
 
 ```bash
-python3 InformationLoss.py [optional: --show --type=bar --network=network --tuning=tuning --input=input --path_full=your-path-1]
+python3 InformationLoss.py [optional: --show --type=bar --attributes="[attribute,list]" --network=network --tuning=tuning --input=input --path_full=your-path-1]
 ```
 
 while the parameter values should be replaced by the values that are explained and deined in the Commandline
@@ -173,7 +173,8 @@ The possible parameters are
 Anti-Grain Geometry C++ library. This is particularly useful if the plots are saved and do not need to be displayed.
 `--num_trials` can be any integer number and sets the number of trials per tested parameter or experiment.
 `--img_prop` defines the sparse sampling, e.g. how many of the sensory neurons participate in reconstructing
-the image.
+the image. If you pass the parameter to the `Experiment.py` file, it accepts the value `--img_prop=all` too,
+meaning that the experiments iterate through the list of subsampling rates [1.0, 0.8, 0.6, 0.4].
 
 ### Plotting
 The script `InformationLoss.py` accepts some other parameters. For example the command line parameter
@@ -182,7 +183,9 @@ The script `InformationLoss.py` accepts some other parameters. For example the c
 - `bar`: Bar plot to show the error for the full sampling and the reduced sampling + lost information 
 - `gauss`: Gaussian curve to show the error distribution
 
-to define the type of the plot. The parameter `--show` is set when the plots are to be displayed instead of
+to define the type of the plot. Moreover, the `--attributes` parameter is a list with all the substrings 
+you want to look for in the file name. It's a list as a string without any spaces, e.g.
+`--attributes="[perlin,cluster_8]"`. The parameter `--show` is set when the plots are to be displayed instead of
 saved. The path parameters `--path_full` can be set to the error file for the full
 sampling. Per default, however, these parameters don't need to be changed.
 
