@@ -21,7 +21,7 @@ nest.set_verbosity("M_ERROR")
 
 PARAMETER_DICT = {
     "tuning": 0,
-    "clusters": 1,
+    "cluster": 1,
     "patches": 2,
     "perlin": 3
 }
@@ -274,9 +274,8 @@ def experiment(
         parameters = TUNING_FUNCTION.values()
         parameter_str = "tuning_function"
     elif cluster is None:
-        cluster_range = np.arange(4, 20, 1)
-        parameters = zip(cluster_range, cluster_range)
-        parameter_str = "cluster_size"
+        parameters = [(4, 4), (8, 8), (12, 12), (16, 16), (20, 20)]
+        parameter_str = "orientation_map"
     elif patches is None:
         parameters = np.arange(1, 5, 1)
         parameter_str = "num_patches"
@@ -300,7 +299,7 @@ def experiment(
                 network_name,
                 input_name,
                 parameter_str,
-                p if tuning_function is not None else tuning_name,
+                p,
                 img_prop,
                 i
             )
