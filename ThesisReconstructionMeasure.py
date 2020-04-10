@@ -3,7 +3,7 @@
 
 from modules.stimulusReconstruction import fourier_trans, direct_stimulus_reconstruction
 from modules.createStimulus import *
-from modules.thesisUtils import arg_parse
+from modules.thesisUtils import arg_parse, firing_rate_sorting
 from modules.networkConstruction import TUNING_FUNCTION
 from createThesisNetwork import network_factory, NETWORK_TYPE
 from modules.networkAnalysis import mutual_information_hist, error_distance, spatial_variance
@@ -146,9 +146,17 @@ def main_lr(
 
         x_grid, y_grid = coordinates_to_cmap_index(network.layer_size, positions[~inh_mask], network.spacing_perlin)
         stim_classes = network.color_map[x_grid, y_grid]
+        cl = np.full(len(spikes_s), -1)
+        cl[~inh_mask] = stim_classes
         c = np.full(len(spikes_s), '#000000')
         c[~inh_mask] = np.asarray(list(mcolors.TABLEAU_COLORS.items()))[stim_classes, 1]
-        plt.scatter(time_s, spikes_s, c=c.tolist(), marker=',')
+        sorted_zip = sorted(zip(time_s, spikes_s, c, cl), key=lambda l: l[3])
+        sorted_time, sorted_spikes, sorted_c, _ = zip(*sorted_zip)
+        new_idx_spikes = []
+        new_idx_neurons = {}
+        for s in sorted_spikes:
+            new_idx_spikes.append(firing_rate_sorting(new_idx_spikes, sorted_spikes, new_idx_neurons, s))
+        plt.scatter(sorted_time, new_idx_spikes, c=list(sorted_c), marker='.')
         if not save_plots:
             plt.show()
         else:
