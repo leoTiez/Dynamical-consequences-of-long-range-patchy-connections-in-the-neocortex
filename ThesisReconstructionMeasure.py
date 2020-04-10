@@ -455,7 +455,6 @@ if __name__ == '__main__':
     #     input_type=INPUT_TYPE["perlin"],
     #     tuning_function=TUNING_FUNCTION["step"],
     #     img_prop=1.,
-    #     reconstruct=True
     # )
 
     print("Start experiments for network %s given the input %s."
