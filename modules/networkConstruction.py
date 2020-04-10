@@ -1656,7 +1656,6 @@ def create_connections_rf(
             adj_mat
         )
 
-
         applied_current = np.arange(0, 255)
         ad = np.zeros((255, 1))
         plt.figure(figsize=(10, 5))
@@ -1666,8 +1665,8 @@ def create_connections_rf(
                 tuning_fun(0, applied_current, tune, 255./4., applied_current, ad, 0),
                 label="Class %s" % tune
             )
-        plt.xlabel("Current I in nA")
-        plt.ylabel("Stimulus intensity")
+        plt.xlabel("Pixel intensity")
+        plt.ylabel("Injected current I in nA")
         plt.legend()
         if not save_plot:
             plt.show()
