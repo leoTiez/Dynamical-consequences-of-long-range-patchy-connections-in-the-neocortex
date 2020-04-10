@@ -872,7 +872,8 @@ def create_stimulus_based_patches_random(
 
         patch_center_nodes = np.random.choice(
             list(patchy_candidates),
-            size=np.minimum(len(patchy_candidates), num_patches)
+            size=np.minimum(len(patchy_candidates), num_patches),
+            replace=False
         ).tolist()
         pos_patch_centers = tp.GetPosition(patch_center_nodes)
 
