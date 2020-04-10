@@ -349,3 +349,10 @@ def plot_reconstruction(input_stimulus, reconstruction, save_plots=False, save_p
         plt.savefig(curr_dir + "/figures/reconstruction/%s_reconstruction.png" % save_prefix)
         plt.close()
 
+
+def firing_rate_sorting(idx_based_list, sorted_list, new_idx_neurons, element):
+    if len(idx_based_list) == 0:
+        new_idx_neurons[element] = 0
+    if element not in new_idx_neurons.keys():
+        new_idx_neurons[element] = np.minimum(list(sorted_list).index(element), max(idx_based_list) + 1)
+    return new_idx_neurons[element]
