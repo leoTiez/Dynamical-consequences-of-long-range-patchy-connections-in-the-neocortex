@@ -45,6 +45,8 @@ class NeuronalNetworkBase:
             spacing_perlin=0.01,
             resolution_perlin=(15, 15),
             img_prop=1.,
+            spatial_sampling=False,
+            num_spatial_samples=5,
             use_input_neurons=False,
             use_dc=True,
             verbosity=0,
@@ -76,6 +78,7 @@ class NeuronalNetworkBase:
         value is used for creating the tuning map
         :param resolution_perlin: The resolution of the sampled values
         :param img_prop: Amount of information of the input image that is presented to the network
+        :param spatial_sampling: If true, the neurons that receive ff input are chosen with a spatial correlation
         :param use_input_neurons: If set to True, the reconstruction error based on input is used
         :param use_dc: Flag to determine whether to use a DC as injected current. If set to False a Poisson spike
         generator is used
@@ -111,6 +114,8 @@ class NeuronalNetworkBase:
         self.resolution_perlin = resolution_perlin
 
         self.img_prop = img_prop
+        self.spatial_sampling = spatial_sampling
+        self.num_spatial_samples = num_spatial_samples
 
         self.use_input_neurons = use_input_neurons
         self.use_dc = use_dc
@@ -278,7 +283,35 @@ class NeuronalNetworkBase:
         if self.verbosity > 0:
             print("\n#####################\tCreate connections between receptors and sensory neurons")
 
-        neurons_with_input = np.random.choice(self.torus_layer_nodes, int(self.img_prop * self.num_sensory)).tolist()
+        if not self.spatial_sampling:
+            neurons_with_input = np.random.choice(
+                self.torus_layer_nodes,
+                int(self.img_prop * self.num_sensory),
+                replace=False
+            ).tolist()
+        else:
+            sample_centers_idx = np.random.choice(
+                len(self.torus_layer_positions),
+                self.num_spatial_samples,
+                replace=False
+            )
+            sample_centers = np.asarray(self.torus_layer_positions)[sample_centers_idx]
+            k = int(self.num_sensory / self.num_spatial_samples)
+            while True:
+                _, neurons_with_input_idx = self.torus_layer_tree.query(
+                    sample_centers,
+                    k=k
+                )
+
+                neurons_with_input_idx = list(set(neurons_with_input_idx.flatten()))
+                diff = len(neurons_with_input_idx) - int(self.img_prop * self.num_sensory)
+                if diff > 0:
+                    neurons_with_input_idx = neurons_with_input_idx[:int(self.img_prop * self.num_sensory)]
+                    break
+                k += np.maximum(-int(diff / self.num_spatial_samples), 1)
+
+            neurons_with_input = np.asarray(self.torus_layer_nodes)[neurons_with_input_idx]
+
         self.ff_weight_mat, self.input_recon = create_connections_rf(
             self.input_stimulus,
             neurons_with_input,
