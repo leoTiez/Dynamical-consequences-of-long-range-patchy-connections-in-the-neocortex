@@ -51,6 +51,11 @@ def arg_parse():
     parser.add_argument("--patches", type=int, help="Defines the number of patches")
     parser.add_argument("--num_trials", type=int, help="Sets the number of trials")
     parser.add_argument("--img_prop", type=str, help="Sets the sampling rate. Value between 0 and 1")
+    parser.add_argument("--spatial_sampling",
+                        dest="spatial_sampling",
+                        action="store_true",
+                        help="If the flag is set, the neurons that receive ff input are chosen with a "
+                             "spatial correlation")
     parsed_args = parser.parse_args()
 
     return parsed_args
