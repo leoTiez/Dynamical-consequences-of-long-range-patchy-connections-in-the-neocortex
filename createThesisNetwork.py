@@ -198,7 +198,8 @@ class NeuronalNetworkBase:
         self.torus_layer_tree = KDTree(self.torus_layer_positions)
         self.torus_inh_nodes = np.random.choice(
             np.asarray(self.torus_layer_nodes),
-            size=self.num_sensory // self.ratio_inh_neurons
+            size=self.num_sensory // self.ratio_inh_neurons,
+            replace=False
         ).tolist()
 
     def create_orientation_map(self):
