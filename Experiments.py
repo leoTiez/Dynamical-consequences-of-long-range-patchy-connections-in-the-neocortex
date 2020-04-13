@@ -37,7 +37,16 @@ def main(params):
                           "--parameter=%s "
                           "--img_prop=%s "
                           "--num_trials=%s "
-                          % (curr_dir, network, stimulus, params.parameter, ip, num_trials)
+                          "%s"
+                          % (
+                              curr_dir,
+                              network,
+                              stimulus,
+                              params.parameter,
+                              ip,
+                              num_trials,
+                              "--spatial_sampling" if params.spatial_sampling else ""
+                          )
                           )
 
 
