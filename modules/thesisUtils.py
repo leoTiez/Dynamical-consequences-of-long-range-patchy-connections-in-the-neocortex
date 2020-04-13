@@ -43,6 +43,7 @@ def arg_parse():
     parser = argparse.ArgumentParser(description="Accept command line parameters for the reconstruction tests.")
     parser.add_argument("--agg", dest="agg", action="store_true", help="Use Agg backend for matplotlib")
     parser.add_argument("--seed", dest="seed", action="store_true", help="Seed random number generator")
+    parser.add_argument("--show", dest="show", action="store_true", help="Show plots instead of saving them")
     parser.add_argument("--network", type=str, help="Defines the network type")
     parser.add_argument("--input", type=str, help="Defines the input stimulus type")
     parser.add_argument("--parameter", type=str, help="Defines the parameter that is manipulated during experimenting")
