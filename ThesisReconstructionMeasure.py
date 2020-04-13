@@ -37,6 +37,7 @@ def main_lr(
         img_prop=1.,
         spatial_sampling=False,
         write_to_file=False,
+        save_plots=True,
         save_prefix='',
 ):
     """
@@ -52,6 +53,7 @@ def main_lr(
     :param img_prop: Proportion of the image information that is used
     :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
     :param write_to_file: If set to true the firing rate is written to an file
+    :param save_plots: If set to true, plots are saved instead of being displayed
     :param save_prefix: Naming prefix that can be set before a file to mark a trial or an experiment
     :return: The original image, the reconstructed image and the firing rates
     """
@@ -85,7 +87,6 @@ def main_lr(
     capacitance = 80.
     time_constant = 20.
     use_dc = False
-    save_plots = write_to_file
 
     # Note: when using the same input current for all neurons, we obtain synchrony, and due to the refactory phase
     # all recurrent connections do not have any effect
@@ -257,6 +258,7 @@ def experiment(
         patches=3,
         img_prop=1.,
         spatial_sampling=False,
+        save_plots=True,
         num_trials=10
 ):
     """
@@ -272,6 +274,7 @@ def experiment(
     patchy connctions
     :param img_prop: Defines the sparse sampling, i.e. the number of neurons that receive feedforward input.
     :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
+    :param save_plots: If set to true, plots are saved instead of being displayed
     :param num_trials: The number of trials that are conducted
     :return: None
     """
@@ -327,6 +330,7 @@ def experiment(
                 img_prop=img_prop,
                 spatial_sampling=spatial_sampling,
                 write_to_file=True,
+                save_plots=save_plots,
                 save_prefix=save_prefix
             )
 
@@ -407,6 +411,7 @@ if __name__ == '__main__':
     patches = 3
     img_prop = 1.
     spatial_sampling = False
+    save_plots = True
 
     if cmd_params.seed:
         np.random.seed(0)
@@ -417,6 +422,9 @@ if __name__ == '__main__':
 
     if cmd_params.spatial_sampling:
         spatial_sampling = True
+
+    if cmd_params.show:
+        save_plots = False
 
     if cmd_params.network in list(NETWORK_TYPE.keys()):
         network_type = NETWORK_TYPE[cmd_params.network]
@@ -489,6 +497,7 @@ if __name__ == '__main__':
         patches=patches,
         img_prop=img_prop,
         spatial_sampling=spatial_sampling,
+        save_plots=save_plots,
         num_trials=10
     )
 
