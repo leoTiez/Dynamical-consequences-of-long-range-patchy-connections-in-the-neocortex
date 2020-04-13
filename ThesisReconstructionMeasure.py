@@ -440,7 +440,7 @@ if __name__ == '__main__':
         if cmd_params.parameter.lower() == "tuning":
             tuning_function = None
         elif cmd_params.parameter.lower() == "patches":
-            if "patchy" not in network_type.lower():
+            if "patchy" not in cmd_params.network.lower():
                 raise ValueError("Cannot run experiments about the number of patches a non-patchy network")
             patches = None
         elif cmd_params.parameter.lower() == "cluster":
