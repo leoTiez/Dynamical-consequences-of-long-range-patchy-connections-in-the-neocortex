@@ -1354,8 +1354,10 @@ def linear_tuning(
     :param tuning_discr_steps: Total number of tuning classes
     :return: Tuning
     """
-    intercept = stimulus_tuning * tuning_discr_steps
-    return stimulus_tuning * input_stimulus - intercept, stimulus_tuning, intercept
+    sign = -1. if stimulus_tuning % 2 == 0 else 1.
+    intercept = 2 * sign * stimulus_tuning * tuning_discr_steps
+    slope = -sign * int(stimulus_tuning / 2 + 1)
+    return slope * input_stimulus + intercept, slope, intercept
 
 
 def _set_input_current(neuron, current_dict, synaptic_strength, use_dc=True):
@@ -1480,7 +1482,7 @@ def convert_linear_tuning(
     """
     amplitude, slope, intercept = linear_tuning(rf, neuron_tuning, tuning_discr_step)
     adj_mat[indices.reshape(-1), target_node - min_target] = slope
-    adj_mat[-1, target_node - min_target] = - amplitude.size * intercept
+    adj_mat[-1, target_node - min_target] = amplitude.size * intercept
 
     return amplitude
 
@@ -1558,6 +1560,7 @@ def create_connections_rf(
 
     amplitudes = []
     for target_node, rf_center in zip(target_node_ids, rf_centers):
+        counter += 1
         upper_left = (np.asarray(rf_center) + np.asarray(mask_specs["lower_left"])).astype('int')
         lower_right = (np.asarray(rf_center) + np.asarray(mask_specs["upper_right"])).astype('int')
 
@@ -1614,7 +1617,8 @@ def create_connections_rf(
                 ax[0].axis((0, retina_size[1], 0, retina_size[0]))
 
                 color_list = list(mcolors.TABLEAU_COLORS.items())
-                for num, rf in enumerate(rf_list):
+                target_positions = tp.GetPosition(target_node_ids[: counter + 1].tolist())
+                for num, (rf, (x, y)) in enumerate(list(zip(rf_list, target_positions))):
                     # De-zip to get x and y values separately
                     color = color_list[num % len(color_list)]
                     area_rect = patches.Rectangle(
@@ -1625,13 +1629,10 @@ def create_connections_rf(
                         alpha=0.4
                     )
                     ax[0].add_patch(area_rect)
+                    ax[1].plot(x, y, 'o')
                 ax[0].set_xlabel("Retina tissue in X")
                 ax[0].set_ylabel("Retina tissue in Y")
 
-                target_positions = tp.GetPosition(list(target_node_ids[max(counter - plot_point, 0): counter + 1]))
-                # Iterate over values to have matching colors
-                for x, y in target_positions:
-                    ax[1].plot(x, y, 'o')
                 ax[1].set_xlabel("V1 tissue in X")
                 ax[1].set_ylabel("V1 tissue in Y")
                 ax[1].set_xlim([-target_layer_size / 2., target_layer_size / 2.])
@@ -1644,8 +1645,6 @@ def create_connections_rf(
                     plt.close()
                 else:
                     plt.show()
-
-        counter += 1
 
     recons = None
     if calc_error or plot_src_target:

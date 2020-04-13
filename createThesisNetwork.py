@@ -198,7 +198,8 @@ class NeuronalNetworkBase:
         self.torus_layer_tree = KDTree(self.torus_layer_positions)
         self.torus_inh_nodes = np.random.choice(
             np.asarray(self.torus_layer_nodes),
-            size=self.num_sensory // self.ratio_inh_neurons
+            size=self.num_sensory // self.ratio_inh_neurons,
+            replace=False
         ).tolist()
 
     def create_orientation_map(self):
@@ -270,25 +271,19 @@ class NeuronalNetworkBase:
         if self.rf_size[0] < 0 or self.rf_size[1] < 0:
             raise ValueError("The size and shape of the receptive field must not be negative.")
 
-        if self.rf_center_map is None:
-            self.rf_center_map = [
-                (
-                    (x + (self.layer_size / 2.)) / float(self.layer_size) * self.input_stimulus.shape[1],
-                    (y + (self.layer_size / 2.)) / float(self.layer_size) * self.input_stimulus.shape[0]
-                )
-                for (x, y) in self.torus_layer_positions
-            ]
-
         # Create connections to receptive field
         if self.verbosity > 0:
             print("\n#####################\tCreate connections between receptors and sensory neurons")
 
         if not self.spatial_sampling:
-            neurons_with_input = np.random.choice(
-                self.torus_layer_nodes,
+            neurons_with_input_idx = np.random.choice(
+                len(self.torus_layer_nodes),
                 int(self.img_prop * self.num_sensory),
                 replace=False
             ).tolist()
+            neurons_with_input = np.asarray(self.torus_layer_nodes)[neurons_with_input_idx]
+            positions_with_input = np.asarray(self.torus_layer_positions)[neurons_with_input_idx]
+
         else:
             sample_centers_idx = np.random.choice(
                 len(self.torus_layer_positions),
@@ -311,6 +306,15 @@ class NeuronalNetworkBase:
                 k += np.maximum(-int(diff / self.num_spatial_samples), 1)
 
             neurons_with_input = np.asarray(self.torus_layer_nodes)[neurons_with_input_idx]
+            positions_with_input = np.asarray(self.torus_layer_positions)[neurons_with_input_idx]
+
+        self.rf_center_map = [
+            (
+                (x + (self.layer_size / 2.)) / float(self.layer_size) * self.input_stimulus.shape[1],
+                (y + (self.layer_size / 2.)) / float(self.layer_size) * self.input_stimulus.shape[0]
+            )
+            for (x, y) in positions_with_input
+        ]
 
         self.ff_weight_mat, self.input_recon = create_connections_rf(
             self.input_stimulus,
