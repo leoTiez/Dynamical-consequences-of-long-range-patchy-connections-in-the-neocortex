@@ -35,6 +35,7 @@ def main_lr(
         perlin_input_cluster=(5, 5),
         num_patches=3,
         img_prop=1.,
+        spatial_sampling=False,
         write_to_file=False,
         save_prefix='',
 ):
@@ -49,6 +50,7 @@ def main_lr(
     is ignored
     :param num_patches: number of patches. If the network does not establish patches this parameter is ignored
     :param img_prop: Proportion of the image information that is used
+    :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
     :param write_to_file: If set to true the firing rate is written to an file
     :param save_prefix: Naming prefix that can be set before a file to mark a trial or an experiment
     :return: The original image, the reconstructed image and the firing rates
@@ -106,6 +108,7 @@ def main_lr(
         num_patches=num_patches,
         use_input_neurons=True if network_type == NETWORK_TYPE["input_only"] else False,
         img_prop=img_prop,
+        spatial_sampling=spatial_sampling,
         use_dc=use_dc,
         save_prefix=save_prefix,
         save_plots=save_plots,
@@ -253,6 +256,7 @@ def experiment(
         perlin_input_cluster=(5, 5),
         patches=3,
         img_prop=1.,
+        spatial_sampling=False,
         num_trials=10
 ):
     """
@@ -267,6 +271,7 @@ def experiment(
     :param patches: The number of patches. This parameter is ignored if network is chosen that does not make use of
     patchy connctions
     :param img_prop: Defines the sparse sampling, i.e. the number of neurons that receive feedforward input.
+    :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
     :param num_trials: The number of trials that are conducted
     :return: None
     """
@@ -320,6 +325,7 @@ def experiment(
                 num_patches=p if patches is None else patches,
                 perlin_input_cluster=p if perlin_input_cluster is None else perlin_input_cluster,
                 img_prop=img_prop,
+                spatial_sampling=spatial_sampling,
                 write_to_file=True,
                 save_prefix=save_prefix
             )
@@ -400,6 +406,7 @@ if __name__ == '__main__':
     num_trials = 10
     patches = 3
     img_prop = 1.
+    spatial_sampling = False
 
     if cmd_params.seed:
         np.random.seed(0)
@@ -407,6 +414,9 @@ if __name__ == '__main__':
     if cmd_params.agg:
         import matplotlib
         matplotlib.use("Agg")
+
+    if cmd_params.spatial_sampling:
+        spatial_sampling = True
 
     if cmd_params.network in list(NETWORK_TYPE.keys()):
         network_type = NETWORK_TYPE[cmd_params.network]
@@ -460,13 +470,14 @@ if __name__ == '__main__':
     print("Start experiments for network %s given the input %s."
           " The parameter %s is changed."
           " The number of trials is %s"
-          " and the proportion of the image presented to the network os %s"
+          " and sampling rate is %s with%s spatial correlation"
           % (
               cmd_params.network,
               cmd_params.input,
               cmd_params.parameter,
               num_trials,
               img_prop,
+              "" if spatial_sampling else "out"
           ))
 
     experiment(
@@ -477,6 +488,7 @@ if __name__ == '__main__':
         perlin_input_cluster=perlin_input_cluster,
         patches=patches,
         img_prop=img_prop,
+        spatial_sampling=spatial_sampling,
         num_trials=10
     )
 
