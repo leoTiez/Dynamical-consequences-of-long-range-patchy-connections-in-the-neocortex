@@ -31,6 +31,7 @@ class NeuronalNetworkBase:
             num_sensory=int(1e4),
             ratio_inh_neurons=5,
             num_stim_discr=4,
+            ff_weight=1.,
             cap_s=1.,
             inh_weight=-15.,
             p_rf=0.3,
@@ -93,6 +94,7 @@ class NeuronalNetworkBase:
         self.num_sensory = int(num_sensory)
         self.ratio_inh_neurons = ratio_inh_neurons
         self.num_stim_discr = num_stim_discr
+        self.ff_weight = ff_weight
         self.cap_s = cap_s
         self.inh_weight = inh_weight
         self.p_rf = p_rf
@@ -127,9 +129,6 @@ class NeuronalNetworkBase:
         self.plot_rf_relation = False if verbosity < 4 else True
         self.plot_tuning_map = False if verbosity < 4 else True
 
-        self.ff_weight = None
-        self.determine_ffweight()
-
         self.torus_layer = None
         self.spike_detect = None
         self.torus_layer_tree = None
@@ -145,17 +144,6 @@ class NeuronalNetworkBase:
         self.adj_sens_sens_mat = None
         self.rf_center_map = None
         self.input_recon = None
-
-    def determine_ffweight(self):
-        """
-        Function to determine the feedforward weight. It is using maximal expected current and scales everything
-        below that. The feedfoward weight is only used if a DC is applied instead of a Poisson generator
-        :return: None
-        """
-        if self.verbosity > 0:
-            print("\n#####################\tDetermine feedforward weight")
-
-        self.ff_weight = determine_ffweight(self.rf_size)
 
     # #################################################################################################################
     # Network creation
