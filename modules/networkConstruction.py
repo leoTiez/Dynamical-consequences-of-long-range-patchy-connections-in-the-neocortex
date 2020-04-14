@@ -1172,17 +1172,6 @@ def create_perlin_stimulus_map(
 
     color_map[c_map == c_map.max()] = num_stimulus_discr - 1
 
-    if plot:
-        stimulus_grid_range_x = np.linspace(0, size_layer, resolution[0])
-        stimulus_grid_range_y = np.linspace(0, size_layer, resolution[1])
-        plt.imshow(
-            color_map,
-            origin=(stimulus_grid_range_x.size//2, stimulus_grid_range_y.size//2),
-            extent=(-size_layer/2., size_layer/2., -size_layer/2., size_layer/2.),
-            cmap=custom_cmap(num_stimulus_discr),
-            alpha=0.4
-        )
-
     positions = np.asarray(tp.GetPosition(nodes))
     inh_mask = np.zeros(len(nodes)).astype('bool')
     inh_mask[np.asarray(inh_neurons) - min(nodes)] = True
@@ -1196,20 +1185,19 @@ def create_perlin_stimulus_map(
         tuning_to_neuron_map[c] = stim_nodes
 
     if plot:
-        c = np.full(len(nodes), '#000000')
-        c[~inh_mask] = np.asarray(list(mcolors.TABLEAU_COLORS.items()))[stim_class, 1]
-        positions = np.asarray(positions)
-        plt.scatter(positions[:, 0], positions[:, 1], c=c.tolist())
-        plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=num_stimulus_discr)
-        if not save_plot:
-            plt.show()
-        else:
-            curr_dir = os.getcwd()
-            Path(curr_dir + "/figures/tuning-map/").mkdir(parents=True, exist_ok=True)
-            if plot_name is None:
-                plot_name = "stimulus_tuning_map.png"
-            plt.savefig(curr_dir + "/figures/tuning-map/%s_%s" % (save_prefix, plot_name))
-            plt.close()
+        plot_cmap(
+            ff_nodes=nodes,
+            inh_nodes=inh_neurons,
+            color_map=color_map,
+            stim_class=stim_class,
+            positions=positions,
+            size_layer=size_layer,
+            resolution=resolution,
+            num_stimulus_discr=num_stimulus_discr,
+            save_plot=save_plot,
+            save_prefix=save_prefix
+        )
+
     return tuning_to_neuron_map, neuron_to_tuning_map, color_map
 
 

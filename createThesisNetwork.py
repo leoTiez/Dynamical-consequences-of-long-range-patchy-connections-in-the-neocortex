@@ -308,6 +308,31 @@ class NeuronalNetworkBase:
             neurons_with_input = np.asarray(self.torus_layer_nodes)[neurons_with_input_idx]
             positions_with_input = np.asarray(self.torus_layer_positions)[neurons_with_input_idx]
 
+        if self.plot_tuning_map:
+            inh_mask = np.zeros(self.num_sensory).astype('bool')
+            inh_mask[np.asarray(self.torus_inh_nodes) - min(self.torus_layer_nodes)] = True
+
+            x_grid, y_grid = coordinates_to_cmap_index(
+                self.layer_size,
+                np.asarray(self.torus_layer_positions)[~inh_mask],
+                self.spacing_perlin
+            )
+            stim_class = self.color_map[x_grid, y_grid]
+            shunted_nodes = list(set(self.torus_layer_nodes).difference(set(neurons_with_input)))
+            plot_cmap(
+                ff_nodes=neurons_with_input,
+                inh_nodes=self.torus_inh_nodes,
+                color_map=self.color_map,
+                stim_class=stim_class,
+                positions=self.torus_layer_positions,
+                shunted_nodes=shunted_nodes,
+                size_layer=self.layer_size,
+                resolution=self.resolution_perlin,
+                num_stimulus_discr=self.num_stim_discr,
+                save_plot=self.save_plots,
+                save_prefix=self.save_prefix
+            )
+
         self.rf_center_map = [
             (
                 (x + (self.layer_size / 2.)) / float(self.layer_size) * self.input_stimulus.shape[1],

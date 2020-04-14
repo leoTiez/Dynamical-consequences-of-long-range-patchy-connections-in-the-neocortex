@@ -6,6 +6,7 @@ import numpy as np
 from scipy.fftpack import idct
 import scipy.interpolate as ip
 from PIL import Image
+from webcolors import hex_to_rgb
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.colors as mcolors
@@ -119,94 +120,6 @@ def load_image(name="boat50.png", path=None, **kwargs):
         path = os.getcwd() + "/test-input/"
     image = Image.open(path + name).convert("L")
     return np.asarray(image)
-
-
-def plot_connections(
-        src_nodes,
-        target_nodes,
-        layer_size,
-        save_plot=False,
-        plot_name=None,
-        save_prefix="",
-        color_mask=None
-):
-    """
-    Plotting function for connections between nodes for visualisation and debugging purposes
-    :param src_nodes: Source nodes
-    :param target_nodes: Target nodes
-    :param layer_size: Size of the layer
-    :param save_plot: Flag for saving the plot
-    :param plot_name: Name of the saved plot file. Is not taken into account if save_plot is False
-    :param save_prefix: Naming prefix that is used if the plot save_plot is set to true
-    :param color_mask: Color mask for the color/orientation map of neurons. If none it is not taken into account
-    :return None
-    """
-    plt.axis((-layer_size/2., layer_size/2., -layer_size/2., layer_size/2.))
-    source_positions = tp.GetPosition(src_nodes)
-    x_source, y_source = zip(*source_positions)
-    plt.plot(x_source, y_source, 'o')
-
-    if len(target_nodes) > 0:
-        target_positions = tp.GetPosition(target_nodes)
-        x_target, y_target = zip(*target_positions)
-        plt.plot(x_target, y_target, 'o')
-
-        for s in source_positions:
-            for t in target_positions:
-                plt.plot([s[0], t[0]], [s[1], t[1]], color="k")
-
-    if color_mask is not None:
-        plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=color_mask.max()+1)
-        if not type(color_mask) == np.ndarray:
-            for mask in color_mask:
-                area_rect = patches.Rectangle(
-                    mask["lower_left"],
-                    width=mask["width"],
-                    height=mask["height"],
-                    color=mask["color"],
-                    alpha=0.4
-                )
-                plt.gca().add_patch(area_rect)
-        else:
-            plt.imshow(
-                color_mask,
-                origin=(color_mask.shape[0] // 2, color_mask.shape[1] // 2),
-                extent=(-layer_size / 2., layer_size / 2., -layer_size / 2., layer_size / 2.),
-                cmap=custom_cmap(color_mask.max()+1),
-                alpha=0.4
-            )
-    if plot_name is None:
-        plot_name = "connections.png"
-    if save_plot:
-        curr_dir = os.getcwd()
-        Path(curr_dir + "/figures/connections/").mkdir(exist_ok=True, parents=True)
-        plt.savefig(curr_dir + "/figures/connections/%s_%s" % (save_prefix, plot_name))
-        plt.close()
-    else:
-        plt.show()
-
-
-def plot_colorbar(fig, ax, num_stim_classes=4):
-    """
-    Adds a color bar to the plot
-    :param fig: The matplotlib figure
-    :param ax: The matplotlib axis
-    :param num_stim_classes: The number of stimulus feature classes that can be discriminated
-    :return: None
-    """
-    step_size = 255 / float(num_stim_classes)
-    bounds = [i * step_size for i in range(0, num_stim_classes + 1)]
-    cmap = custom_cmap(num_stimulus_discr=num_stim_classes, add_inh=True)
-    norm = mcolors.BoundaryNorm(bounds, cmap.N)
-    fig.colorbar(
-        cm.ScalarMappable(norm=norm, cmap=cmap),
-        ax=ax,
-        extend='min',
-        boundaries=[-1] + bounds,
-        ticks=bounds,
-        spacing='uniform',
-        orientation='vertical'
-    )
 
 
 def perlin_noise(size_layer=50, resolution=(5, 5), spacing=0.01):
@@ -343,6 +256,102 @@ def get_in_out_degree(nodes, node_tree=None, node_pos=None, r_loc=0.5, r_p=None,
     return in_degree, out_degree, in_degree_loc, out_degree_loc, in_degree_lr, out_degree_lr
 
 
+def firing_rate_sorting(idx_based_list, sorted_list, new_idx_neurons, element):
+    if len(idx_based_list) == 0:
+        new_idx_neurons[element] = 0
+    if element not in new_idx_neurons.keys():
+        new_idx_neurons[element] = np.minimum(list(sorted_list).index(element), max(idx_based_list) + 1)
+    return new_idx_neurons[element]
+
+
+def plot_connections(
+        src_nodes,
+        target_nodes,
+        layer_size,
+        save_plot=False,
+        plot_name=None,
+        save_prefix="",
+        color_mask=None
+):
+    """
+    Plotting function for connections between nodes for visualisation and debugging purposes
+    :param src_nodes: Source nodes
+    :param target_nodes: Target nodes
+    :param layer_size: Size of the layer
+    :param save_plot: Flag for saving the plot
+    :param plot_name: Name of the saved plot file. Is not taken into account if save_plot is False
+    :param save_prefix: Naming prefix that is used if the plot save_plot is set to true
+    :param color_mask: Color mask for the color/orientation map of neurons. If none it is not taken into account
+    :return None
+    """
+    plt.axis((-layer_size/2., layer_size/2., -layer_size/2., layer_size/2.))
+    source_positions = tp.GetPosition(src_nodes)
+    x_source, y_source = zip(*source_positions)
+    plt.plot(x_source, y_source, 'o')
+
+    if len(target_nodes) > 0:
+        target_positions = tp.GetPosition(target_nodes)
+        x_target, y_target = zip(*target_positions)
+        plt.plot(x_target, y_target, 'o')
+
+        for s in source_positions:
+            for t in target_positions:
+                plt.plot([s[0], t[0]], [s[1], t[1]], color="k")
+
+    if color_mask is not None:
+        plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=color_mask.max()+1)
+        if not type(color_mask) == np.ndarray:
+            for mask in color_mask:
+                area_rect = patches.Rectangle(
+                    mask["lower_left"],
+                    width=mask["width"],
+                    height=mask["height"],
+                    color=mask["color"],
+                    alpha=0.4
+                )
+                plt.gca().add_patch(area_rect)
+        else:
+            plt.imshow(
+                color_mask,
+                origin=(color_mask.shape[0] // 2, color_mask.shape[1] // 2),
+                extent=(-layer_size / 2., layer_size / 2., -layer_size / 2., layer_size / 2.),
+                cmap=custom_cmap(color_mask.max()+1),
+                alpha=0.4
+            )
+    if plot_name is None:
+        plot_name = "connections.png"
+    if save_plot:
+        curr_dir = os.getcwd()
+        Path(curr_dir + "/figures/connections/").mkdir(exist_ok=True, parents=True)
+        plt.savefig(curr_dir + "/figures/connections/%s_%s" % (save_prefix, plot_name))
+        plt.close()
+    else:
+        plt.show()
+
+
+def plot_colorbar(fig, ax, num_stim_classes=4):
+    """
+    Adds a color bar to the plot
+    :param fig: The matplotlib figure
+    :param ax: The matplotlib axis
+    :param num_stim_classes: The number of stimulus feature classes that can be discriminated
+    :return: None
+    """
+    step_size = 255 / float(num_stim_classes)
+    bounds = [i * step_size for i in range(0, num_stim_classes + 1)]
+    cmap = custom_cmap(num_stimulus_discr=num_stim_classes, add_inh=True)
+    norm = mcolors.BoundaryNorm(bounds, cmap.N)
+    fig.colorbar(
+        cm.ScalarMappable(norm=norm, cmap=cmap),
+        ax=ax,
+        extend='min',
+        boundaries=[-1] + bounds,
+        ticks=bounds,
+        spacing='uniform',
+        orientation='vertical'
+    )
+
+
 def plot_reconstruction(input_stimulus, reconstruction, save_plots=False, save_prefix=""):
     _, fig_2 = plt.subplots(1, 2, figsize=(10, 5))
     fig_2[0].imshow(reconstruction, cmap='gray')
@@ -356,9 +365,51 @@ def plot_reconstruction(input_stimulus, reconstruction, save_plots=False, save_p
         plt.close()
 
 
-def firing_rate_sorting(idx_based_list, sorted_list, new_idx_neurons, element):
-    if len(idx_based_list) == 0:
-        new_idx_neurons[element] = 0
-    if element not in new_idx_neurons.keys():
-        new_idx_neurons[element] = np.minimum(list(sorted_list).index(element), max(idx_based_list) + 1)
-    return new_idx_neurons[element]
+def plot_cmap(
+        ff_nodes,
+        inh_nodes,
+        color_map,
+        stim_class,
+        positions,
+        shunted_nodes=[],
+        size_layer=8.,
+        resolution=(10, 10),
+        num_stimulus_discr=4,
+        save_plot=False,
+        save_prefix=""
+):
+    stimulus_grid_range_x = np.linspace(0, size_layer, resolution[0])
+    stimulus_grid_range_y = np.linspace(0, size_layer, resolution[1])
+    plt.imshow(
+        color_map,
+        origin=(stimulus_grid_range_x.size // 2, stimulus_grid_range_y.size // 2),
+        extent=(-size_layer / 2., size_layer / 2., -size_layer / 2., size_layer / 2.),
+        cmap=custom_cmap(num_stimulus_discr),
+        alpha=0.4
+    )
+
+    min_idx = np.minimum(min(ff_nodes), min(shunted_nodes)) if len(shunted_nodes) > 0 else min(ff_nodes)
+    inh_mask = np.zeros(len(ff_nodes) + len(shunted_nodes)).astype('bool')
+    inh_mask[np.asarray(inh_nodes) - min_idx] = True
+    c = np.full(len(ff_nodes) + len(shunted_nodes), '#000000')
+    c[~inh_mask] = np.asarray(list(mcolors.TABLEAU_COLORS.items()))[stim_class, 1]
+
+    c_rgba = np.ones((len(ff_nodes) + len(shunted_nodes), 4))
+    for num, color in enumerate(c):
+        c_rgba[num, :3] = np.asarray(hex_to_rgb(color))[:] / 255.
+
+    c_rgba[np.asarray(shunted_nodes).astype("int64") - min_idx, 3] = 0.2
+    plt.scatter(
+        np.asarray(positions)[:, 0],
+        np.asarray(positions)[:, 1],
+        c=c_rgba
+    )
+
+    if not save_plot:
+        plt.show()
+    else:
+        curr_dir = os.getcwd()
+        Path(curr_dir + "/figures/tuning-map/").mkdir(parents=True, exist_ok=True)
+        plot_name = "ff_neurons.png"
+        plt.savefig(curr_dir + "/figures/tuning-map/%s_%s" % (save_prefix, plot_name))
+        plt.close()
