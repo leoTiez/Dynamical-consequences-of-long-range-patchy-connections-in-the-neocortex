@@ -52,6 +52,7 @@ def main_lr(
     :param perlin_input_cluster: Cluster size of the perlin input image. If the input is not perlin, this parameter
     is ignored
     :param num_patches: number of patches. If the network does not establish patches this parameter is ignored
+    :param weight_factor: Tuple representing the multiplier for the recurrent weights (first index) and the ff weights (second index)
     :param img_prop: Proportion of the image information that is used
     :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
     :param write_to_file: If set to true the firing rate is written to an file
@@ -277,6 +278,8 @@ def experiment(
     :param perlin_input_cluster: Cluster size of the perlin input image
     :param patches: The number of patches. This parameter is ignored if network is chosen that does not make use of
     patchy connctions
+    :param weight_factor: Tuple representing the multiplier for the recurrent weights (first index) and the ff weights
+    (second index)
     :param img_prop: Defines the sparse sampling, i.e. the number of neurons that receive feedforward input.
     :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
     :param save_plots: If set to true, plots are saved instead of being displayed
