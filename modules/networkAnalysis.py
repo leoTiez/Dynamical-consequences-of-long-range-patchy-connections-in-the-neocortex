@@ -163,17 +163,3 @@ def get_firing_rates(spike_train, nodes, simulation_time):
     return firing_rates
 
 
-def determine_ffweight(
-        rf_size,
-        max_value=255.,
-        max_in_curr=450.,
-):
-    """
-    Determines the feedforward weight by computing the maximal injected current and to what current it should be scaled
-    :param rf_size: Size of the receptive field
-    :param max_value: Maximal intensity value that is injected per pixel
-    :param max_in_curr: Maximal current in nA
-    :return: The feedforward weight
-    """
-    return max_in_curr / float(rf_size[0] * rf_size[1] * max_value)
-
