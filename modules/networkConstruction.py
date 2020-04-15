@@ -1545,7 +1545,10 @@ def create_connections_rf(
     counter = 0
     rf_list = []
     index_values = np.arange(0, image.size, 1).astype('int').reshape(image.shape)
-
+    if use_dc:
+        max_scale = 450. / float(rf_size[0] * rf_size[1] * 255.)
+    else:
+        max_scale = rf_size[0] * rf_size[1] * 255.
     amplitudes = []
     for target_node, rf_center in zip(target_node_ids, rf_centers):
         counter += 1
@@ -1590,11 +1593,9 @@ def create_connections_rf(
 
         amplitudes.append(amplitude.sum())
         if use_dc:
-            current_dict = {"amplitude": np.maximum(amplitude.sum(), 0) * multiplier}
+            current_dict = {"amplitude": np.maximum(amplitude.sum() / max_scale, 0) * multiplier}
         else:
-            max_rate = rf.size * 255.
-            rate = 1000. * amplitude.sum() / max_rate
-            synaptic_strength = 1.
+            rate = 1000. * amplitude.sum() / max_scale
             current_dict = {"rate": np.maximum(rate, 0) * multiplier}
 
         _set_input_current(target_node, current_dict, synaptic_strength, use_dc=use_dc)
