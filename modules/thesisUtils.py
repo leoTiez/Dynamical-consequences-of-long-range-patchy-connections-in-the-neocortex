@@ -22,14 +22,17 @@ def arg_parse_plts():
     :return: The command line arguments
     """
     parser = argparse.ArgumentParser(description="Accept command line parameters for the creation of plots.")
-    parser.add_argument("--type", type=str, help="Defines plot type. Can be either bar or gauss")
     parser.add_argument("--show", dest="show", action="store_true", help="Show plots instead of saving them")
-    parser.add_argument("--path_full", type=str, help="Path to reconstruction error files with full sampling")
-    parser.add_argument("--path_part", type=str, help="Path to reconstruction error files with subsampling")
-    parser.add_argument("--network", type=str, help="Defines the network type")
-    parser.add_argument("--input", type=str, help="Defines the input stimulus type")
-    parser.add_argument("--attributes", type=str, help="Defines additional attribute")
-    parser.add_argument("--tuning", type=str, help="Defines the tuning function")
+    parser.add_argument("--path", type=str, help="Path to reconstruction error")
+    parser.add_argument("--x", type=str, help="Independent variable that is plotted")
+    parser.add_argument("--y", type=str, help="Dependent variable that is plotted")
+    parser.add_argument("--group", type=str, help="Parameter by which the data is grouped")
+    parser.add_argument("--network", type=str, help="Filters for network")
+    parser.add_argument("--input", type=str, help="Filters for input")
+    parser.add_argument("--experiment", type=str, help="Filters for experiment")
+    parser.add_argument("--sampling", type=str, help="Filters for parameter")
+    parser.add_argument("--parameter", type=str, help="Filters for experiment parameter")
+    parser.add_argument("--measure", type=str, help="Filters for measurement")
 
     parsed_args = parser.parse_args()
 
