@@ -130,15 +130,19 @@ python3 Experiments.py --parameter=parameter
 
 where the value `--parameter=parameter` should be replaced by one of the values defined below.
 
-If results were already obtained and saved in files, these can be read out and used for plotting via the
-`InformationLoss.py` script that can be run via
+If results were already obtained and saved in files, these can be read out and plotted
+`PlotData.py` script that can be run via
 
 ```bash
-python3 InformationLoss.py [optional: --show --type=bar --attributes="[attribute,list]" --network=network --tuning=tuning --input=input --path_full=your-path-1]
+python3 PlotData.py --x=xvalue --y=yvalue  --group=grouping_parameter --measure=measure [optional: --path=your_path --show --network=network --input=input --experiment=experiment --sampling=sampling_rate --parameter=experiment_parameter]
 ```
 
-while the parameter values should be replaced by the values that are explained and deined in the Commandline
-parameters section. If `network`, `tuning` and `input` is not set these values are not particularly filtered.
+while the parameter values should be replaced by the values that are explained and defined in the Commandline
+parameters section. `--x` defines the independent and `--y` the dependent variable, usually set to `value`.
+The grouping value defines by which parameter the data is aggregated. Measure defines the value type and is 
+usually set to `distance` but can be alternatively set to `mean` or `variance`. 
+If `network`, `input`, `experiment`, `sampling` and `paramater` are not set 
+the data set is not filtered for these values.
 
 Please note that the network is currently under development, and hence, the implementation is not
 final yet. Moreover, more sophisticated explanations are missing. Nevertheless, feel free to 
@@ -177,17 +181,22 @@ the image. If you pass the parameter to the `Experiment.py` file, it accepts the
 meaning that the experiments iterate through the list of subsampling rates [1.0, 0.8, 0.6, 0.4].
 
 ### Plotting
-The script `InformationLoss.py` accepts some other parameters. For example the command line parameter
-`type` can have one of the following values
+The script `PlotData.py` loads all all the error values into a table with the following columns:
+- `network`
+- `stimulus`
+- `experiment`
+- `sampling`
+- `parameter`
+- `measure`
+- `value`
 
-- `bar`: Bar plot to show the error for the full sampling and the reduced sampling + lost information 
-- `gauss`: Gaussian curve to show the error distribution
-
-to define the type of the plot. Moreover, the `--attributes` parameter is a list with all the substrings 
-you want to look for in the file name. It's a list as a string without any spaces, e.g.
-`--attributes="[perlin,cluster_8]"`. The parameter `--show` is set when the plots are to be displayed instead of
-saved. The path parameters `--path_full` can be set to the error file for the full
-sampling. Per default, however, these parameters don't need to be changed.
+The passed `--x` and `--y`, as well as the `--group` parameter should be set to a column name.
+The other command line parameters --show --network=network `--input=input`, `--experiment=experiment`
+`--sampling=sampling_rate` and `--parameter=experiment_parameter` are used for filtering. If they aren't set the 
+data table is not filtered for these particular values. For possible values see the sections and paragraphs above.
+The parameter `--show` is set when the plots are to be displayed instead of
+saved. The path parameters `--path` can be set to the directory with the error files, which were obtained from the
+experiments. Per default, however, these parameters don't need to be changed.
 
 ## The Jupyter notebook
 To provide play around and test different parameter settings, there is a Jupyter notebook provided.
