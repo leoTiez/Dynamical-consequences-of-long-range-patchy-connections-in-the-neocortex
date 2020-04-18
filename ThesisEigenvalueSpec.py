@@ -30,8 +30,6 @@ def main_eigenvalue_spec(
     # load input stimulus
     stimulus_size = (50, 50)
     input_stimulus = stimulus_factory(input_type, size=stimulus_size)
-    # input_stimulus = create_image_bar(0, shuffle=shuffle_input)
-    # input_stimulus = load_image("nfl-sunflower50.jpg")
     if VERBOSITY > 2:
         plt.imshow(input_stimulus, cmap='gray')
         plt.show()
@@ -54,18 +52,17 @@ def main_eigenvalue_spec(
 
 
 def main():
-    for network_type in list(NETWORK_TYPE.keys()):
-        main_eigenvalue_spec(network_type=NETWORK_TYPE[network_type], save_plot=True)
-
-
-if __name__ == '__main__':
     cmd_params = arg_parse()
     if cmd_params.seed:
         np.random.seed(0)
     if cmd_params.agg:
         import matplotlib
         matplotlib.use("Agg")
+    for network_type in list(NETWORK_TYPE.keys()):
+        main_eigenvalue_spec(network_type=NETWORK_TYPE[network_type], save_plot=True)
 
+
+if __name__ == '__main__':
     main()
 
 
