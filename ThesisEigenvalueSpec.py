@@ -30,8 +30,6 @@ def main_eigenvalue_spec(
     # load input stimulus
     stimulus_size = (50, 50)
     input_stimulus = stimulus_factory(input_type, size=stimulus_size)
-    # input_stimulus = create_image_bar(0, shuffle=shuffle_input)
-    # input_stimulus = load_image("nfl-sunflower50.jpg")
     if VERBOSITY > 2:
         plt.imshow(input_stimulus, cmap='gray')
         plt.show()
