@@ -52,18 +52,17 @@ def main_eigenvalue_spec(
 
 
 def main():
-    for network_type in list(NETWORK_TYPE.keys()):
-        main_eigenvalue_spec(network_type=NETWORK_TYPE[network_type], save_plot=True)
-
-
-if __name__ == '__main__':
     cmd_params = arg_parse()
     if cmd_params.seed:
         np.random.seed(0)
     if cmd_params.agg:
         import matplotlib
         matplotlib.use("Agg")
+    for network_type in list(NETWORK_TYPE.keys()):
+        main_eigenvalue_spec(network_type=NETWORK_TYPE[network_type], save_plot=True)
 
+
+if __name__ == '__main__':
     main()
 
 
