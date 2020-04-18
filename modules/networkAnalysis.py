@@ -3,6 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from collections import Counter
+from pathlib import Path
 import nest
 
 
@@ -138,9 +139,10 @@ def eigenvalue_analysis(matrix, plot=True, save_plot=False, fig_name=None, fig_p
         else:
             if fig_path is None:
                 curr_dir = os.getcwd()
-                fig_path = curr_dir + "/figures/"
+                fig_path = curr_dir + "/figures/eigenvalue"
             if fig_name is None:
                 fig_name = "eigenvalue_spec.png"
+            Path(fig_path).mkdir(parents=True, exist_ok=True)
             plt.savefig(fig_path + fig_name)
             plt.close()
 
