@@ -8,6 +8,7 @@ from modules.networkConstruction import TUNING_FUNCTION
 from createThesisNetwork import network_factory, NETWORK_TYPE
 from modules.networkAnalysis import mutual_information_hist, error_distance
 
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -464,7 +465,7 @@ def main():
     # ################################################################################################################
     # Parse command line arguments
     # ################################################################################################################
-    cmd_params = arg_parse()
+    cmd_params = arg_parse(sys.argv[1:])
     if cmd_params.seed:
         np.random.seed(0)
 
