@@ -65,7 +65,7 @@ def main_lr(
 
     stimulus_fft = fourier_trans(input_stimulus)
     if VERBOSITY > 2:
-        if not write_to_file:
+        if not save_plots:
             plt.imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
             plt.show()
         else:
