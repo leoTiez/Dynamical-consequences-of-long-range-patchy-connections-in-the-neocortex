@@ -139,7 +139,7 @@ def eigenvalue_analysis(matrix, plot=True, save_plot=False, fig_name=None, fig_p
         else:
             if fig_path is None:
                 curr_dir = os.getcwd()
-                fig_path = curr_dir + "/figures/eigenvalue"
+                fig_path = curr_dir + "/figures/eigenvalue/"
             if fig_name is None:
                 fig_name = "eigenvalue_spec.png"
             Path(fig_path).mkdir(parents=True, exist_ok=True)
