@@ -6,6 +6,7 @@ from modules.networkAnalysis import *
 from createThesisNetwork import network_factory, NETWORK_TYPE
 from modules.thesisUtils import arg_parse
 
+import sys
 import matplotlib.pyplot as plt
 
 import nest
@@ -70,7 +71,7 @@ def main():
     # #################################################################################################################
     # Parse command line arguments
     # #################################################################################################################
-    cmd_params = arg_parse()
+    cmd_params = arg_parse(sys.argv[1:])
     if cmd_params.seed:
         np.random.seed(0)
 
