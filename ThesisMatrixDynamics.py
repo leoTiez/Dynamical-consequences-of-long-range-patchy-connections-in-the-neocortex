@@ -5,6 +5,7 @@ from modules.createStimulus import stimulus_factory, INPUT_TYPE
 from modules.thesisUtils import arg_parse
 from createThesisNetwork import network_factory, NETWORK_TYPE
 
+import sys
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -98,7 +99,7 @@ def main():
     # #################################################################################################################
     # Parse and set command line arguments
     # #################################################################################################################
-    cmd_params = arg_parse()
+    cmd_params = arg_parse(sys.argv[1:])
     if cmd_params.seed:
         np.random.seed(0)
 
