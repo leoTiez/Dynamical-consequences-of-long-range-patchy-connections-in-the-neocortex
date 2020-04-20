@@ -6,7 +6,7 @@ from modules.createStimulus import *
 from modules.thesisUtils import arg_parse, firing_rate_sorting
 from modules.networkConstruction import TUNING_FUNCTION
 from createThesisNetwork import network_factory, NETWORK_TYPE
-from modules.networkAnalysis import mutual_information_hist, error_distance, spatial_variance
+from modules.networkAnalysis import mutual_information_hist, error_distance
 
 import numpy as np
 import matplotlib.pyplot as plt
