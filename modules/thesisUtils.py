@@ -51,13 +51,17 @@ def arg_parse():
     parser.add_argument("--show", dest="show", action="store_true", help="Show plots instead of saving them")
     parser.add_argument("--network", type=str, help="Defines the network type")
     parser.add_argument("--input", type=str, help="Defines the input stimulus type")
+    parser.add_argument("--num_neurons", type=int, help="Defines the number of sensory neurons")
+    parser.add_argument("--verbosity", type=int, help="Sets the verbosity flag")
     parser.add_argument("--parameter", type=str, help="Defines the parameter that is manipulated during experimenting")
     parser.add_argument("--tuning", type=str, help="Defines the tuning function")
-    parser.add_argument("--cluster", type=tuple, help="Defines the cluster size")
+    parser.add_argument("--cluster", type=int, help="Defines the cluster size")
     parser.add_argument("--patches", type=int, help="Defines the number of patches")
     parser.add_argument("--num_trials", type=int, help="Sets the number of trials")
-    parser.add_argument("--weight_factor", type=float, help="Sets the weight factor that is multiplied to the"
-                                                            "default value of the recurrent weights")
+    parser.add_argument("--ff_weight", type=float, help="Sets the weight factor that is multiplied to the"
+                                                            "default value of the feedforward weights")
+    parser.add_argument("--rec_weight", type=float, help="Sets the weight factor that is multiplied to the"
+                                                        "default value of the recurrent weights")
     parser.add_argument("--img_prop", type=str, help="Sets the sampling rate. Value between 0 and 1")
     parser.add_argument("--spatial_sampling",
                         dest="spatial_sampling",
