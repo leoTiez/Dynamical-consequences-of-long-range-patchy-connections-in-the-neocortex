@@ -7,34 +7,35 @@ from createThesisNetwork import NETWORK_TYPE
 from modules.networkConstruction import TUNING_FUNCTION
 
 
-def check_naming(file_name, file_split, network, stimulus):
-    is_patchy = "patchy" in file_name
-    if "patchy" in network:
-        is_network = network in file_name and is_patchy
-    elif "random" in network:
-        is_network = network in file_split
-    elif len(network) == 0:
-        is_network = True
-    else:
-        is_network = network in file_name and not is_patchy
-    # use "in" to allow empty strings
-    is_stimulus = stimulus in file_split[-9]
-    return is_network, is_stimulus
-
-
 def check_network(file_name):
+    """
+    Returns the network type that was used for the experiment
+    :param file_name: Name of the file
+    :return: Network type
+    """
     for net in reversed(list(NETWORK_TYPE.keys())):
         if net in file_name:
             return net
 
 
 def check_stimulus(file_name, network):
+    """
+    Returns the stimulus type that was used for the experiment
+    :param file_name: Name of the file
+    :param network: Network type
+    :return: Stimulus type
+    """
     idx = len(network)
     input_type = file_name[idx + 1:].split("_")[0]
     return input_type
 
 
 def check_measure_type(file_name):
+    """
+    Returns what kind of measurement was written to the file
+    :param file_name: Name of the file
+    :return: Measurement type
+    """
     if "error_distance.txt" in file_name:
         return "distance"
     elif "mean_error.txt" in file_name:
@@ -44,6 +45,11 @@ def check_measure_type(file_name):
 
 
 def check_sampling_rate(file_name):
+    """
+    Return sampling rate that was used for the experiment
+    :param file_name: Name of the file
+    :return: Sampling rate
+    """
     img_prop_str = "img_prop"
     idx = file_name.index(img_prop_str)
     num_letters = len(img_prop_str)
@@ -51,6 +57,11 @@ def check_sampling_rate(file_name):
 
 
 def check_experiment_type(file_name):
+    """
+    Return the experiment type
+    :param file_name: Name of the file
+    :return: Experiment type
+    """
     experiment_type = ""
     offset = 0
     if "orientation_map" in file_name:
@@ -83,29 +94,13 @@ def check_experiment_type(file_name):
     return experiment_type, experiment_parameter
 
 
-def table_setup(data_dict, network, stimulus, sampling_rate, experiment_type, experiment_parameter):
-    temp_dict = {stimulus: {experiment_type: {sampling_rate: {experiment_parameter: {
-        "distance": [],
-        "variance": 0,
-        "mean": 0
-    }}}}}
-    if network not in data_dict.keys():
-        data_dict[network] = temp_dict
-    elif stimulus not in data_dict[network].keys():
-        data_dict[network][stimulus] = temp_dict[stimulus]
-    elif experiment_type not in data_dict[network][stimulus].keys():
-        data_dict[network][stimulus][experiment_type] = temp_dict[stimulus][experiment_type]
-    elif sampling_rate not in data_dict[network][stimulus][experiment_type]:
-        data_dict[network][stimulus][experiment_type][sampling_rate] = temp_dict[stimulus][experiment_type][
-            sampling_rate]
-    elif experiment_parameter not in data_dict[network][stimulus][experiment_type][sampling_rate].keys():
-        data_dict[network][stimulus][experiment_type][sampling_rate][experiment_parameter] = temp_dict[stimulus][
-            experiment_type][sampling_rate][experiment_parameter]
-
-    return data_dict
-
-
 def read_files(path, add_cwd=True):
+    """
+    Method that reads out the values in the files and saves them in a pandas Dataframe
+    :param path: Path to the files
+    :param add_cwd: If set to true, the passed path is not absolute and needs the current directory
+    :return: Dataframe with all experimental data
+    """
     if add_cwd:
         path = os.getcwd() + "/" + path
 
@@ -118,7 +113,6 @@ def read_files(path, add_cwd=True):
         measure = check_measure_type(fn)
         experiment_type, experiment_parameter = check_experiment_type(fn)
 
-        # data_dict = table_setup(data_dict, network, stimulus, sampling_rate, experiment_type, experiment_parameter)
         file = open(path + "/" + fn, "r")
         value = float(file.read())
         file.close()
