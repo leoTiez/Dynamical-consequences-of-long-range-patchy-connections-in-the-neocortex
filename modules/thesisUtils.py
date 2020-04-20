@@ -267,6 +267,14 @@ def get_in_out_degree(nodes, node_tree=None, node_pos=None, r_loc=0.5, r_p=None,
 
 
 def firing_rate_sorting(idx_based_list, sorted_list, new_idx_neurons, element):
+    """
+    Assign new indices to neurons to plot them ascendingly  wrt their stimulus class
+    :param idx_based_list: New indices of firing neurons that are sorted according to their stimulus class
+    :param sorted_list: List of firing neurons sorted according to their stimulus class
+    :param new_idx_neurons: Mapping of original neuron id to plotting neuron id
+    :param element: The current element for which a new index is calculated
+    :return: The new index of the 'element'
+    """
     if len(idx_based_list) == 0:
         new_idx_neurons[element] = 0
     if element not in new_idx_neurons.keys():
@@ -363,6 +371,14 @@ def plot_colorbar(fig, ax, num_stim_classes=4):
 
 
 def plot_reconstruction(input_stimulus, reconstruction, save_plots=False, save_prefix=""):
+    """
+    Plot stimulus reconstruction
+    :param input_stimulus: Original input stimulus
+    :param reconstruction: Reconstructed stimulus
+    :param save_plots: If set to true, the plot is saved
+    :param save_prefix: Prefix that is used for the saved file to identify the plot and the corresponding experiment
+    :return: None
+    """
     _, fig_2 = plt.subplots(1, 2, figsize=(10, 5))
     fig_2[0].imshow(reconstruction, cmap='gray')
     fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
@@ -381,13 +397,28 @@ def plot_cmap(
         color_map,
         stim_class,
         positions,
-        shunted_nodes=[],
+        muted_nodes=[],
         size_layer=8.,
         resolution=(10, 10),
         num_stimulus_discr=4,
         save_plot=False,
         save_prefix=""
 ):
+    """
+    Plot the tuning map
+    :param ff_nodes: Nodes that receive feedforward input
+    :param inh_nodes: Inhibitory neurons
+    :param color_map: The color map
+    :param stim_class: Tuning classes of all neurons
+    :param positions: Position of all neurons
+    :param muted_nodes: Neurons without ff input
+    :param size_layer: Size of the layer, ie length of one side of the square sheet
+    :param resolution: Resolution that was used to create the color map
+    :param num_stimulus_discr: Number of tuning classes
+    :param save_plot: If set to true, the plot is saved
+    :param save_prefix: Prefix that is used for the saved file to identify the plot and the corresponding experiment
+    :return: None
+    """
     stimulus_grid_range_x = np.linspace(0, size_layer, resolution[0])
     stimulus_grid_range_y = np.linspace(0, size_layer, resolution[1])
     plt.imshow(
@@ -398,17 +429,17 @@ def plot_cmap(
         alpha=0.4
     )
 
-    min_idx = np.minimum(min(ff_nodes), min(shunted_nodes)) if len(shunted_nodes) > 0 else min(ff_nodes)
-    inh_mask = np.zeros(len(ff_nodes) + len(shunted_nodes)).astype('bool')
+    min_idx = np.minimum(min(ff_nodes), min(muted_nodes)) if len(muted_nodes) > 0 else min(ff_nodes)
+    inh_mask = np.zeros(len(ff_nodes) + len(muted_nodes)).astype('bool')
     inh_mask[np.asarray(inh_nodes) - min_idx] = True
-    c = np.full(len(ff_nodes) + len(shunted_nodes), '#000000')
+    c = np.full(len(ff_nodes) + len(muted_nodes), '#000000')
     c[~inh_mask] = np.asarray(list(mcolors.TABLEAU_COLORS.items()))[stim_class, 1]
 
-    c_rgba = np.ones((len(ff_nodes) + len(shunted_nodes), 4))
+    c_rgba = np.ones((len(ff_nodes) + len(muted_nodes), 4))
     for num, color in enumerate(c):
         c_rgba[num, :3] = np.asarray(hex_to_rgb(color))[:] / 255.
 
-    c_rgba[np.asarray(shunted_nodes).astype("int64") - min_idx, 3] = 0.2
+    c_rgba[np.asarray(muted_nodes).astype("int64") - min_idx, 3] = 0.2
     plt.scatter(
         np.asarray(positions)[:, 0],
         np.asarray(positions)[:, 1],
