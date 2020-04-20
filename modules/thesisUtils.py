@@ -16,7 +16,7 @@ import nest
 import nest.topology as tp
 
 
-def arg_parse_plts():
+def arg_parse_plts(args):
     """
     Command line argument parser for the plotting file
     :return: The command line arguments
@@ -35,12 +35,12 @@ def arg_parse_plts():
     parser.add_argument("--measure", type=str, help="Filters for measurement")
     parser.add_argument("--name", type=str, help="Name of the plot")
 
-    parsed_args = parser.parse_args()
+    parsed_args = parser.parse_args(args)
 
     return parsed_args
 
 
-def arg_parse():
+def arg_parse(args):
     """
     Command line argument parser
     :return: The command line arguments
@@ -68,7 +68,7 @@ def arg_parse():
                         action="store_true",
                         help="If the flag is set, the neurons that receive ff input are chosen with a "
                              "spatial correlation")
-    parsed_args = parser.parse_args()
+    parsed_args = parser.parse_args(args)
 
     return parsed_args
 
@@ -166,32 +166,6 @@ def coordinates_to_cmap_index(layer_size, position, spacing):
     x = np.floor(((layer_size / 2.) + position[:, 1]) / spacing).astype('int')
 
     return x, y
-
-
-def dot_product_perlin(x_grid, y_grid, x, y, gradients):
-    """
-    The dot product step to compute the perlin noise
-    :param x_grid: The closest x value on the grid
-    :param y_grid: The closest y value on the grid
-    :param x: The x value
-    :param y: The y value
-    :param gradients: The sampled gradients
-    :return: The dot product for producing the Perlin noise
-    """
-    x_weight = x - x_grid
-    y_weight = y - y_grid
-    return x_weight * gradients[x_grid, y_grid][0] + y_weight * gradients[x_grid, y_grid][1]
-
-
-def lerp_perlin(a, b, weight):
-    """
-    Function to linearly interpolate between a and b
-    :param a: Point a
-    :param b: Point b
-    :param weight: Weigth between 0 and 1
-    :return: Interpolation value
-    """
-    return (1. - weight) * a + weight * b
 
 
 def sort_nodes_space(nodes, axis=0):
