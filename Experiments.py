@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import sys
 import os
 
 from createThesisNetwork import NETWORK_TYPE
@@ -60,7 +61,7 @@ def main():
     # #############################################################################################################
     # Parsing command line arguments
     # #############################################################################################################
-    cmd_params = arg_parse()
+    cmd_params = arg_parse(sys.argv[1:])
 
     parameter = PARAMETER_DICT["tuning"]
     img_prop = None
