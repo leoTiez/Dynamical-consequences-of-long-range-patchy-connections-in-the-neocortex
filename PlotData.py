@@ -1,7 +1,7 @@
 #!/usr/bin/python3
+import sys
 import os
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sb
 from pathlib import Path
@@ -15,7 +15,7 @@ def get_parameters():
     Function to get command line parameters and set the parameters used in this script accordingly
     :return: Dictionary with parameters
     """
-    cmd_par = arg_parse_plts()
+    cmd_par = arg_parse_plts(sys.argv[1:])
 
     parameter_dict = {
         "path": "experiments/error",
