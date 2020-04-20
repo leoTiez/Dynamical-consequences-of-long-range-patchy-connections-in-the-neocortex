@@ -5,7 +5,6 @@ from modules.networkAnalysis import *
 import warnings
 from pathlib import Path
 import numpy as np
-import scipy.stats as stats
 import matplotlib.patches as patches
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -1134,7 +1133,6 @@ def create_perlin_stimulus_map(
         spacing=0.1,
         plot=False,
         save_plot=False,
-        plot_name=None,
         save_prefix=""
 ):
     """
@@ -1146,13 +1144,11 @@ def create_perlin_stimulus_map(
     :param spacing: Size of a single cell in x and y direction of the mesh for the interpolated values
     :param plot: If set to True the tuning map is plotted
     :param save_plot: If set to True the tuning map is saved. This is ignored if plot is set to False
-    :param plot_name: Name of the saved plot. Is ignored if save_plot and plot is set to True
     :param save_prefix: Naming prefix of the saved plot
     :return: Tuning to neuron map, neuron to tuning map, color map
     """
     size_layer = nest.GetStatus(layer, "topology")[0]["extent"][0]
     nodes = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
-    min_idx = min(nodes)
 
     tuning_to_neuron_map = {stimulus: [] for stimulus in range(num_stimulus_discr)}
     neuron_to_tuning_map = {}
@@ -1377,6 +1373,16 @@ def _set_input_current(neuron, current_dict, synaptic_strength, use_dc=True):
 
 
 def same_input_current(layer, synaptic_strength, connect_prob, value=255/2., rf_size=(10, 10), use_dc=False):
+    """
+    Set the same injected input (either Poisson spike train or direct current) for all sensory neurons
+    :param layer: Layer with sensory neurons
+    :param synaptic_strength: Synaptic weights
+    :param connect_prob: Connection probability
+    :param value: The value to which it is set
+    :param rf_size: Size of the receptive field
+    :param use_dc: If set to true, direct current is injected
+    :return: None
+    """
     if use_dc:
         current_dict = {"amplitude": (rf_size[0] * rf_size[1]) * value * connect_prob}
     else:
@@ -1507,8 +1513,12 @@ def create_connections_rf(
     :param rf_size: The size of a receptive field
     :param tuning_function: The tuning function of the sensory neurons
     :param synaptic_strength: Synaptic weight for the connections
+    :param total_num_target: Total number of neurons. Note that if a sampling rate < 1 is used, the number of the
+    target_node_ids is lower than the this value
     :param p_rf: Connection probability to the cells in the receptive field
     :param target_layer_size: Size of the square sheet with the sensory neurons
+    :param calc_error: If set to true, the reconstruction error is calculated based in the injected input,
+    the reconstruction method is applied and the results is saved or displayed
     :param use_dc: If set to True a DC is injected, otherwise a Poisson spike train
     :param multiplier: Factor that is multiplied to the injected current
     :param plot_src_target: Flag for plotting
@@ -1636,7 +1646,7 @@ def create_connections_rf(
                     plt.show()
 
     recons = None
-    if calc_error or plot_src_target:
+    if calc_error:
         import modules.stimulusReconstruction as sr
         full_ampl = np.zeros(total_num_target)
         full_ampl[np.asarray(target_node_ids) - min_id_target] = np.asarray(amplitudes)
