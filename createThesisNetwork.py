@@ -306,14 +306,14 @@ class NeuronalNetworkBase:
                 self.spacing_perlin
             )
             stim_class = self.color_map[x_grid, y_grid]
-            shunted_nodes = list(set(self.torus_layer_nodes).difference(set(neurons_with_input)))
+            muted_nodes = list(set(self.torus_layer_nodes).difference(set(neurons_with_input)))
             plot_cmap(
                 ff_nodes=neurons_with_input,
                 inh_nodes=self.torus_inh_nodes,
                 color_map=self.color_map,
                 stim_class=stim_class,
                 positions=self.torus_layer_positions,
-                shunted_nodes=shunted_nodes,
+                muted_nodes=muted_nodes,
                 size_layer=self.layer_size,
                 resolution=self.resolution_perlin,
                 num_stimulus_discr=self.num_stim_discr,
