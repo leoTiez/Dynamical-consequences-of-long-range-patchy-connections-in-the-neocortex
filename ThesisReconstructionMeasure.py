@@ -14,10 +14,8 @@ from pathlib import Path
 from webcolors import hex_to_rgb
 import nest
 
-
 VERBOSITY = 3
 nest.set_verbosity("M_ERROR")
-
 
 PARAMETER_DICT = {
     "tuning": 0,
@@ -31,6 +29,7 @@ PARAMETER_DICT = {
 def main_lr(
         network_type=NETWORK_TYPE["local_circ_patchy_random"],
         input_type=INPUT_TYPE["plain"],
+        num_neurons=int(1e4),
         cluster=(15, 15),
         tuning_function=TUNING_FUNCTION["gauss"],
         perlin_input_cluster=(5, 5),
@@ -41,11 +40,13 @@ def main_lr(
         write_to_file=False,
         save_plots=True,
         save_prefix='',
+        verbosity=VERBOSITY
 ):
     """
     Main function to create a network, simulate and reconstruct the original stimulus
     :param network_type: The type of the network. This is an integer number defined in the NETWORK_TYPE dictionary
     :param input_type: The type of the input. This is an integer number defined in the INPUT_TYPE dictionary
+    :param num_neurons: Number of sensory neurons
     :param cluster: The size of the Perlin noise mesh
     :param tuning_function: The tuning function that is applied by the neurons. This is an integer number defined
     int the TUNING_FUNCTION dictionary
@@ -58,13 +59,16 @@ def main_lr(
     :param write_to_file: If set to true the firing rate is written to an file
     :param save_plots: If set to true, plots are saved instead of being displayed
     :param save_prefix: Naming prefix that can be set before a file to mark a trial or an experiment
+    :param verbosity: Verbosity flag
     :return: The original image, the reconstructed image and the firing rates
     """
-    # load input stimulus
+    # #################################################################################################################
+    # Load stimulus
+    # #################################################################################################################
     input_stimulus = stimulus_factory(input_type, resolution=perlin_input_cluster)
 
     stimulus_fft = fourier_trans(input_stimulus)
-    if VERBOSITY > 2:
+    if verbosity > 2:
         if not save_plots:
             plt.imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
             plt.show()
@@ -78,7 +82,7 @@ def main_lr(
     # Define values
     # #################################################################################################################
     simulation_time = 1000.
-    num_neurons = int(1e4)
+    num_neurons = num_neurons
     cap_s = 1. * weight_factor[0]
     inh_weight = -15. * weight_factor[0] ** weight_factor[0]
     ff_weight = 1.0 * weight_factor[1]
@@ -92,6 +96,9 @@ def main_lr(
     time_constant = 20.
     use_dc = False
 
+    # #################################################################################################################
+    # Create network
+    # #################################################################################################################
     # Note: when using the same input current for all neurons, we obtain synchrony, and due to the refactory phase
     # all recurrent connections do not have any effect
     network = network_factory(
@@ -118,11 +125,11 @@ def main_lr(
         use_dc=use_dc,
         save_prefix=save_prefix,
         save_plots=save_plots,
-        verbosity=VERBOSITY
+        verbosity=verbosity
     )
     network.create_network()
 
-    if VERBOSITY > 3:
+    if verbosity > 3:
         print("\n#####################\tPlot in/out degree distribution")
         network.connect_distribution("connect_distribution.png")
 
@@ -131,6 +138,9 @@ def main_lr(
         firing_rates = np.zeros(network.num_sensory)
         return input_stimulus, reconstruction, firing_rates
 
+    # #################################################################################################################
+    # Simulate
+    # #################################################################################################################
     firing_rates, (spikes_s, time_s) = network.simulate(simulation_time)
     if write_to_file:
         curr_dir = os.getcwd()
@@ -139,11 +149,14 @@ def main_lr(
         fr_file.write(str(firing_rates.tolist()))
         fr_file.close()
 
-    if VERBOSITY > 0:
+    if verbosity > 0:
         average_firing_rate = np.mean(firing_rates)
         print("\n#####################\tAverage firing rate: %s" % average_firing_rate)
 
-    if VERBOSITY > 2:
+    # #################################################################################################################
+    # Plot neural activity
+    # #################################################################################################################
+    if verbosity > 2:
         print("\n#####################\tPlot firing pattern over time")
         plt.figure(figsize=(10, 5))
         positions = np.asarray(tp.GetPosition(spikes_s.tolist()))
@@ -174,7 +187,7 @@ def main_lr(
             plt.savefig(curr_dir + "/figures/firing_rate/%s_firing_time.png" % save_prefix)
             plt.close()
 
-    if VERBOSITY > 2:
+    if verbosity > 2:
         print("\n#####################\tPlot firing pattern over space")
         plt.figure(figsize=(10, 5))
         plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=network.num_stim_discr)
@@ -226,7 +239,7 @@ def main_lr(
     # Reconstruct stimulus
     # #############################################################################################################
     # Reconstruct input stimulus
-    if VERBOSITY > 0:
+    if verbosity > 0:
         print("\n#####################\tReconstruct stimulus")
 
     reconstruction = direct_stimulus_reconstruction(
@@ -235,7 +248,7 @@ def main_lr(
     )
     response_fft = fourier_trans(reconstruction)
 
-    if VERBOSITY > 3:
+    if verbosity > 3:
         from matplotlib.colors import LogNorm
         _, fig = plt.subplots(1, 2, figsize=(10, 5))
         fig[0].imshow(np.abs(response_fft), norm=LogNorm(vmin=5))
@@ -248,7 +261,7 @@ def main_lr(
             plt.savefig(curr_dir + "/figures/fourier/%s_fourier_trans.png" % save_prefix)
             plt.close()
 
-    if VERBOSITY > 1:
+    if verbosity > 1:
         plot_reconstruction(input_stimulus, reconstruction, save_plots=save_plots, save_prefix=save_prefix)
 
     return input_stimulus, reconstruction, firing_rates
@@ -257,6 +270,7 @@ def main_lr(
 def experiment(
         input_type=INPUT_TYPE["plain"],
         network_type=NETWORK_TYPE["random"],
+        num_neurons=int(1e4),
         tuning_function=TUNING_FUNCTION["gauss"],
         cluster=(15, 15),
         perlin_input_cluster=(5, 5),
@@ -265,12 +279,14 @@ def experiment(
         img_prop=1.,
         spatial_sampling=False,
         save_plots=True,
-        num_trials=10
+        num_trials=10,
+        verbosity=VERBOSITY
 ):
     """
     Computes the mutual information that is averaged over several trials
     :param input_type: The input type. This is an integer number defined in the INPUT_TYPE dictionary
     :param network_type: The network type. This is an integer number defined in the NETWORK_TYPE dictionary
+    :param num_neurons: Set the number of sensory neurons
     :param tuning_function: The tuning function of senory neurons. This is an integer number defined in the
     TUNING_FUNCTION dictionary
     :param cluster: The size of the mesh that is used for the Perlin noise distribution of the sensory neurons
@@ -284,8 +300,12 @@ def experiment(
     :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
     :param save_plots: If set to true, plots are saved instead of being displayed
     :param num_trials: The number of trials that are conducted
+    :param verbosity: Set the verbosity flag
     :return: None
     """
+    # #################################################################################################################
+    # Set experiment parameters
+    # #################################################################################################################
     network_name = list(NETWORK_TYPE.keys())[network_type]
     input_name = list(INPUT_TYPE.keys())[input_type]
     parameters = [cluster, patches, num_trials]
@@ -317,6 +337,9 @@ def experiment(
     Path(curr_dir + "/error/").mkdir(exist_ok=True, parents=True)
     Path(curr_dir + "/mi/").mkdir(exist_ok=True, parents=True)
 
+    # #################################################################################################################
+    # Loop over parameter range
+    # #################################################################################################################
     for p in parameters:
         input_stimuli = []
         firing_rates = []
@@ -331,12 +354,13 @@ def experiment(
                 img_prop,
                 i
             )
-            if VERBOSITY > 0:
+            if verbosity > 0:
                 print("\n#####################\tThe save prefix is: ", save_prefix)
 
             input_stimulus, reconstruction, firing_rate = main_lr(
                 network_type=network_type,
                 input_type=input_type,
+                num_neurons=num_neurons,
                 tuning_function=p if tuning_function is None else tuning_function,
                 cluster=p if cluster is None else cluster,
                 num_patches=p if patches is None else patches,
@@ -346,7 +370,8 @@ def experiment(
                 spatial_sampling=spatial_sampling,
                 write_to_file=True,
                 save_plots=save_plots,
-                save_prefix=save_prefix
+                save_prefix=save_prefix,
+                verbosity=verbosity
             )
 
             ed = error_distance(input_stimulus, reconstruction)
@@ -358,6 +383,9 @@ def experiment(
             input_stimuli.append(input_stimulus.reshape(-1))
             firing_rates.append(firing_rate.reshape(-1))
 
+        # #############################################################################################################
+        # Write values to file
+        # #############################################################################################################
         save_prefix = "%s_%s_%s_%s_img_prop_%s" % (
             network_name,
             input_name,
@@ -382,7 +410,7 @@ def experiment(
         mi_file.write(str(mutual_information))
         mi_file.close()
 
-        if VERBOSITY > 0:
+        if verbosity > 0:
             print("\n#####################\tMean Error for network type %s, %s %s, image proportion %s,"
                   " and input type %s: %s \n"
                   % (
@@ -415,10 +443,13 @@ def experiment(
                   ))
 
 
-if __name__ == '__main__':
-    cmd_params = arg_parse()
+def main():
+    # ################################################################################################################
+    # Initialise parameters
+    # ################################################################################################################
     network_type = None
     input_type = None
+    num_neurons = int(1e4)
     tuning_function = TUNING_FUNCTION["gauss"]
     cluster = (15, 15)
     perlin_input_cluster = (5, 5)
@@ -428,7 +459,12 @@ if __name__ == '__main__':
     img_prop = 1.
     spatial_sampling = False
     save_plots = True
+    verbosity = VERBOSITY
 
+    # ################################################################################################################
+    # Parse command line arguments
+    # ################################################################################################################
+    cmd_params = arg_parse()
     if cmd_params.seed:
         np.random.seed(0)
 
@@ -452,6 +488,9 @@ if __name__ == '__main__':
     else:
         raise ValueError("Please pass a valid input type as parameter")
 
+    if cmd_params.num_neurons is not None:
+        num_neurons = int(cmd_params.num_neurons)
+
     if cmd_params.parameter in list(PARAMETER_DICT.keys()):
         if cmd_params.parameter.lower() == "tuning":
             tuning_function = None
@@ -469,32 +508,46 @@ if __name__ == '__main__':
                     raise ValueError("Cannot investigate the effect of the perlin size when not using perlin as input")
             perlin_input_cluster = None
         elif cmd_params.parameter.lower() == "weights":
-            weight_factor= None
+            weight_factor = None
 
     if cmd_params.tuning is not None:
-        tuning_function = TUNING_FUNCTION[cmd_params.tuning]
+        if tuning_function is not None:
+            tuning_function = TUNING_FUNCTION[cmd_params.tuning]
+        else:
+            raise ValueError("Cannot pass 'tuning' as experimental parameter and set tuning function")
 
     if cmd_params.cluster is not None:
-        cluster = cmd_params.cluster
+        if cluster is not None:
+            cluster = (cmd_params.cluster, cmd_params.cluster)
+        else:
+            raise ValueError("Cannot pass 'cluster' as experimental parameter and set cluster")
 
     if cmd_params.patches is not None:
-        patches = cmd_params.patches
+        if patches is not None:
+            patches = cmd_params.patches
+        else:
+            raise ValueError("Cannot pass 'patches' as experimental parameter and set patches")
+
+    if cmd_params.rec_weight is not None:
+        if weight_factor is not None:
+            weight_factor[0] = cmd_params.rec_weight
+        else:
+            raise ValueError("Cannot pass 'weights' as experimental parameter and set recurrent weight factor")
+
+    if cmd_params.ff_weight is not None:
+        if weight_factor is not None:
+            weight_factor[1] = cmd_params.ff_weight
+        else:
+            raise ValueError("Cannot pass 'weights' as experimental parameter and set feedforward weight factor")
 
     if cmd_params.num_trials is not None:
         num_trials = cmd_params.num_trials
 
-    if cmd_params.weight_factor is not None:
-        weight_factor = cmd_params.weight_factor
-
     if cmd_params.img_prop is not None:
         img_prop = float(cmd_params.img_prop)
 
-    # main_lr(
-    #     network_type=NETWORK_TYPE["local_circ_patchy_sd"],
-    #     input_type=INPUT_TYPE["perlin"],
-    #     tuning_function=TUNING_FUNCTION["step"],
-    #     img_prop=1.,
-    # )
+    if cmd_params.verbosity is not None:
+        verbosity = cmd_params.verbosity
 
     print("Start experiments for network %s given the input %s."
           " The parameter %s is changed."
@@ -509,9 +562,13 @@ if __name__ == '__main__':
               "" if spatial_sampling else "out"
           ))
 
+    # ################################################################################################################
+    # Run experiment
+    # ################################################################################################################
     experiment(
         network_type=network_type,
         input_type=input_type,
+        num_neurons=num_neurons,
         tuning_function=tuning_function,
         cluster=cluster,
         perlin_input_cluster=perlin_input_cluster,
@@ -520,6 +577,11 @@ if __name__ == '__main__':
         img_prop=img_prop,
         spatial_sampling=spatial_sampling,
         save_plots=save_plots,
-        num_trials=num_trials
+        num_trials=num_trials,
+        verbosity = verbosity
     )
+
+
+if __name__ == '__main__':
+    main()
 
