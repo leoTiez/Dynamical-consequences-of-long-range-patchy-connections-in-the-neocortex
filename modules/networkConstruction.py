@@ -328,6 +328,8 @@ def create_random_connections(
             "p": 0.01
         }
     nest.Connect(exc_nodes, nodes, conn_spec=connect_dict, syn_spec={"weight": cap_s})
+    if type(inh_neurons) == np.ndarray:
+        inh_neurons = inh_neurons.tolist()
     nest.Connect(inh_neurons, nodes, conn_spec=connect_dict, syn_spec={"weight": -abs(inh_weight)})
 
     if plot:
@@ -925,7 +927,8 @@ def set_synaptic_strength(
     """
     Set the synaptic strength. It can be made dependent on number of established connections if needed
     :param nodes: Nodes for which the connections should be adapted
-    :param adj_mat: Adjacency matrix for the connections
+    :param adj_mat: Adjacency matrix for the connections. NOTE: the adjacency matrix isn't updated as it is assumed to
+    not be a weight matrix
     :param cap_s: Weight for the connections
     :param divide_by_num_connect: Flag for dividing the weight through the number of established connections
     :return None
@@ -1044,85 +1047,6 @@ def create_connections_random(
     }
 
     nest.Connect(src_nodes, target_nodes, conn_spec=connect_dict, syn_spec=synapse_dict)
-
-
-def create_random_stimulus_map(
-        layer,
-        inh_neurons,
-        num_stimulus_discr=4,
-        spacing=0.1,
-        plot=False,
-        save_plot=False,
-        plot_name=None
-):
-    """
-    Create Stimulus map that randomly allocates a stimulus class to a grid cell
-    :param layer: Neural layer
-    :param inh_neurons: IDs of inhibitory neurons
-    :param num_stimulus_discr: The number of stimlus feature classes that can be discriminated
-    :param spacing: The size of a grid cell
-    :param plot: If set to True, a plot is created
-    :param save_plot: If set to True, the plot is saved. If plot is set to False it's ignored
-    :param plot_name: Name of the plot
-    :return: Tuning to neuron map, neuron to tuning mao, tuning weight vector, color map
-    """
-    size_layer = nest.GetStatus(layer, "topology")[0]["extent"][0]
-    nodes = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
-    min_idx = min(nodes)
-
-    size_cm = int(size_layer/float(spacing))
-    color_map = np.random.choice(num_stimulus_discr, size=(size_cm, size_cm))
-
-    tuning_to_neuron_map = {stimulus: [] for stimulus in range(num_stimulus_discr)}
-    neuron_to_tuning_map = {}
-    tuning_weight_vector = np.zeros(len(nodes))
-
-    if plot:
-        plt.imshow(
-            color_map,
-            origin=(size_cm//2, size_cm//2),
-            extent=(-size_layer/2., size_layer/2., -size_layer/2., size_layer/2.),
-            cmap=custom_cmap(num_stimulus_discr),
-            alpha=0.4
-        )
-
-    for n in nodes:
-        p = tp.GetPosition([n])[0]
-        # Grid positions
-        x_grid, y_grid = coordinates_to_cmap_index(size_layer, p, spacing)
-
-        stim_class = color_map[x_grid, y_grid]
-
-        if n in inh_neurons:
-            tuning_weight_vector[n - min_idx] = 1.
-            if plot:
-                plt.plot(p[0], p[1], marker='o', markerfacecolor='k', markeredgewidth=0)
-        else:
-            tuning_to_neuron_map[stim_class].append(n)
-            neuron_to_tuning_map[n] = stim_class
-            tuning_weight_vector[n - min_idx] = stim_class / float(num_stimulus_discr - 1)
-
-            if plot:
-                plt.plot(
-                    p[0],
-                    p[1],
-                    marker='o',
-                    markerfacecolor=list(mcolors.TABLEAU_COLORS.items())[stim_class][0],
-                    markeredgewidth=0
-                )
-
-    if plot:
-        plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=num_stimulus_discr)
-        if not save_plot:
-            plt.show()
-        else:
-            curr_dir = os.getcwd()
-            Path(curr_dir + "/figures/tuning-map/").mkdir(exist_ok=True, parents=True)
-            if plot_name is None:
-                plot_name = "random_tuning_map.png"
-            plt.savefig(curr_dir + "/figures/tuning-map/" + plot_name)
-            plt.close()
-    return tuning_to_neuron_map, neuron_to_tuning_map, tuning_weight_vector, color_map
 
 
 def create_perlin_stimulus_map(
@@ -1298,9 +1222,10 @@ def step_tuning_curve(
     :param multiplier: Factor that is multiplied to the injected current
     :return: True if neuron reacts, False otherwise
     """
+    addent = 0 if (stimulus_tuning + 1) * tuning_discr_steps != 255. else 1
     return np.logical_and(
-        stimulus_tuning * tuning_discr_steps + 1 <= input_stimulus / multiplier,
-        input_stimulus / multiplier < (stimulus_tuning + 1) * tuning_discr_steps + 1
+        stimulus_tuning * tuning_discr_steps <= input_stimulus / multiplier,
+        input_stimulus / multiplier < (stimulus_tuning + 1) * tuning_discr_steps + addent
     )
 
 
@@ -1371,6 +1296,8 @@ def _set_input_current(neuron, current_dict, synaptic_strength, use_dc=True):
         generator = generator[0]
         nest.SetStatus([generator], current_dict)
 
+    return generator
+
 
 def same_input_current(layer, synaptic_strength, connect_prob, value=255/2., rf_size=(10, 10), use_dc=False):
     """
@@ -1389,8 +1316,12 @@ def same_input_current(layer, synaptic_strength, connect_prob, value=255/2., rf_
         rate = 1000. * value * connect_prob / 255.
         current_dict = {"rate": rate}
     neurons = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
+
+    generators = []
     for neuron in neurons:
-        _set_input_current(neuron, current_dict, synaptic_strength)
+        generators.append(_set_input_current(neuron, current_dict, synaptic_strength, use_dc=use_dc))
+
+    return generators
 
 
 def convert_step_tuning(target_node, rf, neuron_tuning, tuning_discr_step, indices, adj_mat, min_target):
@@ -1417,9 +1348,8 @@ def convert_step_tuning(target_node, rf, neuron_tuning, tuning_discr_step, indic
     )
     amplitude[mask] = 255.
     indices = indices[mask]
-    nonzero_mask = np.flatnonzero(np.asarray(amplitude)[mask])
-    adj_mat[indices.reshape(-1)[nonzero_mask], target_node - min_target] = 255. / (
-            rf + np.finfo("float64").eps)[mask].reshape(-1)[nonzero_mask].astype("float64")
+    adj_mat[indices.reshape(-1), target_node - min_target] = 255. / (
+            rf + np.finfo("float64").eps)[mask].reshape(-1).astype("float64")
 
     return amplitude
 
