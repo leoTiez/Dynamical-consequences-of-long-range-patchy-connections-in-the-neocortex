@@ -1655,27 +1655,29 @@ def create_connections_rf(
             adj_mat
         )
 
-        applied_current = np.arange(0, 255)
-        ad = np.zeros((255, 1))
-        plt.figure(figsize=(10, 5))
-        for tune in range(num_tuning_discr):
-            plt.plot(
-                applied_current,
-                tuning_fun(0, applied_current, tune, 255./4., applied_current, ad, 0),
-                label="Class %s" % tune
-            )
-        plt.xlabel("Pixel intensity")
-        plt.ylabel("Injected current I in nA")
-        plt.legend()
-        if not save_plot:
-            plt.show()
-        else:
-            curr_dir = os.getcwd()
-            Path(curr_dir + "/figures/rf/").mkdir(parents=True, exist_ok=True)
-            plt.savefig(curr_dir + "/figures/rf/%s_tuning_function.png" % save_prefix)
-            plt.close()
+        if plot_src_target:
+            plot_reconstruction(image, recons, save_plots=save_plot, save_prefix=save_prefix)
 
-        plot_reconstruction(image, recons, save_plots=save_plot, save_prefix=save_prefix)
+            applied_current = np.arange(0, 255)
+            ad = np.zeros((255, 1))
+            plt.figure(figsize=(10, 5))
+            for tune in range(num_tuning_discr):
+                plt.plot(
+                    applied_current,
+                    tuning_fun(0, applied_current, tune, 255./4., applied_current, ad, 0),
+                    label="Class %s" % tune
+                )
+            plt.xlabel("Pixel intensity")
+            plt.ylabel("Injected current I in nA")
+            plt.legend()
+            if not save_plot:
+                plt.show()
+            else:
+                curr_dir = os.getcwd()
+                Path(curr_dir + "/figures/rf/").mkdir(parents=True, exist_ok=True)
+                plt.savefig(curr_dir + "/figures/rf/%s_tuning_function.png" % save_prefix)
+                plt.close()
+
 
     return adj_mat, recons
 
