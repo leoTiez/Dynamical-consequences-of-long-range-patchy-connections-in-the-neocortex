@@ -86,7 +86,7 @@ def set_values_in_adjacency_matrix(connect_values, adj_mat, min_src, min_target,
 
 def create_adjacency_matrix(src_nodes, target_nodes):
     """
-    Creates the adjacency matrix A for the connections between source and target nodes. A_ij = 1 if there is a
+    Creates the adjacency matrix A for the connections between source and target nodes. A_ij = weight if there is a
     connection between node i and j and 0 otherwise
     :param src_nodes: Source nodes
     :param target_nodes: Target nodes
