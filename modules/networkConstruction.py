@@ -1308,7 +1308,7 @@ def same_input_current(layer, synaptic_strength, connect_prob, value=255/2., rf_
     :param value: The value to which it is set
     :param rf_size: Size of the receptive field
     :param use_dc: If set to true, direct current is injected
-    :return: None
+    :return: List of generaturs that inject input
     """
     if use_dc:
         current_dict = {"amplitude": (rf_size[0] * rf_size[1]) * value * connect_prob}
