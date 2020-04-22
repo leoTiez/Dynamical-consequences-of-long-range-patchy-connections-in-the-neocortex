@@ -263,38 +263,42 @@ class NeuronalNetworkBase:
         if self.verbosity > 0:
             print("\n#####################\tCreate connections between receptors and sensory neurons")
 
-        if not self.spatial_sampling:
-            neurons_with_input_idx = np.random.choice(
-                len(self.torus_layer_nodes),
-                int(self.img_prop * self.num_sensory),
-                replace=False
-            ).tolist()
-            neurons_with_input = np.asarray(self.torus_layer_nodes)[neurons_with_input_idx]
-            positions_with_input = np.asarray(self.torus_layer_positions)[neurons_with_input_idx]
-
+        if self.img_prop == 1.0:
+            neurons_with_input = np.asarray(self.torus_layer_nodes)[:]
+            positions_with_input = np.asarray(self.torus_layer_positions)[:]
         else:
-            sample_centers_idx = np.random.choice(
-                len(self.torus_layer_positions),
-                self.num_spatial_samples,
-                replace=False
-            )
-            sample_centers = np.asarray(self.torus_layer_positions)[sample_centers_idx]
-            k = int(self.num_sensory / self.num_spatial_samples)
-            while True:
-                _, neurons_with_input_idx = self.torus_layer_tree.query(
-                    sample_centers,
-                    k=k
+            if not self.spatial_sampling:
+                neurons_with_input_idx = np.random.choice(
+                    len(self.torus_layer_nodes),
+                    int(self.img_prop * self.num_sensory),
+                    replace=False
+                ).tolist()
+                neurons_with_input = np.asarray(self.torus_layer_nodes)[neurons_with_input_idx]
+                positions_with_input = np.asarray(self.torus_layer_positions)[neurons_with_input_idx]
+
+            else:
+                sample_centers_idx = np.random.choice(
+                    len(self.torus_layer_positions),
+                    self.num_spatial_samples,
+                    replace=False
                 )
+                sample_centers = np.asarray(self.torus_layer_positions)[sample_centers_idx]
+                k = int(self.num_sensory / self.num_spatial_samples)
+                while True:
+                    _, neurons_with_input_idx = self.torus_layer_tree.query(
+                        sample_centers,
+                        k=k
+                    )
 
-                neurons_with_input_idx = list(set(neurons_with_input_idx.flatten()))
-                diff = len(neurons_with_input_idx) - int(self.img_prop * self.num_sensory)
-                if diff > 0:
-                    neurons_with_input_idx = neurons_with_input_idx[:int(self.img_prop * self.num_sensory)]
-                    break
-                k += np.maximum(-int(diff / self.num_spatial_samples), 1)
+                    neurons_with_input_idx = list(set(neurons_with_input_idx.flatten()))
+                    diff = len(neurons_with_input_idx) - int(self.img_prop * self.num_sensory)
+                    if diff > 0:
+                        neurons_with_input_idx = neurons_with_input_idx[:int(self.img_prop * self.num_sensory)]
+                        break
+                    k += np.maximum(-diff, 1)
 
-            neurons_with_input = np.asarray(self.torus_layer_nodes)[neurons_with_input_idx]
-            positions_with_input = np.asarray(self.torus_layer_positions)[neurons_with_input_idx]
+                neurons_with_input = np.asarray(self.torus_layer_nodes)[neurons_with_input_idx]
+                positions_with_input = np.asarray(self.torus_layer_positions)[neurons_with_input_idx]
 
         if self.plot_tuning_map:
             inh_mask = np.zeros(self.num_sensory).astype('bool')
