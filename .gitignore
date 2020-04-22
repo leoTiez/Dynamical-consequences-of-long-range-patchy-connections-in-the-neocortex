@@ -3,5 +3,14 @@
 /*target*
 /report
 /test-input/nfl*
-/reconstructed-samples
+/figures
 /.idea
+__pycache__
+/modules/__pycache__
+/results
+.ipynb_checkpoints
+InputFiringRateCorrelation.py
+/firing_rates_files
+/experiments
+/mi
+/error
