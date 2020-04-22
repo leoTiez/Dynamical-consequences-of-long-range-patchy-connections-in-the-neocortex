@@ -157,7 +157,7 @@ def get_lr_connection_probability_patches(
     patchy_area = np.pi * r_p**2
     c_lr = GLOBAL_CONNECTIVITY - c_loc
 
-    return (c_lr * float(layer_size)**2) / (num_patches * patchy_area)
+    return np.maximum((c_lr * float(layer_size)**2) / (num_patches * patchy_area), 0.0)
 
 
 def get_lr_connection_probability_np(
@@ -179,7 +179,7 @@ def get_lr_connection_probability_np(
     # Calculate long range connectivity
     c_lr = GLOBAL_CONNECTIVITY - c_loc
 
-    return c_lr / ((full_area - inner_area) / float(layer_size)**2)
+    return np.maximum(c_lr / ((full_area - inner_area) / float(layer_size)**2), 0.0)
 
 
 def create_distinct_sublayer_boxes(size_boxes, size_layer=R_MAX):
