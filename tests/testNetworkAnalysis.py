@@ -6,6 +6,7 @@ import modules.networkAnalysis as na
 
 import numpy as np
 import nest
+nest.set_verbosity("M_ERROR")
 
 
 class NetworkAnalysisTest(unittest.TestCase):
@@ -81,21 +82,44 @@ class NetworkAnalysisTest(unittest.TestCase):
 
         self.assertListEqual(count_exp, count.tolist(), "Spike count does not match")
 
-    def test_mutual_information_hist(self):
+    def test_mutual_information_img(self):
         self.reset()
         input_data = np.zeros((30, 30))
         recon_data = np.ones((30, 30))
 
-        mi = na.mutual_information_hist(input_data, recon_data)
+        mi = na.mutual_information_img(input_data, recon_data)
 
         self.assertEqual(mi, 0., "MI not computed correctly")
 
         input_data = np.random.randint(0, 256, size=(30, 30))
         recon_data = input_data.copy() * 40
 
-        mi_self = na.mutual_information_hist(input_data, input_data)
-        mi_scaled = na.mutual_information_hist(input_data, recon_data)
+        mi_self = na.mutual_information_img(input_data, input_data)
+        mi_scaled = na.mutual_information_img(input_data, recon_data)
         self.assertEqual(mi_scaled, mi_self, "MI not same if rescaled")
+
+    def test_mutual_information_hist(self):
+        self.reset()
+        input_data = np.random.randint(0, 256, size=(30, 30))
+        firing_rates = np.random.choice(input_data.reshape(-1), size=(1, 100), replace=False)
+
+        mi = na.mutual_information_hist(input_data, firing_rates)
+        mi_2 = na.mutual_information_hist(input_data*2, firing_rates*2)
+        mi_3 = na.mutual_information_hist(input_data, firing_rates*2)
+        self.assertEqual(mi, mi_2, "MI should be the same if both is scaled by the same factor")
+        self.assertNotEqual(mi, mi_3, "MI should not be the same if only one parameter is scaled")
+
+    def test_error_distance(self):
+        self.reset()
+        original = np.ones(10)
+        reconstruction = original * 2
+
+        err = na.error_distance(original, reconstruction)
+        self.assertEqual(err, 0.0, "The error when using vectors scaled by a scalar should be 0")
+
+        reconstruction = original * 0
+        err = na.error_distance(original, reconstruction)
+        self.assertEqual(err, 1.0, "The error between the zero vector and the original one should be 1.0")
 
 
 if __name__ == '__main__':

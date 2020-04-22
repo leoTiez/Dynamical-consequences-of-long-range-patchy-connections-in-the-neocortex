@@ -113,8 +113,8 @@ def image_with_spatial_correlation(
     :param shuffle: randomly shuffle image pixels
     :return: Image with circles for spatial correlation of color
     """
-    x_coordinates = np.random.choice(size[0], size=num_circles, replace=False)
-    y_coordinates = np.random.choice(size[1], size=num_circles, replace=False)
+    x_coordinates = np.random.choice(size[0], size=num_circles)
+    y_coordinates = np.random.choice(size[1], size=num_circles)
 
     image = np.zeros(size)
     for x, y in zip(x_coordinates, y_coordinates):

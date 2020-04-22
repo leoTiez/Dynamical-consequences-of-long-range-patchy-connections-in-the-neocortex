@@ -16,7 +16,7 @@ import nest
 import nest.topology as tp
 
 
-def arg_parse_plts():
+def arg_parse_plts(args):
     """
     Command line argument parser for the plotting file
     :return: The command line arguments
@@ -35,12 +35,12 @@ def arg_parse_plts():
     parser.add_argument("--measure", type=str, help="Filters for measurement")
     parser.add_argument("--name", type=str, help="Name of the plot")
 
-    parsed_args = parser.parse_args()
+    parsed_args = parser.parse_args(args)
 
     return parsed_args
 
 
-def arg_parse():
+def arg_parse(args):
     """
     Command line argument parser
     :return: The command line arguments
@@ -51,20 +51,24 @@ def arg_parse():
     parser.add_argument("--show", dest="show", action="store_true", help="Show plots instead of saving them")
     parser.add_argument("--network", type=str, help="Defines the network type")
     parser.add_argument("--input", type=str, help="Defines the input stimulus type")
+    parser.add_argument("--num_neurons", type=int, help="Defines the number of sensory neurons")
+    parser.add_argument("--verbosity", type=int, help="Sets the verbosity flag")
     parser.add_argument("--parameter", type=str, help="Defines the parameter that is manipulated during experimenting")
     parser.add_argument("--tuning", type=str, help="Defines the tuning function")
-    parser.add_argument("--cluster", type=tuple, help="Defines the cluster size")
+    parser.add_argument("--cluster", type=int, help="Defines the cluster size")
     parser.add_argument("--patches", type=int, help="Defines the number of patches")
     parser.add_argument("--num_trials", type=int, help="Sets the number of trials")
-    parser.add_argument("--weight_factor", type=float, help="Sets the weight factor that is multiplied to the"
-                                                            "default value of the recurrent weights")
+    parser.add_argument("--ff_weight", type=float, help="Sets the weight factor that is multiplied to the"
+                                                            "default value of the feedforward weights")
+    parser.add_argument("--rec_weight", type=float, help="Sets the weight factor that is multiplied to the"
+                                                        "default value of the recurrent weights")
     parser.add_argument("--img_prop", type=str, help="Sets the sampling rate. Value between 0 and 1")
     parser.add_argument("--spatial_sampling",
                         dest="spatial_sampling",
                         action="store_true",
                         help="If the flag is set, the neurons that receive ff input are chosen with a "
                              "spatial correlation")
-    parsed_args = parser.parse_args()
+    parsed_args = parser.parse_args(args)
 
     return parsed_args
 
@@ -164,32 +168,6 @@ def coordinates_to_cmap_index(layer_size, position, spacing):
     return x, y
 
 
-def dot_product_perlin(x_grid, y_grid, x, y, gradients):
-    """
-    The dot product step to compute the perlin noise
-    :param x_grid: The closest x value on the grid
-    :param y_grid: The closest y value on the grid
-    :param x: The x value
-    :param y: The y value
-    :param gradients: The sampled gradients
-    :return: The dot product for producing the Perlin noise
-    """
-    x_weight = x - x_grid
-    y_weight = y - y_grid
-    return x_weight * gradients[x_grid, y_grid][0] + y_weight * gradients[x_grid, y_grid][1]
-
-
-def lerp_perlin(a, b, weight):
-    """
-    Function to linearly interpolate between a and b
-    :param a: Point a
-    :param b: Point b
-    :param weight: Weigth between 0 and 1
-    :return: Interpolation value
-    """
-    return (1. - weight) * a + weight * b
-
-
 def sort_nodes_space(nodes, axis=0):
     """
     Sorting the nodes with respect to space and in either x or y direction
@@ -263,6 +241,14 @@ def get_in_out_degree(nodes, node_tree=None, node_pos=None, r_loc=0.5, r_p=None,
 
 
 def firing_rate_sorting(idx_based_list, sorted_list, new_idx_neurons, element):
+    """
+    Assign new indices to neurons to plot them ascendingly  wrt their stimulus class
+    :param idx_based_list: New indices of firing neurons that are sorted according to their stimulus class
+    :param sorted_list: List of firing neurons sorted according to their stimulus class
+    :param new_idx_neurons: Mapping of original neuron id to plotting neuron id
+    :param element: The current element for which a new index is calculated
+    :return: The new index of the 'element'
+    """
     if len(idx_based_list) == 0:
         new_idx_neurons[element] = 0
     if element not in new_idx_neurons.keys():
@@ -359,6 +345,14 @@ def plot_colorbar(fig, ax, num_stim_classes=4):
 
 
 def plot_reconstruction(input_stimulus, reconstruction, save_plots=False, save_prefix=""):
+    """
+    Plot stimulus reconstruction
+    :param input_stimulus: Original input stimulus
+    :param reconstruction: Reconstructed stimulus
+    :param save_plots: If set to true, the plot is saved
+    :param save_prefix: Prefix that is used for the saved file to identify the plot and the corresponding experiment
+    :return: None
+    """
     _, fig_2 = plt.subplots(1, 2, figsize=(10, 5))
     fig_2[0].imshow(reconstruction, cmap='gray')
     fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
@@ -377,13 +371,28 @@ def plot_cmap(
         color_map,
         stim_class,
         positions,
-        shunted_nodes=[],
+        muted_nodes=[],
         size_layer=8.,
         resolution=(10, 10),
         num_stimulus_discr=4,
         save_plot=False,
         save_prefix=""
 ):
+    """
+    Plot the tuning map
+    :param ff_nodes: Nodes that receive feedforward input
+    :param inh_nodes: Inhibitory neurons
+    :param color_map: The color map
+    :param stim_class: Tuning classes of all neurons
+    :param positions: Position of all neurons
+    :param muted_nodes: Neurons without ff input
+    :param size_layer: Size of the layer, ie length of one side of the square sheet
+    :param resolution: Resolution that was used to create the color map
+    :param num_stimulus_discr: Number of tuning classes
+    :param save_plot: If set to true, the plot is saved
+    :param save_prefix: Prefix that is used for the saved file to identify the plot and the corresponding experiment
+    :return: None
+    """
     stimulus_grid_range_x = np.linspace(0, size_layer, resolution[0])
     stimulus_grid_range_y = np.linspace(0, size_layer, resolution[1])
     plt.imshow(
@@ -394,17 +403,17 @@ def plot_cmap(
         alpha=0.4
     )
 
-    min_idx = np.minimum(min(ff_nodes), min(shunted_nodes)) if len(shunted_nodes) > 0 else min(ff_nodes)
-    inh_mask = np.zeros(len(ff_nodes) + len(shunted_nodes)).astype('bool')
+    min_idx = np.minimum(min(ff_nodes), min(muted_nodes)) if len(muted_nodes) > 0 else min(ff_nodes)
+    inh_mask = np.zeros(len(ff_nodes) + len(muted_nodes)).astype('bool')
     inh_mask[np.asarray(inh_nodes) - min_idx] = True
-    c = np.full(len(ff_nodes) + len(shunted_nodes), '#000000')
+    c = np.full(len(ff_nodes) + len(muted_nodes), '#000000')
     c[~inh_mask] = np.asarray(list(mcolors.TABLEAU_COLORS.items()))[stim_class, 1]
 
-    c_rgba = np.ones((len(ff_nodes) + len(shunted_nodes), 4))
+    c_rgba = np.ones((len(ff_nodes) + len(muted_nodes), 4))
     for num, color in enumerate(c):
         c_rgba[num, :3] = np.asarray(hex_to_rgb(color))[:] / 255.
 
-    c_rgba[np.asarray(shunted_nodes).astype("int64") - min_idx, 3] = 0.2
+    c_rgba[np.asarray(muted_nodes).astype("int64") - min_idx, 3] = 0.2
     plt.scatter(
         np.asarray(positions)[:, 0],
         np.asarray(positions)[:, 1],

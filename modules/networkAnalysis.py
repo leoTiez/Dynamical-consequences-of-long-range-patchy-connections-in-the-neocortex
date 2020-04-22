@@ -7,25 +7,6 @@ from pathlib import Path
 import nest
 
 
-def spatial_variance(node_tree, node_pos, firing_rates, r_neighborhood=0.3):
-    """
-    Compute spatial variance via retrieving all nodes within a giving distance and compute the variance
-    in their firing rate
-    :param node_tree: The nodes positions organised in a tree
-    :param node_pos: The positions of the nodes
-    :param firing_rates: The firing rates
-    :param r_neighborhood: The radius of the neighborhood
-    :return: The variance of the firing rate withing this neighborhood
-    """
-    variance = []
-    for pos in node_pos:
-        neighborhood = np.asarray(node_tree.query_ball_point(pos, r_neighborhood))
-        nbh_fr = firing_rates[neighborhood.astype('int')]
-        variance.append(np.cov(nbh_fr[nbh_fr > 0]))
-
-    return np.nanmean(np.asarray(variance))
-
-
 def mutual_information_hist(input_data, firing_rates):
     """
     Compute the mutual information between the input data and the firing rates based on the established histograms
@@ -73,8 +54,10 @@ def error_distance(input_data, reconstructed_data):
     :return: The normalised error
     """
     # Normalise stimuli
-    input_data = input_data.astype('float') / float(input_data.max())
-    reconstructed_data = reconstructed_data.astype('float') / float(reconstructed_data.max())
+    input_max = np.abs(input_data).max() if np.abs(input_data).max() != 0 else 1.
+    reconst_max = np.abs(reconstructed_data).max() if np.abs(reconstructed_data).max() != 0 else 1.
+    input_data = input_data.astype('float') / input_max
+    reconstructed_data = reconstructed_data.astype('float') / reconst_max
 
     error = np.linalg.norm(input_data - reconstructed_data)
     normalised_error = error / np.linalg.norm(input_data)
@@ -103,7 +86,7 @@ def set_values_in_adjacency_matrix(connect_values, adj_mat, min_src, min_target,
 
 def create_adjacency_matrix(src_nodes, target_nodes):
     """
-    Creates the adjacency matrix A for the connections between source and target nodes. A_ij = 1 if there is a
+    Creates the adjacency matrix A for the connections between source and target nodes. A_ij = weight if there is a
     connection between node i and j and 0 otherwise
     :param src_nodes: Source nodes
     :param target_nodes: Target nodes

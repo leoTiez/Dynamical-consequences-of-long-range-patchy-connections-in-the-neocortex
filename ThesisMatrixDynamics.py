@@ -5,10 +5,10 @@ from modules.createStimulus import stimulus_factory, INPUT_TYPE
 from modules.thesisUtils import arg_parse
 from createThesisNetwork import network_factory, NETWORK_TYPE
 
+import sys
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import colors
 from pathlib import Path
 
 import nest
@@ -21,23 +21,28 @@ nest.set_verbosity("M_ERROR")
 def main_matrix_dynamics(
         network_type=NETWORK_TYPE["local_circ_patchy_sd"],
         input_type=INPUT_TYPE["plain"],
+        num_neurons=int(1e4),
         save_fig=True,
         save_prefix="",
-        save_path=None
+        save_path=None,
+        verbosity=VERBOSITY
 ):
     """
     Calculate the network dynamics based on matrix calculations. For that, the input is once transformed via the
     feedforward matrix and then the dynamics are investigated via the weight matrix for the recurrent connections
     :param network_type: Network type. This is an integer number defined in the NETWORK_TYPE dictionary
     :param input_type: Input type. This is an integer number defined in INPUT_TYPE dictionary
+    :param num_neurons: Number of sensory neurons. Needs to have an integer square root
     :param save_fig: If set to true, the created plot is saved
     :param save_prefix: The prefix that is used for the name of the saved plot
+    :param save_path: Path which the figure is saved to. If save_fig is set to False this parameter is ignored
+    :param verbosity: Sets the verbosity flag
     :return: None
     """
     # load input stimulus
     stimulus_size = (50, 50)
     input_stimulus = stimulus_factory(input_type, size=stimulus_size)
-    if VERBOSITY > 2:
+    if verbosity > 2:
         plt.imshow(input_stimulus, cmap='gray')
         plt.show()
     # #################################################################################################################
@@ -45,12 +50,15 @@ def main_matrix_dynamics(
     # #################################################################################################################
     plot_arrangement_rows = 5
     plot_arrangement_columns = 5
-    network_shape = (100, 100)
-    num_neurons = int(network_shape[0] * network_shape[1])
-    network = network_factory(input_stimulus, network_type=network_type, num_sensory=num_neurons, verbosity=VERBOSITY)
+    num_neurons = num_neurons
+    network_shape = (int(np.sqrt(num_neurons)), int(np.sqrt(num_neurons)))
+    network = network_factory(input_stimulus, network_type=network_type, num_sensory=num_neurons, verbosity=verbosity)
     network.create_network()
     sens_weight_mat = network.get_sensory_weight_mat()
 
+    # #################################################################################################################
+    # Input stimulus propagation
+    # #################################################################################################################
     # Sufficient to use only 255 as we don't use the neurons themselves
     input_matrix = np.ones(stimulus_size[0] * stimulus_size[1] + 1)
     input_matrix[:stimulus_size[0] * stimulus_size[1]] = input_stimulus.reshape(-1)
@@ -62,6 +70,9 @@ def main_matrix_dynamics(
         all_activities.append(ax.imshow(sensory_activity.reshape(network_shape), cmap="cool"))
         sensory_activity = sens_weight_mat.T.dot(sensory_activity)
 
+    # #################################################################################################################
+    # Plotting
+    # #################################################################################################################
     fig.colorbar(all_activities[0], ax=axes, orientation='horizontal', fraction=.05)
 
     if not save_fig:
@@ -76,16 +87,25 @@ def main_matrix_dynamics(
 
 
 def main():
-    cmd_params = arg_parse()
-    if cmd_params.seed:
-        np.random.seed(0)
-    if cmd_params.agg:
-        import matplotlib
-        matplotlib.use("Agg")
-
+    # #################################################################################################################
+    # Initialise parameters
+    # #################################################################################################################
     networks = NETWORK_TYPE.keys()
     stimuli = INPUT_TYPE.keys()
     save_fig = True
+    verbosity = VERBOSITY
+    num_neurons = int(1e4)
+
+    # #################################################################################################################
+    # Parse and set command line arguments
+    # #################################################################################################################
+    cmd_params = arg_parse(sys.argv[1:])
+    if cmd_params.seed:
+        np.random.seed(0)
+
+    if cmd_params.agg:
+        import matplotlib
+        matplotlib.use("Agg")
 
     if cmd_params.show:
         save_fig = False
@@ -102,14 +122,29 @@ def main():
         else:
             raise ValueError("Please pass a valid input type as parameter")
 
+    if cmd_params.verbosity is not None:
+        verbosity = cmd_params.verbosity
+
+    if cmd_params.num_neurons is not None:
+        if int(np.sqrt(cmd_params.num_neurons))**2 == cmd_params.num_neurons:
+            num_neurons = cmd_params.num_neurons
+        else:
+            raise ValueError("For plotting the network activity properly it is necessary to pass a number of neurons"
+                             " whose square root is an integer value")
+
+    # #################################################################################################################
+    # Run stimulus propagation
+    # #################################################################################################################
     for net in networks:
         for stim in stimuli:
             save_prefix = "%s_%s" % (net, stim)
             main_matrix_dynamics(
                 network_type=NETWORK_TYPE[net],
                 input_type=INPUT_TYPE[stim],
+                num_neurons=num_neurons,
                 save_fig=save_fig,
-                save_prefix=save_prefix
+                save_prefix=save_prefix,
+                verbosity=verbosity
             )
 
 

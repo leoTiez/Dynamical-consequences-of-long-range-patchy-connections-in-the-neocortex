@@ -1,7 +1,7 @@
 #!/usr/bin/python3
+import sys
 import os
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sb
 from pathlib import Path
@@ -11,7 +11,11 @@ from modules.thesisUtils import arg_parse_plts
 
 
 def get_parameters():
-    cmd_par = arg_parse_plts()
+    """
+    Function to get command line parameters and set the parameters used in this script accordingly
+    :return: Dictionary with parameters
+    """
+    cmd_par = arg_parse_plts(sys.argv[1:])
 
     parameter_dict = {
         "path": "experiments/error",
@@ -68,6 +72,14 @@ def get_parameters():
 
 
 def filter_dataframe(df, params, ignore_sampling=False):
+    """
+    Filter dataframe according to parameters
+    :param df: Dataframe
+    :param params: Parameters
+    :param ignore_sampling: When set to true, ignore the sampling rate if set as parameter. This is important when
+    information loss is plotted
+    :return: New filtered dataframe
+    """
     new_df = df.copy()
     save_string = params["x"] + "_" + params["y"]
     if params["network"] is not None:
@@ -130,6 +142,12 @@ def create_li_df(df):
 
 
 def violin_plot(df, params):
+    """
+    Plot violin plot
+    :param df: Dataframe
+    :param params: Parameters
+    :return: None
+    """
     new_df, save_string = filter_dataframe(df, params)
     new_df.sort_values(params["x"], inplace=True)
     figure = plt.gcf()
@@ -171,6 +189,12 @@ def violin_plot(df, params):
 
 
 def information_loss_plot(df, params):
+    """
+    Plot information loss as boxen plot
+    :param df: Dataframe
+    :param params: Parameters
+    :return: None
+    """
     new_df, save_string = filter_dataframe(df, params, ignore_sampling=True)
     df_li = create_li_df(new_df)
     df_li.sort_values("li_type", inplace=True)
@@ -211,3 +235,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
