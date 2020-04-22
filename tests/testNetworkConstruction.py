@@ -1084,6 +1084,47 @@ class NetworkConstructionTest(unittest.TestCase):
                         "Intercept was not set properly for tuning class 1")
         self.assertEqual(adj_mat[:, 2:].sum(), 0.0, "Wrong values were set in the Transformation matrix")
 
+    def test_get_local_connectivity(self):
+        r_loc = 0.5
+        p_loc = 1.
+        layer_size = 1
+        exp = 0.7853981633974483
+        local_conn, _ = nc.get_local_connectivity(r_loc=r_loc, p_loc=p_loc, layer_size=layer_size)
+
+        self.assertAlmostEqual(local_conn, exp, msg="Local connectivity was not computed properly")
+
+    def test_get_lr_connection_probability_patches(self):
+        r_loc = 0.5
+        p_loc = 1.
+        r_p = 0.2
+        num_patches = 3
+        layer_size = 1.
+        exp = 0.0
+
+        lr_conn = nc.get_lr_connection_probability_patches(
+            r_loc=r_loc,
+            p_loc=p_loc,
+            r_p=r_p,
+            num_patches=num_patches,
+            layer_size=layer_size
+        )
+
+        self.assertAlmostEqual(lr_conn, exp, msg="Patchy connectivity was not computed properly")
+
+    def test_get_lr_connection_probability_np(self):
+        r_loc = 0.3
+        p_loc = .8
+        layer_size = 1.
+        exp = 0.0
+
+        lr_conn = nc.get_lr_connection_probability_np(
+            r_loc=r_loc,
+            p_loc=p_loc,
+            layer_size=layer_size
+        )
+
+        self.assertAlmostEqual(lr_conn, exp, msg="Patchy connectivity was not computed properly")
+
 
 if __name__ == '__main__':
     unittest.main()
