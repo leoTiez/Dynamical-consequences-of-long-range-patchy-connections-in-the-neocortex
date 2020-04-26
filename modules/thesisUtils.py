@@ -33,7 +33,7 @@ def arg_parse_plts(args):
     parser.add_argument("--sampling", type=str, help="Filters for parameter")
     parser.add_argument("--parameter", type=str, help="Filters for experiment parameter")
     parser.add_argument("--measure", type=str, help="Filters for measurement")
-    parser.add_argument("--name", type=str, help="Name of the plot")
+    parser.add_argument("--title", type=str, help="Name of the plot")
 
     parsed_args = parser.parse_args(args)
 
