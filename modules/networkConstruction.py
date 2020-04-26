@@ -1430,8 +1430,9 @@ def create_connections_rf(
         save_plot=False,
         save_prefix="",
         non_changing_connections=False,
-        plot_point=10,
-        retina_size=(100, 100)
+        plot_point=9,
+        retina_size=(100, 100),
+        color_mask=None
 ):
     """
     Create receptive fields for sensory neurons and establishes connections
@@ -1544,7 +1545,17 @@ def create_connections_rf(
             if plot_src_target:
                 fig, ax = plt.subplots(1, 2, sharex='none', sharey='none', figsize=(10, 5))
                 ax[0].axis((0, retina_size[1], 0, retina_size[0]))
-
+                if color_mask is not None:
+                    ax[0].imshow(image, cmap="gray")
+                    ax[1].imshow(
+                        color_mask,
+                        origin=(color_mask.shape[0] // 2, color_mask.shape[1] // 2),
+                        extent=(
+                            -target_layer_size / 2., target_layer_size / 2.,
+                            -target_layer_size / 2., target_layer_size / 2.),
+                        cmap=custom_cmap(color_mask.max() + 1),
+                        alpha=0.4
+                    )
                 color_list = list(mcolors.TABLEAU_COLORS.items())
                 target_positions = tp.GetPosition(target_node_ids[: counter + 1].tolist())
                 for num, (rf, (x, y)) in enumerate(list(zip(rf_list, target_positions))):
