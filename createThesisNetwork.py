@@ -350,7 +350,8 @@ class NeuronalNetworkBase:
             plot_src_target=self.plot_rf_relation,
             retina_size=self.input_stimulus.shape,
             save_plot=self.save_plots,
-            save_prefix=self.save_prefix
+            save_prefix=self.save_prefix,
+            color_mask=self.color_map
         )
 
     def set_same_input_current(self):
