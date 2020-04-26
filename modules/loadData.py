@@ -3,8 +3,17 @@ import os
 import numpy as np
 import pandas as pd
 
-from createThesisNetwork import NETWORK_TYPE
 from modules.networkConstruction import TUNING_FUNCTION
+
+NETWORK_TYPE_NAMING = {
+    "random": "Random",
+    "local_circ": "Loc Circular",
+    "local_sd": "Loc Tuning Dependent",
+    "local_circ_patchy_sd": "Loc Circular\nTuning Dependent Patches",
+    "local_circ_patchy_random": "Loc Circular\nRandom Patches",
+    "local_sd_patchy_sd": "Loc Tuning Dependent\nTuning Dependent Patches",
+    "input_only": "Only Input"
+}
 
 
 def check_network(file_name):
@@ -13,9 +22,9 @@ def check_network(file_name):
     :param file_name: Name of the file
     :return: Network type
     """
-    for net in reversed(list(NETWORK_TYPE.keys())):
+    for net in reversed(list(NETWORK_TYPE_NAMING.keys())):
         if net in file_name:
-            return net
+            return net, NETWORK_TYPE_NAMING[net]
 
 
 def check_stimulus(file_name, network):
@@ -107,7 +116,7 @@ def read_files(path, add_cwd=True):
     data_dict = []
     file_names = sorted(os.listdir(path=path))
     for fn in file_names:
-        network = check_network(fn)
+        network, network_name = check_network(fn)
         stimulus = check_stimulus(fn, network)
         sampling_rate = check_sampling_rate(fn)
         measure = check_measure_type(fn)
@@ -116,7 +125,7 @@ def read_files(path, add_cwd=True):
         file = open(path + "/" + fn, "r")
         value = float(file.read())
         file.close()
-        data_dict.append([network, stimulus, experiment_type, sampling_rate, experiment_parameter, measure, value])
+        data_dict.append([network_name, stimulus, experiment_type, sampling_rate, experiment_parameter, measure, value])
 
     df = pd.DataFrame(data_dict)
     df.rename(columns={
