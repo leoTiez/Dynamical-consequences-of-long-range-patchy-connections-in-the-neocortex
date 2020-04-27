@@ -58,7 +58,7 @@ def main_eigenvalue_spec(
         sens_weight_mat,
         plot=True,
         save_plot=save_plot,
-        fig_name="%s_network_connections.png" % NETWORK_TYPE.keys()[network_type]
+        fig_name="%s_network_connections.png" % list(NETWORK_TYPE.keys())[network_type]
     )
 
 
