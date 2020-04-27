@@ -19,6 +19,7 @@ nest.set_verbosity("M_ERROR")
 def main_eigenvalue_spec(
         network_type=NETWORK_TYPE["local_circ_patchy_sd"],
         num_neurons=int(1e4),
+        patches=3,
         save_plot=False,
         verbosity=VERBOSITY
 ):
@@ -26,6 +27,7 @@ def main_eigenvalue_spec(
     The main function to compute eigenvalue spectrum
     :param network_type: The network type. This must be an integer number defined in the NETWORK_TYPE dictionary
     :param num_neurons: Number of sensory neurons
+    :param patches: Number of patches per neuron
     :param save_plot: If set to True the plot is saved. If False the plot is displayed
     :param verbosity: Verbosity flag
     :return: None
@@ -45,6 +47,7 @@ def main_eigenvalue_spec(
     network = network_factory(
         input_stimulus,
         network_type=network_type,
+        num_patches=patches,
         num_sensory=num_neurons,
         verbosity=verbosity
     )
@@ -67,6 +70,7 @@ def main():
     num_neurons = int(1e4)
     save_plot=True
     networks = NETWORK_TYPE.keys()
+    patches = 3
 
     # #################################################################################################################
     # Parse command line arguments
@@ -94,6 +98,9 @@ def main():
     if cmd_params.num_neurons is not None:
         num_neurons = cmd_params.num_neurons
 
+    if cmd_params.patches is not None:
+        patches = cmd_params.patches
+
     # #################################################################################################################
     # Run the eigenvalue spectra analysis
     # #################################################################################################################
@@ -101,6 +108,7 @@ def main():
         main_eigenvalue_spec(
             network_type=NETWORK_TYPE[network_type],
             num_neurons=num_neurons,
+            patches=patches,
             save_plot=save_plot,
             verbosity=verbosity
         )
