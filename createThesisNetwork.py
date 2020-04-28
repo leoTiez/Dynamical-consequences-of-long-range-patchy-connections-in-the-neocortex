@@ -400,8 +400,8 @@ class NeuronalNetworkBase:
 
         if use_equilibrium:
             time_s = np.asarray(time_s)
-            spikes_s = np.asarray(spikes_s)[time_s > eq_time].tolist()
-            time_s = time_s[time_s > eq_time].tolist()
+            spikes_s = np.asarray(spikes_s)[time_s > eq_time]
+            time_s = time_s[time_s > eq_time]
 
         firing_rates = get_firing_rates(spikes_s, self.torus_layer_nodes, simulation_time)
         return firing_rates, (spikes_s, time_s)
