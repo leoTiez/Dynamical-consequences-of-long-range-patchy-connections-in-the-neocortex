@@ -1619,6 +1619,5 @@ def create_connections_rf(
                 plt.savefig(curr_dir + "/figures/rf/%s_tuning_function.png" % save_prefix)
                 plt.close()
 
-
     return adj_mat, recons
 
