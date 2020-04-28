@@ -399,15 +399,14 @@ class NeuronalNetworkBase:
         nest.Simulate(float(simulation_time))
         # Get network response in spikes
         data_sp = nest.GetStatus(self.spike_detect, keys="events")[0]
-        spikes_s = data_sp["senders"]
-        time_s = data_sp["times"]
+        spikes_s = np.asarray(data_sp["senders"])
+        time_s = np.asarray(data_sp["times"])
 
-        if use_equilibrium:
-            time_s = np.asarray(time_s)
-            spikes_s = np.asarray(spikes_s)[time_s > eq_time]
-            time_s = time_s[time_s > eq_time]
-
-        firing_rates = get_firing_rates(spikes_s, self.torus_layer_nodes, simulation_time)
+        firing_rates = get_firing_rates(
+            spikes_s if not use_equilibrium else spikes_s[time_s > eq_time],
+            self.torus_layer_nodes,
+            simulation_time
+        )
         return firing_rates, (spikes_s, time_s)
 
     # #################################################################################################################
