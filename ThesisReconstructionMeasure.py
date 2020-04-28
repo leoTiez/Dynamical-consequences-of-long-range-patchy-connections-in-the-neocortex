@@ -86,6 +86,7 @@ def main_lr(
     # Define values
     # #################################################################################################################
     simulation_time = 1000.
+    eq_time = 600.
     num_neurons = num_neurons
     cap_s = 1. * weight_factor[0]
     inh_weight = -15. * weight_factor[0] ** weight_factor[0]
@@ -146,7 +147,11 @@ def main_lr(
     # #################################################################################################################
     # Simulate
     # #################################################################################################################
-    firing_rates, (spikes_s, time_s) = network.simulate(simulation_time, use_equilibrium=use_equilibrium)
+    firing_rates, (spikes_s, time_s) = network.simulate(
+        simulation_time,
+        use_equilibrium=use_equilibrium,
+        eq_time=eq_time
+    )
     if write_to_file:
         curr_dir = os.getcwd()
         Path(curr_dir + "/firing_rates_files/").mkdir(exist_ok=True, parents=True)
@@ -184,6 +189,9 @@ def main_lr(
         for s in sorted_spikes:
             new_idx_spikes.append(firing_rate_sorting(new_idx_spikes, sorted_spikes, new_idx_neurons, s))
         plt.scatter(sorted_time, new_idx_spikes, s=1, c=list(sorted_c))
+        if use_equilibrium:
+            plt.axvline(x=eq_time, c="red")
+
         if not save_plots:
             plt.show()
         else:
