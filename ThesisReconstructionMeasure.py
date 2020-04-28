@@ -126,7 +126,8 @@ def main_lr(
         use_dc=use_dc,
         save_prefix=save_prefix,
         save_plots=save_plots,
-        verbosity=verbosity
+        verbosity=verbosity,
+        to_file=write_to_file
     )
     network.create_network()
 
@@ -179,7 +180,7 @@ def main_lr(
         new_idx_neurons = {}
         for s in sorted_spikes:
             new_idx_spikes.append(firing_rate_sorting(new_idx_spikes, sorted_spikes, new_idx_neurons, s))
-        plt.scatter(sorted_time, new_idx_spikes, c=list(sorted_c), marker='.')
+        plt.scatter(sorted_time, new_idx_spikes, c=list(sorted_c), marker=',')
         if not save_plots:
             plt.show()
         else:
