@@ -211,7 +211,8 @@ def create_torus_layer_uniform(
         threshold_pot=1e3,
         time_const=20.,
         capacitance=1e12,
-        size_layer=R_MAX
+        size_layer=R_MAX,
+        to_file=False
 ):
     """
     Create a layer wrapped a torus to avoid boundary conditions. Neurons are placed uniformly
@@ -222,6 +223,7 @@ def create_torus_layer_uniform(
     :param time_const: Time constant of the neurons
     :param capacitance: Capacitance of the neurons
     :param size_layer: Size of the layer
+    :param to_file: If set to true, the spikes are written to a file
     :return: neural layer, spike detector and mutlimeter
     """
     # Calculate positions
@@ -251,7 +253,12 @@ def create_torus_layer_uniform(
     torus_layer = tp.CreateLayer(torus_dict)
     sensory_nodes = nest.GetNodes(torus_layer)[0]
     nest.SetStatus(sensory_nodes, neuron_dict)
-    spikedetector = nest.Create("spike_detector", params={"withgid": True, "withtime": True})
+    spikedetector = nest.Create("spike_detector", params={
+        "withgid": True,
+        "withtime": True,
+        "to_file": to_file,
+        "label": "spike_detector"
+    })
     multimeter = nest.Create("multimeter", params={"withtime": True, "record_from": ["V_m"]})
     nest.Connect(sensory_nodes, spikedetector)
     nest.Connect(multimeter, sensory_nodes)

@@ -51,6 +51,7 @@ class NeuronalNetworkBase:
             use_input_neurons=False,
             use_dc=True,
             verbosity=0,
+            to_file=False,
             save_plots=False,
             save_prefix='',
             **kwargs
@@ -84,6 +85,7 @@ class NeuronalNetworkBase:
         :param use_dc: Flag to determine whether to use a DC as injected current. If set to False a Poisson spike
         generator is used
         :param verbosity: Verbosity flag handles amount of output and created plot
+        :param to_file: If set to true, the spikes are written to a file
         :param save_plots: Flag determines whether plots are saved or shown
         :param save_prefix: A saving prefix that can be used before every image to distinguish between different
         :param kwargs: Key work arguments that are not necessary
@@ -123,6 +125,7 @@ class NeuronalNetworkBase:
         self.use_dc = use_dc
 
         self.verbosity = verbosity
+        self.to_file = to_file
         self.save_plots = save_plots
         self.save_prefix = save_prefix
 
@@ -179,7 +182,8 @@ class NeuronalNetworkBase:
             capacitance=self.capacitance,
             rest_pot=self.pot_reset,
             time_const=self.time_constant,
-            size_layer=self.layer_size
+            size_layer=self.layer_size,
+            to_file=self.to_file
         )
         self.torus_layer_nodes = nest.GetNodes(self.torus_layer, properties={"element_type": "neuron"})[0]
         self.torus_layer_positions = tp.GetPosition(self.torus_layer_nodes)
@@ -513,6 +517,13 @@ class NeuronalNetworkBase:
         """
         # Reset Nest Kernel
         nest.ResetKernel()
+        curr_dir = os.getcwd()
+        Path("%s/network_files/" % curr_dir).mkdir(parents=True, exist_ok=True)
+        nest.SetKernelStatus({
+            "overwrite_files": True,
+            "data_path": "%s/network_files/" % curr_dir,
+            "data_prefix": self.save_prefix
+        })
         self.create_layer()
         self.create_orientation_map()
         if not self.all_same_input_current:
