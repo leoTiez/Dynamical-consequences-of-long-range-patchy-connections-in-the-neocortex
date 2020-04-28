@@ -130,7 +130,7 @@ def main_lr(
     )
     network.create_network()
 
-    if verbosity > 3:
+    if verbosity > 4:
         print("\n#####################\tPlot in/out degree distribution")
         network.connect_distribution("connect_distribution.png")
 
