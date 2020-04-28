@@ -405,7 +405,7 @@ class NeuronalNetworkBase:
         firing_rates = get_firing_rates(
             spikes_s if not use_equilibrium else spikes_s[time_s > eq_time],
             self.torus_layer_nodes,
-            simulation_time
+            simulation_time if not use_equilibrium else simulation_time - eq_time
         )
         return firing_rates, (spikes_s, time_s)
 
