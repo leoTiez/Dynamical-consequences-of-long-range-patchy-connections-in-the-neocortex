@@ -183,7 +183,7 @@ def main_lr(
         new_idx_neurons = {}
         for s in sorted_spikes:
             new_idx_spikes.append(firing_rate_sorting(new_idx_spikes, sorted_spikes, new_idx_neurons, s))
-        plt.scatter(sorted_time, new_idx_spikes, c=list(sorted_c), marker=',')
+        plt.scatter(sorted_time, new_idx_spikes, s=1, c=list(sorted_c))
         if not save_plots:
             plt.show()
         else:
