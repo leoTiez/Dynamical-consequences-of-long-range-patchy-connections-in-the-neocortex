@@ -51,6 +51,7 @@ class NeuronalNetworkBase:
             use_input_neurons=False,
             use_dc=True,
             verbosity=0,
+            to_file=False,
             save_plots=False,
             save_prefix='',
             **kwargs
@@ -84,6 +85,7 @@ class NeuronalNetworkBase:
         :param use_dc: Flag to determine whether to use a DC as injected current. If set to False a Poisson spike
         generator is used
         :param verbosity: Verbosity flag handles amount of output and created plot
+        :param to_file: If set to true, the spikes are written to a file
         :param save_plots: Flag determines whether plots are saved or shown
         :param save_prefix: A saving prefix that can be used before every image to distinguish between different
         :param kwargs: Key work arguments that are not necessary
@@ -123,6 +125,7 @@ class NeuronalNetworkBase:
         self.use_dc = use_dc
 
         self.verbosity = verbosity
+        self.to_file = to_file
         self.save_plots = save_plots
         self.save_prefix = save_prefix
 
@@ -179,7 +182,8 @@ class NeuronalNetworkBase:
             capacitance=self.capacitance,
             rest_pot=self.pot_reset,
             time_const=self.time_constant,
-            size_layer=self.layer_size
+            size_layer=self.layer_size,
+            to_file=self.to_file
         )
         self.torus_layer_nodes = nest.GetNodes(self.torus_layer, properties={"element_type": "neuron"})[0]
         self.torus_layer_positions = tp.GetPosition(self.torus_layer_nodes)
@@ -350,7 +354,8 @@ class NeuronalNetworkBase:
             plot_src_target=self.plot_rf_relation,
             retina_size=self.input_stimulus.shape,
             save_plot=self.save_plots,
-            save_prefix=self.save_prefix
+            save_prefix=self.save_prefix,
+            color_mask=self.color_map
         )
 
     def set_same_input_current(self):
@@ -376,10 +381,13 @@ class NeuronalNetworkBase:
     # Simulate
     # #################################################################################################################
 
-    def simulate(self, simulation_time=250.):
+    def simulate(self, simulation_time=250., use_equilibrium=False, eq_time=600.):
         """
         Simulate the network
         :param simulation_time: The simulation time in milliseconds
+        :param use_equilibrium: If set to true, only the last eq_time ms are used to compute the average firing rate, ie
+        when the network is expected to approach equilibrium
+        :param eq_time: The time after which the network is assumed to reach equilibrium
         :return: The firing rates, (node IDs of the spiking neurons, the respective spike times)
         """
         if self.verbosity > 0:
@@ -393,6 +401,11 @@ class NeuronalNetworkBase:
         data_sp = nest.GetStatus(self.spike_detect, keys="events")[0]
         spikes_s = data_sp["senders"]
         time_s = data_sp["times"]
+
+        if use_equilibrium:
+            time_s = np.asarray(time_s)
+            spikes_s = np.asarray(spikes_s)[time_s > eq_time]
+            time_s = time_s[time_s > eq_time]
 
         firing_rates = get_firing_rates(spikes_s, self.torus_layer_nodes, simulation_time)
         return firing_rates, (spikes_s, time_s)
@@ -512,6 +525,13 @@ class NeuronalNetworkBase:
         """
         # Reset Nest Kernel
         nest.ResetKernel()
+        curr_dir = os.getcwd()
+        Path("%s/network_files/" % curr_dir).mkdir(parents=True, exist_ok=True)
+        nest.SetKernelStatus({
+            "overwrite_files": True,
+            "data_path": "%s/network_files/" % curr_dir,
+            "data_prefix": self.save_prefix
+        })
         self.create_layer()
         self.create_orientation_map()
         if not self.all_same_input_current:

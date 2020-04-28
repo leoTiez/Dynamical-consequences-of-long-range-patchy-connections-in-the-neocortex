@@ -65,8 +65,8 @@ def get_parameters():
     if cmd_par.measure is not None:
         parameter_dict["measure"] = cmd_par.measure.lower()
 
-    if cmd_par.name is not None:
-        parameter_dict["name"] = cmd_par.name.lower()
+    if cmd_par.title is not None:
+        parameter_dict["name"] = cmd_par.title
 
     return parameter_dict
 
@@ -149,7 +149,6 @@ def violin_plot(df, params):
     :return: None
     """
     new_df, save_string = filter_dataframe(df, params)
-    new_df.sort_values(params["x"], inplace=True)
     figure = plt.gcf()
     figure.set_size_inches((15, 8))
     ax = figure.add_subplot(1, 2 if len(new_df[new_df.value > 1]) > 0 else 1, 1)
@@ -160,6 +159,8 @@ def violin_plot(df, params):
         data=new_df[new_df.value <= 1].sort_values(params["group"]),
         inner="quartile",
         palette="muted",
+        order=sorted(new_df[params["x"]].drop_duplicates().tolist()),
+        bw=0.3,
         ax=ax
     )
     ax.set_ylim(0., 1.)
@@ -173,6 +174,8 @@ def violin_plot(df, params):
             data=new_df[new_df.value > 1].sort_values(params["group"]),
             inner="quartile",
             palette="muted",
+            order=sorted(new_df[params["x"]].drop_duplicates().tolist()),
+            bw=0.3,
             ax=ax_2
         )
         ax_2.set_title("Error distribution for Error values > 1")
@@ -203,6 +206,7 @@ def information_loss_plot(df, params):
         x="li_type",
         y="li",
         hue=params["x"],
+        hue_order=sorted(new_df[params["x"]].drop_duplicates().tolist()),
         data=df_li,
         dodge=True,
     )

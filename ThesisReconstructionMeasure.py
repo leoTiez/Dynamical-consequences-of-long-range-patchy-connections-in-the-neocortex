@@ -38,6 +38,7 @@ def main_lr(
         weight_factor=(1., 1.),
         img_prop=1.,
         spatial_sampling=False,
+        use_equilibrium=False,
         write_to_file=False,
         save_plots=True,
         save_prefix='',
@@ -57,6 +58,8 @@ def main_lr(
     :param weight_factor: Tuple representing the multiplier for the recurrent weights (first index) and the ff weights (second index)
     :param img_prop: Proportion of the image information that is used
     :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
+    :param use_equilibrium: If set to true, only the last 400ms of the simulation are used, ie when the network is
+    expected to approach equilibrium
     :param write_to_file: If set to true the firing rate is written to an file
     :param save_plots: If set to true, plots are saved instead of being displayed
     :param save_prefix: Naming prefix that can be set before a file to mark a trial or an experiment
@@ -126,11 +129,12 @@ def main_lr(
         use_dc=use_dc,
         save_prefix=save_prefix,
         save_plots=save_plots,
-        verbosity=verbosity
+        verbosity=verbosity,
+        to_file=write_to_file
     )
     network.create_network()
 
-    if verbosity > 3:
+    if verbosity > 4:
         print("\n#####################\tPlot in/out degree distribution")
         network.connect_distribution("connect_distribution.png")
 
@@ -142,7 +146,7 @@ def main_lr(
     # #################################################################################################################
     # Simulate
     # #################################################################################################################
-    firing_rates, (spikes_s, time_s) = network.simulate(simulation_time)
+    firing_rates, (spikes_s, time_s) = network.simulate(simulation_time, use_equilibrium=use_equilibrium)
     if write_to_file:
         curr_dir = os.getcwd()
         Path(curr_dir + "/firing_rates_files/").mkdir(exist_ok=True, parents=True)
@@ -179,7 +183,7 @@ def main_lr(
         new_idx_neurons = {}
         for s in sorted_spikes:
             new_idx_spikes.append(firing_rate_sorting(new_idx_spikes, sorted_spikes, new_idx_neurons, s))
-        plt.scatter(sorted_time, new_idx_spikes, c=list(sorted_c), marker='.')
+        plt.scatter(sorted_time, new_idx_spikes, c=list(sorted_c), marker=',')
         if not save_plots:
             plt.show()
         else:
@@ -279,6 +283,7 @@ def experiment(
         weight_factor=(1., 1.),
         img_prop=1.,
         spatial_sampling=False,
+        use_equilibrium=False,
         save_plots=True,
         num_trials=10,
         verbosity=VERBOSITY
@@ -299,6 +304,8 @@ def experiment(
     (second index)
     :param img_prop: Defines the sparse sampling, i.e. the number of neurons that receive feedforward input.
     :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
+    :param use_equilibrium: If set to true, only the last 400ms of the simulation is used, ie when the network
+    is expected to approach equilibrium
     :param save_plots: If set to true, plots are saved instead of being displayed
     :param num_trials: The number of trials that are conducted
     :param verbosity: Set the verbosity flag
@@ -369,6 +376,7 @@ def experiment(
                 weight_factor=p if weight_factor is None else weight_factor,
                 img_prop=img_prop,
                 spatial_sampling=spatial_sampling,
+                use_equilibrium=use_equilibrium,
                 write_to_file=True,
                 save_plots=save_plots,
                 save_prefix=save_prefix,
@@ -460,6 +468,7 @@ def main():
     img_prop = 1.
     spatial_sampling = False
     save_plots = True
+    use_equilibrium = False
     verbosity = VERBOSITY
 
     # ################################################################################################################
@@ -550,15 +559,20 @@ def main():
     if cmd_params.verbosity is not None:
         verbosity = cmd_params.verbosity
 
+    if cmd_params.equilibrium:
+        use_equilibrium = True
+
     print("Start experiments for network %s given the input %s."
           " The parameter %s is changed."
-          " The number of trials is %s"
+          " The number of trials is %s."
+          " For the reconstruction methods, the equilibrium state of the network is%s used"
           " and sampling rate is %s with%s spatial correlation"
           % (
               cmd_params.network,
               cmd_params.input,
               cmd_params.parameter,
               num_trials,
+              "" if use_equilibrium else " not",
               img_prop,
               "" if spatial_sampling else "out"
           ))
@@ -577,9 +591,10 @@ def main():
         weight_factor=weight_factor,
         img_prop=img_prop,
         spatial_sampling=spatial_sampling,
+        use_equilibrium=use_equilibrium,
         save_plots=save_plots,
         num_trials=num_trials,
-        verbosity = verbosity
+        verbosity=verbosity
     )
 
 
