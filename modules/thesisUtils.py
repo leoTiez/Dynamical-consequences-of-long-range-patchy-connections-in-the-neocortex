@@ -57,11 +57,13 @@ def arg_parse(args):
     parser.add_argument("--tuning", type=str, help="Defines the tuning function")
     parser.add_argument("--cluster", type=int, help="Defines the cluster size")
     parser.add_argument("--patches", type=int, help="Defines the number of patches")
+    parser.add_argument("--sum", dest="sum", action="store_true", help="Computes the sum of the input weights. "
+                                                                       "Only used for ThesisEigenvalueSpec script")
     parser.add_argument("--num_trials", type=int, help="Sets the number of trials")
-    parser.add_argument("--ff_weight", type=float, help="Sets the weight factor that is multiplied to the"
-                                                            "default value of the feedforward weights")
-    parser.add_argument("--rec_weight", type=float, help="Sets the weight factor that is multiplied to the"
-                                                        "default value of the recurrent weights")
+    parser.add_argument("--ff_weight", type=float, help="Sets the weight factor that is multiplied to the "
+                                                        "default value of the feedforward weights")
+    parser.add_argument("--rec_weight", type=float, help="Sets the weight factor that is multiplied to the "
+                                                         "default value of the recurrent weights")
     parser.add_argument("--img_prop", type=str, help="Sets the sampling rate. Value between 0 and 1")
     parser.add_argument("--spatial_sampling",
                         dest="spatial_sampling",
