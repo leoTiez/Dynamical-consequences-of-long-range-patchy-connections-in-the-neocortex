@@ -70,6 +70,9 @@ def arg_parse(args):
                         action="store_true",
                         help="If the flag is set, the neurons that receive ff input are chosen with a "
                              "spatial correlation")
+    parser.add_argument("--equilibrium", dest="equilibrium", action="store_true", help="If set only the last 400ms are "
+                                                                                       "used for the reconstruction")
+
     parsed_args = parser.parse_args(args)
 
     return parsed_args

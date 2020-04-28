@@ -381,10 +381,13 @@ class NeuronalNetworkBase:
     # Simulate
     # #################################################################################################################
 
-    def simulate(self, simulation_time=250.):
+    def simulate(self, simulation_time=250., use_equilibrium=False, eq_time=600.):
         """
         Simulate the network
         :param simulation_time: The simulation time in milliseconds
+        :param use_equilibrium: If set to true, only the last eq_time ms are used to compute the average firing rate, ie
+        when the network is expected to approach equilibrium
+        :param eq_time: The time after which the network is assumed to reach equilibrium
         :return: The firing rates, (node IDs of the spiking neurons, the respective spike times)
         """
         if self.verbosity > 0:
@@ -398,6 +401,11 @@ class NeuronalNetworkBase:
         data_sp = nest.GetStatus(self.spike_detect, keys="events")[0]
         spikes_s = data_sp["senders"]
         time_s = data_sp["times"]
+
+        if use_equilibrium:
+            time_s = np.asarray(time_s)
+            spikes_s = np.asarray(spikes_s)[time_s > eq_time]
+            time_s = time_s[time_s > eq_time]
 
         firing_rates = get_firing_rates(spikes_s, self.torus_layer_nodes, simulation_time)
         return firing_rates, (spikes_s, time_s)
