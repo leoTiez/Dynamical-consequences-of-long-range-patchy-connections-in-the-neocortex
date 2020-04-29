@@ -31,10 +31,12 @@ class NeuronalNetworkBase:
             num_sensory=int(1e4),
             ratio_inh_neurons=5,
             num_stim_discr=4,
+            ff_factor=1.,
             ff_weight=1.,
             cap_s=1.,
-            inh_weight=-15.,
-            p_rf=0.3,
+            inh_weight=-5.,
+            p_rf=0.7,
+            mean_in_out_deg=45.,
             rf_size=None,
             tuning_function=TUNING_FUNCTION["step"],
             all_same_input_current=False,
@@ -63,6 +65,7 @@ class NeuronalNetworkBase:
         :param ratio_inh_neurons: Every ratio_inh_neurons-th neuron is inhibitory,
         meaning that the ration is 1/ratio_inh_neurons
         :param num_stim_discr: The number of discriminated stimulus classes
+
         :param cap_s: Excitatory weight
         :param inh_weight: Inhibitory weight
         :param p_rf: Connection probability of the receptive field
@@ -96,12 +99,14 @@ class NeuronalNetworkBase:
         self.num_sensory = int(num_sensory)
         self.ratio_inh_neurons = ratio_inh_neurons
         self.num_stim_discr = num_stim_discr
-        self.ff_weight = ff_weight
-        self.cap_s = cap_s
-        self.inh_weight = inh_weight
+        self.ff_factor = float(ff_factor)
+        self.ff_weight = ff_weight * self.ff_factor
+        self.cap_s = cap_s / self.ff_factor
+        self.inh_weight = inh_weight / self.ff_factor
         self.p_rf = p_rf
-        self.rf_size = rf_size
+        self.mean_in_out_deg = mean_in_out_deg
 
+        self.rf_size = rf_size
         if self.rf_size is None:
             self.rf_size = (input_stimulus.shape[0] // 4, input_stimulus.shape[1] // 4)
 
@@ -134,6 +139,7 @@ class NeuronalNetworkBase:
 
         self.torus_layer = None
         self.spike_detect = None
+        self.multi_meter = None
         self.torus_layer_tree = None
         self.torus_layer_nodes = None
         self.torus_inh_nodes = None
@@ -176,7 +182,7 @@ class NeuronalNetworkBase:
                              " Set it larger than 0. Current value is %s" % self.layer_size)
 
         # Create the layer
-        self.torus_layer, self.spike_detect, _ = create_torus_layer_uniform(
+        self.torus_layer, self.spike_detect, self.multi_meter = create_torus_layer_uniform(
             self.num_sensory,
             threshold_pot=self.pot_threshold,
             capacitance=self.capacitance,
@@ -346,6 +352,7 @@ class NeuronalNetworkBase:
             total_num_target=int(self.num_sensory),
             synaptic_strength=self.ff_weight,
             tuning_function=self.tuning_function,
+            ff_factor=self.ff_factor,
             p_rf=self.p_rf,
             rf_size=self.rf_size,
             target_layer_size=self.layer_size,
@@ -396,14 +403,18 @@ class NeuronalNetworkBase:
         # Check ups
         if self.spike_detect is None:
             raise ValueError("The spike detector must not be None. Run create_layer")
+
         nest.Simulate(float(simulation_time))
+
         # Get network response in spikes
         data_sp = nest.GetStatus(self.spike_detect, keys="events")[0]
         spikes_s = np.asarray(data_sp["senders"])
         time_s = np.asarray(data_sp["times"])
+        global_time = nest.GetKernelStatus("time")
 
         firing_rates = get_firing_rates(
-            spikes_s if not use_equilibrium else spikes_s[time_s > eq_time],
+            spikes_s[time_s > global_time - simulation_time] if not use_equilibrium
+            else spikes_s[time_s > global_time - simulation_time + eq_time],
             self.torus_layer_nodes,
             simulation_time if not use_equilibrium else simulation_time - eq_time
         )
@@ -531,6 +542,7 @@ class NeuronalNetworkBase:
             "data_path": "%s/network_files/" % curr_dir,
             "data_prefix": self.save_prefix
         })
+
         self.create_layer()
         self.create_orientation_map()
         if not self.all_same_input_current:
@@ -543,9 +555,9 @@ class RandomNetwork(NeuronalNetworkBase):
     def __init__(
             self,
             input_stimulus,
-            p_random=0.005,
             num_sensory=int(1e4),
             layer_size=8.,
+            r_loc=0.5,
             verbosity=0,
             **kwargs
     ):
@@ -574,8 +586,12 @@ class RandomNetwork(NeuronalNetworkBase):
             verbosity=verbosity,
             **kwargs
         )
-
-        self.p_random = p_random
+        # Set probability to a value such that it becomes comparable to clustered networks
+        # Calculation is taken from Voges et al.
+        self.p_random = (1.4 - self.img_prop) * np.minimum(
+            self.mean_in_out_deg / float(self.num_sensory),
+            np.pi * r_loc**2 / self.layer_size**2
+        )
         self.plot_random_connections = False if verbosity < 4 else True
 
     def create_random_connections(self):
@@ -630,8 +646,8 @@ class LocalNetwork(NeuronalNetworkBase):
     def __init__(
             self,
             input_stimulus,
-            p_loc=0.5,
             r_loc=0.5,
+            c_loc=1.,
             loc_connection_type="circular",
             verbosity=0,
             **kwargs
@@ -639,7 +655,7 @@ class LocalNetwork(NeuronalNetworkBase):
         """
         Class that establishes local connections with locally clustered tuning specfic neurons
         :param input_stimulus: The input stimulus
-        :param p_loc: Connection probability to connect to another neuron within the local radius
+        :param c_loc: Connection probability to connect to another neuron within the local radius
         :param r_loc: Radius within which a local connection is established
         :param loc_connection_type: Connection policy for local connections. This can be any value in the
         ACCEPTED_LOC_CONN list. Circ are circular connections, whereas sd are stimulus dependent connections
@@ -654,8 +670,14 @@ class LocalNetwork(NeuronalNetworkBase):
             **kwargs
         )
 
-        self.p_loc = p_loc
         self.r_loc = r_loc
+        self.c_loc = c_loc
+        self.global_connect = (1.4 - self.img_prop) * np.minimum(
+            np.pi * self.r_loc**2 / float(self.layer_size**2),
+            self.mean_in_out_deg/float(self.num_sensory)
+        )
+        self.p_loc = self.global_connect * self.c_loc * self.layer_size**2 / (np.pi * self.r_loc**2)
+
         self.loc_connection_type = loc_connection_type.lower()
         if self.loc_connection_type not in LocalNetwork.ACCEPTED_LOC_CONN:
             raise ValueError("The passed connection type %s is not accepted." % self.loc_connection_type)
@@ -799,7 +821,8 @@ class PatchyNetwork(LocalNetwork):
     def __init__(
             self,
             input_stimulus,
-            p_lr=0.2,
+            c_lr=0.3,
+            c_loc=0.7,
             num_patches=3,
             lr_connection_type="sd",
             verbosity=0,
@@ -816,16 +839,23 @@ class PatchyNetwork(LocalNetwork):
         :param verbosity: Flag to determine the amount of output and created plots
         :param kwargs: The key value pairs that are passed to the parent class
         """
+        if c_loc + c_lr != 1.0:
+            raise ValueError("Local connectivity and long-range patchy connectivity ratio must sum up to 1")
+
         self.__dict__.update(kwargs)
         LocalNetwork.__init__(
             self,
             input_stimulus,
+            c_loc=c_loc,
             verbosity=verbosity,
             **kwargs
         )
 
-        self.p_lr = p_lr
+        self.c_lr = c_lr
         self.num_patches = num_patches
+        self.r_p = self.r_loc / 2.
+
+        self.p_lr = self.global_connect * self.c_lr * self.layer_size**2 / (self.num_patches * np.pi * self.r_p**2)
         self.lr_connection_type = lr_connection_type.lower()
         if self.lr_connection_type not in PatchyNetwork.ACCEPTED_LR_CONN:
             raise ValueError("%s is not an accepted long-range connection type" % self.lr_connection_type)
@@ -880,6 +910,8 @@ class PatchyNetwork(LocalNetwork):
                 self.torus_inh_nodes,
                 self.torus_layer_tree,
                 r_loc=self.r_loc,
+                r_p=self.r_p,
+                cap_s=self.cap_s,
                 connect_dict=patchy_connect_dict,
                 num_patches=self.num_patches,
                 plot=self.plot_patchy_connections,
@@ -897,6 +929,7 @@ class PatchyNetwork(LocalNetwork):
                 r_loc=self.r_loc,
                 p_loc=self.p_loc,
                 cap_s=self.cap_s,
+                r_p=self.r_p,
                 p_p=self.p_lr,
                 num_patches=self.num_patches,
                 plot=self.plot_patchy_connections,
@@ -989,14 +1022,18 @@ def network_factory(input_stimulus, network_type=NETWORK_TYPE["local_circ_patchy
             **kwargs
         )
     elif network_type == NETWORK_TYPE["local_circ"]:
+        kwargs.pop("c_loc", None)
         network = LocalNetwork(
             input_stimulus,
+            c_loc=1.,
             loc_connection_type="circular",
             **kwargs
         )
     elif network_type == NETWORK_TYPE["local_sd"]:
+        kwargs.pop("c_loc", None)
         network = LocalNetwork(
             input_stimulus,
+            c_loc=1.,
             loc_connection_type="sd",
             **kwargs
         )
