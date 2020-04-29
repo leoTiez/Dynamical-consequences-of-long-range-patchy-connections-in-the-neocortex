@@ -523,6 +523,7 @@ def create_random_patches(
         r_loc=0.5,
         p_loc=0.7,
         num_patches=3,
+        r_p=0.25,
         cap_s=1.,
         p_p=None,
         plot=True,
@@ -549,7 +550,8 @@ def create_random_patches(
     """
     # Calculate the parameters for the patches
     layer_size = nest.GetStatus(layer, "topology")[0]["extent"][0]
-    r_p = r_loc / 2.
+    if r_p is None:
+        r_p = r_loc / 2.
     min_distance = r_loc + r_p
     max_distance = layer_size / 2. - r_loc
     if p_p is None:
@@ -1432,7 +1434,7 @@ def create_connections_rf(
         target_layer_size=8.,
         calc_error=False,
         use_dc=True,
-        multiplier=1.,
+        ff_factor=1.,
         plot_src_target=False,
         save_plot=False,
         save_prefix="",
@@ -1458,7 +1460,7 @@ def create_connections_rf(
     :param calc_error: If set to true, the reconstruction error is calculated based in the injected input,
     the reconstruction method is applied and the results is saved or displayed
     :param use_dc: If set to True a DC is injected, otherwise a Poisson spike train
-    :param multiplier: Factor that is multiplied to the injected current
+    :param ff_factor: factor that scales the ff weight and hence must be the divisor for the rate
     :param plot_src_target: Flag for plotting
     :param save_plot: Flag for saving the plot. If plot_src_target is False this parameter is ignored
     :param save_prefix: Naming prefix for the saved plot. Is ignored if save_plot or plot is False
@@ -1541,10 +1543,10 @@ def create_connections_rf(
 
         amplitudes.append(amplitude.sum())
         if use_dc:
-            current_dict = {"amplitude": np.maximum(amplitude.sum() / max_scale, 0) * multiplier}
+            current_dict = {"amplitude": np.maximum(amplitude.sum() / max_scale, 0) / ff_factor}
         else:
-            rate = 1000. * amplitude.sum() / max_scale
-            current_dict = {"rate": np.maximum(rate, 0) * multiplier}
+            rate = (1000. / ff_factor) * amplitude.sum() / max_scale
+            current_dict = {"rate": np.maximum(rate, 0)}
 
         _set_input_current(target_node, current_dict, synaptic_strength, use_dc=use_dc)
 
