@@ -61,7 +61,7 @@ def main_eigenvalue_spec(
         ff_sum = network.ff_weight_mat.sum(axis=0)[:-1]
         print("\n#####################\t Mean input weight of recurrent weight matrix for %s: %s"
               % (list(NETWORK_TYPE.keys())[network_type], rec_sum.mean()))
-        print("\n#####################\t Mean input weight of recurrent on ff weights %s: %s"
+        print("\n#####################\t Mean input weight of recurrent and ff weights %s: %s"
               % (list(NETWORK_TYPE.keys())[network_type], (rec_sum + ff_sum).mean()))
 
     _, _ = eigenvalue_analysis(
