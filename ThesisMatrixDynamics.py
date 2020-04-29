@@ -9,6 +9,7 @@ import sys
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import colors
 from pathlib import Path
 
 import nest
@@ -22,6 +23,7 @@ def main_matrix_dynamics(
         network_type=NETWORK_TYPE["local_circ_patchy_sd"],
         input_type=INPUT_TYPE["plain"],
         num_neurons=int(1e4),
+        normalise=False,
         save_fig=True,
         save_prefix="",
         save_path=None,
@@ -51,8 +53,17 @@ def main_matrix_dynamics(
     plot_arrangement_rows = 5
     plot_arrangement_columns = 5
     num_neurons = num_neurons
+    c_loc = 0.7
+    c_lr = 0.3
     network_shape = (int(np.sqrt(num_neurons)), int(np.sqrt(num_neurons)))
-    network = network_factory(input_stimulus, network_type=network_type, num_sensory=num_neurons, verbosity=verbosity)
+    network = network_factory(
+        input_stimulus,
+        c_lr=c_lr,
+        c_loc=c_loc,
+        network_type=network_type,
+        num_sensory=num_neurons,
+        verbosity=verbosity
+    )
     network.create_network()
     sens_weight_mat = network.get_sensory_weight_mat()
 
@@ -66,13 +77,20 @@ def main_matrix_dynamics(
     fig, axes = plt.subplots(plot_arrangement_rows, plot_arrangement_columns, figsize=(20, 10))
     all_activities = []
     for ax in axes.reshape(-1):
-        sensory_activity /= sensory_activity.max()
+        if normalise:
+            sensory_activity /= sensory_activity.max()
         all_activities.append(ax.imshow(sensory_activity.reshape(network_shape), cmap="cool"))
         sensory_activity = sens_weight_mat.T.dot(sensory_activity)
 
     # #################################################################################################################
     # Plotting
     # #################################################################################################################
+    if not normalise:
+        vmin = min(image.get_array().min() for image in all_activities)
+        vmax = max(image.get_array().max() for image in all_activities)
+        norm = colors.Normalize(vmin=vmin, vmax=vmax)
+        for im in all_activities:
+            im.set_norm(norm)
     fig.colorbar(all_activities[0], ax=axes, orientation='horizontal', fraction=.05)
 
     if not save_fig:
@@ -95,6 +113,7 @@ def main():
     save_fig = True
     verbosity = VERBOSITY
     num_neurons = int(1e4)
+    normalise = False
 
     # #################################################################################################################
     # Parse and set command line arguments
@@ -109,6 +128,9 @@ def main():
 
     if cmd_params.show:
         save_fig = False
+
+    if cmd_params.normalise:
+        normalise = True
 
     if cmd_params.network is not None:
         if cmd_params.network in list(NETWORK_TYPE.keys()):
@@ -142,6 +164,7 @@ def main():
                 network_type=NETWORK_TYPE[net],
                 input_type=INPUT_TYPE[stim],
                 num_neurons=num_neurons,
+                normalise=normalise,
                 save_fig=save_fig,
                 save_prefix=save_prefix,
                 verbosity=verbosity
