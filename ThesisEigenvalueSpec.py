@@ -45,9 +45,13 @@ def main_eigenvalue_spec(
     # Define values
     # #################################################################################################################
     num_neurons = num_neurons
+    c_loc = 0.7
+    c_lr = 0.3
 
     network = network_factory(
         input_stimulus,
+        c_loc=c_loc,
+        c_lr=c_lr,
         network_type=network_type,
         num_patches=patches,
         num_sensory=num_neurons,
