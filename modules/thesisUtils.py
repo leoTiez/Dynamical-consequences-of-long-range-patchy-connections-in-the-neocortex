@@ -60,17 +60,17 @@ def arg_parse(args):
     parser.add_argument("--sum", dest="sum", action="store_true", help="Computes the sum of the input weights. "
                                                                        "Only used for ThesisEigenvalueSpec script")
     parser.add_argument("--num_trials", type=int, help="Sets the number of trials")
-    parser.add_argument("--ff_weight", type=float, help="Sets the weight factor that is multiplied to the "
+    parser.add_argument("--ff_factor", type=float, help="Sets the weight factor that is multiplied to the "
                                                         "default value of the feedforward weights")
-    parser.add_argument("--rec_weight", type=float, help="Sets the weight factor that is multiplied to the "
-                                                         "default value of the recurrent weights")
     parser.add_argument("--img_prop", type=str, help="Sets the sampling rate. Value between 0 and 1")
+    parser.add_argument("--normalise", dest="normalise", action="store_true", help="If set, the activity of the"
+                                                                                   "matrix dynamics test is normalised")
     parser.add_argument("--spatial_sampling",
                         dest="spatial_sampling",
                         action="store_true",
                         help="If the flag is set, the neurons that receive ff input are chosen with a "
                              "spatial correlation")
-    parser.add_argument("--equilibrium", dest="equilibrium", action="store_true", help="If set only the last 400ms are "
+    parser.add_argument("--equilibrium", dest="equilibrium", action="store_true", help="If set, only the last 400ms are "
                                                                                        "used for the reconstruction")
 
     parsed_args = parser.parse_args(args)
