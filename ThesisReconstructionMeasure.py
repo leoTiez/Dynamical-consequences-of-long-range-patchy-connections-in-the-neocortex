@@ -39,6 +39,7 @@ def main_lr(
         img_prop=1.,
         spatial_sampling=False,
         use_equilibrium=False,
+        load_network=True,
         write_to_file=False,
         save_plots=True,
         save_prefix='',
@@ -87,7 +88,6 @@ def main_lr(
     # #################################################################################################################
     simulation_time = 1000.
     eq_time = 600.
-    num_neurons = num_neurons
     cap_s = 1.
     inh_weight = -5.
     ff_weight = 1.0
@@ -132,7 +132,10 @@ def main_lr(
         verbosity=verbosity,
         to_file=write_to_file
     )
-    network.create_network()
+    if load_network:
+        network.import_net()
+    else:
+        network.create_network()
 
     if verbosity > 4:
         print("\n#####################\tPlot in/out degree distribution")
@@ -292,6 +295,7 @@ def experiment(
         img_prop=1.,
         spatial_sampling=False,
         use_equilibrium=False,
+        load_network=True,
         save_plots=True,
         num_trials=10,
         verbosity=VERBOSITY
@@ -478,6 +482,7 @@ def main():
     save_plots = True
     use_equilibrium = False
     verbosity = VERBOSITY
+    load_network = False
 
     # ################################################################################################################
     # Parse command line arguments
@@ -552,6 +557,9 @@ def main():
         else:
             raise ValueError("Cannot pass 'weights' as experimental parameter and set feedforward weight factor")
 
+    if cmd_params.load_network:
+        load_network = True
+
     if cmd_params.num_trials is not None:
         num_trials = cmd_params.num_trials
 
@@ -595,6 +603,7 @@ def main():
         spatial_sampling=spatial_sampling,
         use_equilibrium=use_equilibrium,
         save_plots=save_plots,
+        load_network=load_network,
         num_trials=num_trials,
         verbosity=verbosity
     )
