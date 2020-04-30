@@ -14,8 +14,7 @@ MEAN_IN_OUT_DEG = 45.
 def main():
     input_stimulus = stimulus_factory(INPUT_TYPE["perlin"])
 
-    c_loc = 0.7
-    c_lr = 0.3
+    c_alpha = 0.7
     num_patches = 3
     num_neurons = 10000
     simulation_time = 1000.
@@ -41,8 +40,7 @@ def main():
         ff_factor=weight_factor,
         cap_s=0.,
         inh_weight=0.,
-        c_loc=c_loc,
-        c_lr=c_lr,
+        c_alpha=c_alpha,
         p_rf=p_rf,
         num_patches=num_patches,
         pot_reset=pot_reset,
