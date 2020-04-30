@@ -45,6 +45,8 @@ class NeuronalNetworkBase:
             capacitance=80.,
             time_constant=20.,
             layer_size=8.,
+            max_spiking=1000.,
+            bg_rate_ratio=.5,
             spacing_perlin=0.01,
             resolution_perlin=(15, 15),
             img_prop=1.,
@@ -118,6 +120,8 @@ class NeuronalNetworkBase:
         self.capacitance = capacitance
         self.time_constant = time_constant
         self.layer_size = layer_size
+        self.max_spiking = max_spiking
+        self.bg_rate_ratio = bg_rate_ratio
 
         self.spacing_perlin = spacing_perlin
         self.resolution_perlin = resolution_perlin
@@ -189,6 +193,11 @@ class NeuronalNetworkBase:
             rest_pot=self.pot_reset,
             time_const=self.time_constant,
             size_layer=self.layer_size,
+            max_spiking=self.max_spiking,
+            bg_spiking_scaling=self.bg_rate_ratio,
+            p_rf=self.p_rf,
+            ff_factor=self.ff_factor,
+            synaptic_strength=self.ff_weight,
             to_file=self.to_file
         )
         self.torus_layer_nodes = nest.GetNodes(self.torus_layer, properties={"element_type": "neuron"})[0]
@@ -356,6 +365,7 @@ class NeuronalNetworkBase:
             p_rf=self.p_rf,
             rf_size=self.rf_size,
             target_layer_size=self.layer_size,
+            max_spiking=self.max_spiking,
             calc_error=self.use_input_neurons,
             use_dc=self.use_dc,
             plot_src_target=self.plot_rf_relation,
@@ -364,25 +374,6 @@ class NeuronalNetworkBase:
             save_prefix=self.save_prefix,
             color_mask=self.color_map
         )
-
-    def set_same_input_current(self):
-        """
-        If required, the same input can be set for all sensory neurons. Input is either DC or Poisson spike train,
-        depending on the flag use_d
-        :return: None
-        """
-        if self.verbosity > 0:
-            print("\n#####################\tSet same input current to all sensory neurons")
-
-        # Check ups
-        if self.torus_layer is None:
-            raise ValueError("The neural sheet has not been created yet. Run create_layer")
-        if self.ff_weight is None:
-            raise ValueError("The feedforward weight must not be None. Run determine_ffweight")
-        if self.rf_size[0] < 0 or self.rf_size[1] < 0:
-            raise ValueError("The size and shape of the receptive field must not be negative.")
-
-        same_input_current(self.torus_layer, self.p_rf, self.ff_weight, rf_size=self.rf_size, use_dc=self.use_dc)
 
     # #################################################################################################################
     # Simulate
@@ -547,8 +538,6 @@ class NeuronalNetworkBase:
         self.create_orientation_map()
         if not self.all_same_input_current:
             self.create_retina()
-        else:
-            self.set_same_input_current()
 
 
 class RandomNetwork(NeuronalNetworkBase):

@@ -207,11 +207,16 @@ def create_distinct_sublayer_boxes(size_boxes, size_layer=R_MAX):
 def create_torus_layer_uniform(
         num_neurons=3600,
         neuron_type="iaf_psc_delta",
-        rest_pot=0.,
-        threshold_pot=1e3,
+        rest_pot=-70.,
+        threshold_pot=-55.,
         time_const=20.,
-        capacitance=1e12,
+        capacitance=80.,
         size_layer=R_MAX,
+        p_rf=.7,
+        ff_factor=1.,
+        synaptic_strength=1.,
+        max_spiking=1000.,
+        bg_spiking_scaling=0.3,
         to_file=False
 ):
     """
@@ -262,6 +267,15 @@ def create_torus_layer_uniform(
     multimeter = nest.Create("multimeter", params={"withtime": True, "record_from": ["V_m"]})
     nest.Connect(sensory_nodes, spikedetector)
     nest.Connect(multimeter, sensory_nodes)
+
+    # Create Poisson generator for background activity
+    if bg_spiking_scaling is not None:
+        rate = (max_spiking / ff_factor) * p_rf * bg_spiking_scaling
+        spike_gen = nest.Create("poisson_generator", n=num_neurons, params={"rate": rate})
+
+        syn_spec = {"weight": synaptic_strength}
+        conn_spec = {"rule": "one_to_one"}
+        nest.Connect(spike_gen, sensory_nodes, conn_spec=conn_spec, syn_spec=syn_spec)
 
     return torus_layer, spikedetector, multimeter
 
@@ -1287,14 +1301,14 @@ def _set_input_current(neuron, current_dict, synaptic_strength, use_dc=True):
     :param use_dc: If set to True a DC generator is used, otherwise a Poisson generator
     :return:
     """
-    connections = nest.GetConnections(target=[neuron])
-    sources = nest.GetStatus(connections, "source")
+    connections = nest.GetConnections()
+    sources = [c[0] for c in connections if c[1] == neuron]
     source_types = np.asarray(list(nest.GetStatus(sources, "element_type")))
     generator = np.array([])
     if len(source_types) > 0:
         generator = np.asarray(sources)[source_types == "stimulator"]
 
-    if generator.size == 0:
+    if generator.size == 0 or use_dc:
         if use_dc:
             generator = nest.Create("dc_generator", n=1, params=current_dict)[0]
         else:
@@ -1302,8 +1316,7 @@ def _set_input_current(neuron, current_dict, synaptic_strength, use_dc=True):
         syn_spec = {"weight": synaptic_strength}
         nest.Connect([generator], [neuron], syn_spec=syn_spec)
     else:
-        generator = generator[0]
-        nest.SetStatus([generator], current_dict)
+        nest.SetStatus(generator.tolist(), current_dict)
 
     return generator
 
@@ -1430,8 +1443,9 @@ def create_connections_rf(
         total_num_target=int(1e4),
         rf_size=(10, 10),
         tuning_function=TUNING_FUNCTION["step"],
-        p_rf=0.3,
+        p_rf=0.7,
         target_layer_size=8.,
+        max_spiking=1000.,
         calc_error=False,
         use_dc=True,
         ff_factor=1.,
@@ -1545,7 +1559,7 @@ def create_connections_rf(
         if use_dc:
             current_dict = {"amplitude": np.maximum(amplitude.sum() / max_scale, 0) / ff_factor}
         else:
-            rate = (1000. / ff_factor) * amplitude.sum() / max_scale
+            rate = (max_spiking / ff_factor) * amplitude.sum() / max_scale
             current_dict = {"rate": np.maximum(rate, 0)}
 
         _set_input_current(target_node, current_dict, synaptic_strength, use_dc=use_dc)
