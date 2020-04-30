@@ -45,13 +45,11 @@ def main_eigenvalue_spec(
     # Define values
     # #################################################################################################################
     num_neurons = num_neurons
-    c_loc = 0.7
-    c_lr = 0.3
+    c_alpha = 0.7
 
     network = network_factory(
         input_stimulus,
-        c_loc=c_loc,
-        c_lr=c_lr,
+        c_alpha=c_alpha,
         network_type=network_type,
         num_patches=patches,
         num_sensory=num_neurons,
@@ -82,7 +80,7 @@ def main():
     # #################################################################################################################
     verbosity = VERBOSITY
     num_neurons = int(1e4)
-    save_plot=True
+    save_plot = True
     networks = NETWORK_TYPE.keys()
     patches = 3
     compute_sum = False
@@ -99,7 +97,7 @@ def main():
         matplotlib.use("Agg")
 
     if cmd_params.show:
-        save_plot=False
+        save_plot = False
 
     if cmd_params.network is not None:
         if cmd_params.network in list(NETWORK_TYPE.keys()):
