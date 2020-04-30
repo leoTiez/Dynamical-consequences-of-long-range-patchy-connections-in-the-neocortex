@@ -647,7 +647,7 @@ class LocalNetwork(NeuronalNetworkBase):
             self,
             input_stimulus,
             r_loc=0.5,
-            c_loc=1.,
+            c_alpha=1.,
             loc_connection_type="circular",
             verbosity=0,
             **kwargs
@@ -655,7 +655,7 @@ class LocalNetwork(NeuronalNetworkBase):
         """
         Class that establishes local connections with locally clustered tuning specfic neurons
         :param input_stimulus: The input stimulus
-        :param c_loc: Connection probability to connect to another neuron within the local radius
+        :param c_alpha: Connection probability to connect to another neuron within the local radius
         :param r_loc: Radius within which a local connection is established
         :param loc_connection_type: Connection policy for local connections. This can be any value in the
         ACCEPTED_LOC_CONN list. Circ are circular connections, whereas sd are stimulus dependent connections
@@ -671,12 +671,12 @@ class LocalNetwork(NeuronalNetworkBase):
         )
 
         self.r_loc = r_loc
-        self.c_loc = c_loc
+        self.c_alpha = c_alpha
         self.global_connect = (1.4 - self.img_prop) * np.minimum(
             np.pi * self.r_loc**2 / float(self.layer_size**2),
             self.mean_in_out_deg/float(self.num_sensory)
         )
-        self.p_loc = self.global_connect * self.c_loc * self.layer_size**2 / (np.pi * self.r_loc**2)
+        self.p_loc = self.global_connect * self.c_alpha * self.layer_size**2 / (np.pi * self.r_loc**2)
 
         self.loc_connection_type = loc_connection_type.lower()
         if self.loc_connection_type not in LocalNetwork.ACCEPTED_LOC_CONN:
@@ -821,8 +821,7 @@ class PatchyNetwork(LocalNetwork):
     def __init__(
             self,
             input_stimulus,
-            c_lr=0.3,
-            c_loc=0.7,
+            c_alpha=0.7,
             num_patches=3,
             lr_connection_type="sd",
             verbosity=0,
@@ -839,23 +838,21 @@ class PatchyNetwork(LocalNetwork):
         :param verbosity: Flag to determine the amount of output and created plots
         :param kwargs: The key value pairs that are passed to the parent class
         """
-        if c_loc + c_lr != 1.0:
-            raise ValueError("Local connectivity and long-range patchy connectivity ratio must sum up to 1")
 
         self.__dict__.update(kwargs)
         LocalNetwork.__init__(
             self,
             input_stimulus,
-            c_loc=c_loc,
+            c_alpha=c_alpha,
             verbosity=verbosity,
             **kwargs
         )
 
-        self.c_lr = c_lr
         self.num_patches = num_patches
         self.r_p = self.r_loc / 2.
 
-        self.p_lr = self.global_connect * self.c_lr * self.layer_size**2 / (self.num_patches * np.pi * self.r_p**2)
+        self.p_lr = self.global_connect * (1 - self.c_alpha) * self.layer_size**2 \
+                    / (self.num_patches * np.pi * self.r_p**2)
         self.lr_connection_type = lr_connection_type.lower()
         if self.lr_connection_type not in PatchyNetwork.ACCEPTED_LR_CONN:
             raise ValueError("%s is not an accepted long-range connection type" % self.lr_connection_type)
@@ -1022,18 +1019,18 @@ def network_factory(input_stimulus, network_type=NETWORK_TYPE["local_circ_patchy
             **kwargs
         )
     elif network_type == NETWORK_TYPE["local_circ"]:
-        kwargs.pop("c_loc", None)
+        kwargs.pop("c_alpha", None)
         network = LocalNetwork(
             input_stimulus,
-            c_loc=1.,
+            c_alpha=1.,
             loc_connection_type="circular",
             **kwargs
         )
     elif network_type == NETWORK_TYPE["local_sd"]:
-        kwargs.pop("c_loc", None)
+        kwargs.pop("c_alpha", None)
         network = LocalNetwork(
             input_stimulus,
-            c_loc=1.,
+            c_alpha=1.,
             loc_connection_type="sd",
             **kwargs
         )
