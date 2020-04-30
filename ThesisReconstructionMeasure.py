@@ -93,7 +93,6 @@ def main_lr(
     ff_weight = 1.0
     all_same_input_current = False
     c_alpha = 0.7
-    c_lr = .3
     p_rf = 0.7
     pot_threshold = -55.
     pot_reset = -70.
