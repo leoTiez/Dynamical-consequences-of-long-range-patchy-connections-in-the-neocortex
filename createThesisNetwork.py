@@ -5,6 +5,7 @@ from modules.networkConstruction import *
 from modules.createStimulus import *
 from modules.networkAnalysis import *
 from modules.thesisUtils import get_in_out_degree
+from modules.networkParser import *
 
 from collections import Counter, OrderedDict
 from scipy.spatial import KDTree
@@ -50,6 +51,7 @@ class NeuronalNetworkBase:
             spacing_perlin=0.01,
             resolution_perlin=(15, 15),
             img_prop=1.,
+            network_type="local_circ_patchy_sd",
             spatial_sampling=False,
             num_spatial_samples=5,
             use_input_neurons=False,
@@ -127,6 +129,7 @@ class NeuronalNetworkBase:
         self.resolution_perlin = resolution_perlin
 
         self.img_prop = img_prop
+        self.network_type = network_type
         self.spatial_sampling = spatial_sampling
         self.num_spatial_samples = num_spatial_samples
 
@@ -519,25 +522,39 @@ class NeuronalNetworkBase:
     # Abstract methods
     # #################################################################################################################
 
+    def _set_nest_kernel(self):
+        nest.ResetKernel()
+        curr_dir = os.getcwd()
+        path = "%s/network_files/spikes/" % curr_dir
+        Path(path).mkdir(parents=True, exist_ok=True)
+        nest.SetKernelStatus({
+            "overwrite_files": True,
+            "data_path": path,
+            "data_prefix": self.save_prefix
+        })
+
     def create_network(self):
         """
         Creates the network and sets up all necessary connections
         :return: None
         """
         # Reset Nest Kernel
-        nest.ResetKernel()
-        curr_dir = os.getcwd()
-        Path("%s/network_files/" % curr_dir).mkdir(parents=True, exist_ok=True)
-        nest.SetKernelStatus({
-            "overwrite_files": True,
-            "data_path": "%s/network_files/" % curr_dir,
-            "data_prefix": self.save_prefix
-        })
+        self._set_nest_kernel()
 
         self.create_layer()
         self.create_orientation_map()
         if not self.all_same_input_current:
             self.create_retina()
+
+    def export_net(self, feature_folder=""):
+        self.get_sensory_weight_mat()
+        save_net(self, self.network_type, feature_folder=feature_folder)
+
+    def import_net(self):
+        self._set_nest_kernel()
+        load_net(self, self.network_type)
+        self.create_orientation_map()
+        self.create_retina()
 
 
 class RandomNetwork(NeuronalNetworkBase):
@@ -1005,6 +1022,7 @@ def network_factory(input_stimulus, network_type=NETWORK_TYPE["local_circ_patchy
     if network_type == NETWORK_TYPE["random"]:
         network = RandomNetwork(
             input_stimulus,
+            network_type="random",
             **kwargs
         )
     elif network_type == NETWORK_TYPE["local_circ"]:
@@ -1013,6 +1031,7 @@ def network_factory(input_stimulus, network_type=NETWORK_TYPE["local_circ_patchy
             input_stimulus,
             c_alpha=1.,
             loc_connection_type="circular",
+            network_type="local_circ",
             **kwargs
         )
     elif network_type == NETWORK_TYPE["local_sd"]:
@@ -1021,6 +1040,7 @@ def network_factory(input_stimulus, network_type=NETWORK_TYPE["local_circ_patchy
             input_stimulus,
             c_alpha=1.,
             loc_connection_type="sd",
+            network_type="local_sd",
             **kwargs
         )
     elif network_type == NETWORK_TYPE["local_circ_patchy_random"]:
@@ -1028,6 +1048,7 @@ def network_factory(input_stimulus, network_type=NETWORK_TYPE["local_circ_patchy
             input_stimulus,
             loc_connection_type="circular",
             lr_connection_type="random",
+            network_type="local_circ_patchy_random",
             **kwargs
         )
     elif network_type == NETWORK_TYPE["local_circ_patchy_sd"]:
@@ -1035,6 +1056,7 @@ def network_factory(input_stimulus, network_type=NETWORK_TYPE["local_circ_patchy
             input_stimulus,
             loc_connection_type="circular",
             lr_connection_type="sd",
+            network_type="local_circ_patchy_sd",
             **kwargs
         )
     elif network_type == NETWORK_TYPE["local_sd_patchy_sd"]:
@@ -1042,11 +1064,13 @@ def network_factory(input_stimulus, network_type=NETWORK_TYPE["local_circ_patchy
             input_stimulus,
             loc_connection_type="sd",
             lr_connection_type="sd",
+            network_type="local_sd_patchy_sd",
             **kwargs
         )
     elif network_type == NETWORK_TYPE["input_only"]:
         network = NeuronalNetworkBase(
             input_stimulus,
+            network_type="input_stimulus",
             **kwargs
         )
     else:
