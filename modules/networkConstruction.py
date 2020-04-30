@@ -217,6 +217,7 @@ def create_torus_layer_uniform(
         synaptic_strength=1.,
         max_spiking=1000.,
         bg_spiking_scaling=0.3,
+        positions=None,
         to_file=False
 ):
     """
@@ -232,7 +233,8 @@ def create_torus_layer_uniform(
     :return: neural layer, spike detector and mutlimeter
     """
     # Calculate positions
-    positions = np.random.uniform(- size_layer / 2., size_layer / 2., size=(num_neurons, 2)).tolist()
+    if positions is None:
+        positions = np.random.uniform(- size_layer / 2., size_layer / 2., size=(num_neurons, 2)).tolist()
     # Create dict for neural layer that is wrapped as torus to avoid boundary effects
     torus_dict = {
         "extent": [size_layer, size_layer],
@@ -241,7 +243,7 @@ def create_torus_layer_uniform(
         "edge_wrap": True
     }
 
-    if neuron_type is "iaf_psc_delta" or neuron_type is "iaf_psc_alpha":
+    if neuron_type == "iaf_psc_delta" or neuron_type == "iaf_psc_alpha":
         neuron_dict = {
             "V_m": rest_pot,
             "E_L": rest_pot,
