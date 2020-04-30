@@ -53,13 +53,11 @@ def main_matrix_dynamics(
     plot_arrangement_rows = 5
     plot_arrangement_columns = 5
     num_neurons = num_neurons
-    c_loc = 0.7
-    c_lr = 0.3
+    c_alpha = 0.7
     network_shape = (int(np.sqrt(num_neurons)), int(np.sqrt(num_neurons)))
     network = network_factory(
         input_stimulus,
-        c_lr=c_lr,
-        c_loc=c_loc,
+        c_alpha=c_alpha,
         network_type=network_type,
         num_sensory=num_neurons,
         verbosity=verbosity
