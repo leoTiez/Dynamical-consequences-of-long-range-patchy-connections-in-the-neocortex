@@ -93,6 +93,10 @@ def check_experiment_type(file_name):
         experiment_type = "weight_balance"
         offset = 1
 
+    elif "equilibrium" in file_name:
+        experiment_type = "equilibrium"
+        offset = 1
+
     num_letters = len(experiment_type)
     idx = file_name.index(experiment_type)
     experiment_parameter = file_name[idx + num_letters + offset:].split("_")[0]

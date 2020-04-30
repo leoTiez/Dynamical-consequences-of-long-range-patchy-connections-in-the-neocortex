@@ -45,9 +45,11 @@ def main_eigenvalue_spec(
     # Define values
     # #################################################################################################################
     num_neurons = num_neurons
+    c_alpha = 0.7
 
     network = network_factory(
         input_stimulus,
+        c_alpha=c_alpha,
         network_type=network_type,
         num_patches=patches,
         num_sensory=num_neurons,
@@ -61,7 +63,7 @@ def main_eigenvalue_spec(
         ff_sum = network.ff_weight_mat.sum(axis=0)[:-1]
         print("\n#####################\t Mean input weight of recurrent weight matrix for %s: %s"
               % (list(NETWORK_TYPE.keys())[network_type], rec_sum.mean()))
-        print("\n#####################\t Mean input weight of recurrent on ff weights %s: %s"
+        print("\n#####################\t Mean input weight of recurrent and ff weights %s: %s"
               % (list(NETWORK_TYPE.keys())[network_type], (rec_sum + ff_sum).mean()))
 
     _, _ = eigenvalue_analysis(
@@ -78,7 +80,7 @@ def main():
     # #################################################################################################################
     verbosity = VERBOSITY
     num_neurons = int(1e4)
-    save_plot=True
+    save_plot = True
     networks = NETWORK_TYPE.keys()
     patches = 3
     compute_sum = False
@@ -95,7 +97,7 @@ def main():
         matplotlib.use("Agg")
 
     if cmd_params.show:
-        save_plot=False
+        save_plot = False
 
     if cmd_params.network is not None:
         if cmd_params.network in list(NETWORK_TYPE.keys()):

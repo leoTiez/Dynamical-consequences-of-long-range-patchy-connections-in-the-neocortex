@@ -35,7 +35,7 @@ def main_lr(
         tuning_function=TUNING_FUNCTION["gauss"],
         perlin_input_cluster=(5, 5),
         num_patches=3,
-        weight_factor=(1., 1.),
+        ff_factor=1.,
         img_prop=1.,
         spatial_sampling=False,
         use_equilibrium=False,
@@ -55,7 +55,7 @@ def main_lr(
     :param perlin_input_cluster: Cluster size of the perlin input image. If the input is not perlin, this parameter
     is ignored
     :param num_patches: number of patches. If the network does not establish patches this parameter is ignored
-    :param weight_factor: Tuple representing the multiplier for the recurrent weights (first index) and the ff weights (second index)
+    :param ff_factor: Multiplier for the ff weights
     :param img_prop: Proportion of the image information that is used
     :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
     :param use_equilibrium: If set to true, only the last 400ms of the simulation are used, ie when the network is
@@ -73,8 +73,8 @@ def main_lr(
 
     stimulus_fft = fourier_trans(input_stimulus)
     if verbosity > 2:
+        plt.imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
         if not save_plots:
-            plt.imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
             plt.show()
         else:
             curr_dir = os.getcwd()
@@ -88,12 +88,11 @@ def main_lr(
     simulation_time = 1000.
     eq_time = 600.
     num_neurons = num_neurons
-    cap_s = 1. * weight_factor[0]
-    inh_weight = -15. * weight_factor[0] ** weight_factor[0]
-    ff_weight = 1.0 * weight_factor[1]
+    cap_s = 1.
+    inh_weight = -5.
+    ff_weight = 1.0
     all_same_input_current = False
-    p_loc = 0.4
-    p_lr = .1
+    c_alpha = 0.7
     p_rf = 0.7
     pot_threshold = -55.
     pot_reset = -70.
@@ -114,9 +113,9 @@ def main_lr(
         ff_weight=ff_weight,
         cap_s=cap_s,
         inh_weight=inh_weight,
-        p_loc=p_loc,
-        p_lr=p_lr,
+        c_alpha=c_alpha,
         p_rf=p_rf,
+        ff_factor=ff_factor,
         pot_reset=pot_reset,
         pot_threshold=pot_threshold,
         capacitance=capacitance,
@@ -152,6 +151,7 @@ def main_lr(
         use_equilibrium=use_equilibrium,
         eq_time=eq_time
     )
+
     if write_to_file:
         curr_dir = os.getcwd()
         Path(curr_dir + "/firing_rates_files/").mkdir(exist_ok=True, parents=True)
@@ -288,7 +288,7 @@ def experiment(
         cluster=(15, 15),
         perlin_input_cluster=(5, 5),
         patches=3,
-        weight_factor=(1., 1.),
+        ff_factor=1.,
         img_prop=1.,
         spatial_sampling=False,
         use_equilibrium=False,
@@ -308,7 +308,7 @@ def experiment(
     :param perlin_input_cluster: Cluster size of the perlin input image
     :param patches: The number of patches. This parameter is ignored if network is chosen that does not make use of
     patchy connctions
-    :param weight_factor: Tuple representing the multiplier for the recurrent weights (first index) and the ff weights
+    :param ff_factor: Multiplier for the ff weights
     (second index)
     :param img_prop: Defines the sparse sampling, i.e. the number of neurons that receive feedforward input.
     :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
@@ -342,8 +342,8 @@ def experiment(
     elif perlin_input_cluster is None:
         parameters = [(8, 8), (15, 15), (20, 20)]
         parameter_str = "perlin_cluster_size"
-    elif weight_factor is None:
-        parameters = [(2., 0.9), (5., 0.8), (7., 0.7), (10., 0.6)]
+    elif ff_factor is None:
+        parameters = [0.2, 0.8, 1.2, 1.8]
         parameter_str = "weight_balance"
 
     if len(list(parameters)) == 0:
@@ -381,7 +381,7 @@ def experiment(
                 cluster=p if cluster is None else cluster,
                 num_patches=p if patches is None else patches,
                 perlin_input_cluster=p if perlin_input_cluster is None else perlin_input_cluster,
-                weight_factor=p if weight_factor is None else weight_factor,
+                ff_factor=p if ff_factor is None else ff_factor,
                 img_prop=img_prop,
                 spatial_sampling=spatial_sampling,
                 use_equilibrium=use_equilibrium,
@@ -472,7 +472,7 @@ def main():
     perlin_input_cluster = (5, 5)
     num_trials = 10
     patches = 3
-    weight_factor = (1., 1.)
+    ff_factor = 1.
     img_prop = 1.
     spatial_sampling = False
     save_plots = True
@@ -526,7 +526,7 @@ def main():
                     raise ValueError("Cannot investigate the effect of the perlin size when not using perlin as input")
             perlin_input_cluster = None
         elif cmd_params.parameter.lower() == "weights":
-            weight_factor = None
+            ff_factor = None
 
     if cmd_params.tuning is not None:
         if tuning_function is not None:
@@ -546,15 +546,9 @@ def main():
         else:
             raise ValueError("Cannot pass 'patches' as experimental parameter and set patches")
 
-    if cmd_params.rec_weight is not None:
-        if weight_factor is not None:
-            weight_factor[0] = cmd_params.rec_weight
-        else:
-            raise ValueError("Cannot pass 'weights' as experimental parameter and set recurrent weight factor")
-
-    if cmd_params.ff_weight is not None:
-        if weight_factor is not None:
-            weight_factor[1] = cmd_params.ff_weight
+    if cmd_params.ff_factor is not None:
+        if ff_factor is not None:
+            ff_factor = cmd_params.ff_factor
         else:
             raise ValueError("Cannot pass 'weights' as experimental parameter and set feedforward weight factor")
 
@@ -596,7 +590,7 @@ def main():
         cluster=cluster,
         perlin_input_cluster=perlin_input_cluster,
         patches=patches,
-        weight_factor=weight_factor,
+        ff_factor=ff_factor,
         img_prop=img_prop,
         spatial_sampling=spatial_sampling,
         use_equilibrium=use_equilibrium,
