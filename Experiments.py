@@ -12,7 +12,8 @@ def main_experiment_loop(
         parameter=PARAMETER_DICT["tuning"],
         img_prop=[1.0],
         num_trials=10,
-        spatial_sampling=False
+        spatial_sampling=False,
+        load_network=False
 ):
     """
     Outer loop for experiments.
@@ -20,6 +21,7 @@ def main_experiment_loop(
     :param img_prop: Sampling rate
     :param num_trials: Number of trials
     :param spatial_sampling: Flag, if set to true, the sampling of the neurons is dependent on their spatial correlation
+    :param load_network: If set to true, the network is loaded from file
     :return: None
     """
     curr_dir = os.getcwd()
@@ -39,6 +41,7 @@ def main_experiment_loop(
         for stimulus in input_list:
             for ip in img_prop:
                 os.system("python3 %s/ThesisReconstructionMeasure.py "
+                          "%s"
                           "--network=%s "
                           "--input=%s "
                           "--parameter=%s "
@@ -46,6 +49,7 @@ def main_experiment_loop(
                           "--num_trials=%s "
                           "%s"
                           % (
+                              "--load_network " if load_network else "",
                               curr_dir,
                               network,
                               stimulus,
@@ -66,6 +70,7 @@ def main():
     parameter = PARAMETER_DICT["tuning"]
     img_prop = None
     spatial_sampling = False
+    load_network = False
 
     if cmd_params.parameter in list(PARAMETER_DICT.keys()):
         parameter = cmd_params.parameter
@@ -86,6 +91,9 @@ def main():
     if cmd_params.spatial_sampling:
         spatial_sampling = True
 
+    if cmd_params.load_network:
+        load_network = True
+
     # #############################################################################################################
     # Running experimental loop
     # #############################################################################################################
@@ -93,7 +101,8 @@ def main():
         parameter=parameter,
         img_prop=img_prop,
         num_trials=num_trials,
-        spatial_sampling=spatial_sampling
+        spatial_sampling=spatial_sampling,
+        load_network=load_network
     )
 
 
