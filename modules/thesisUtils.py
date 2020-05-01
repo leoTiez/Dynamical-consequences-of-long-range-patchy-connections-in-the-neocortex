@@ -55,6 +55,11 @@ def arg_parse(args):
     parser.add_argument("--verbosity", type=int, help="Sets the verbosity flag")
     parser.add_argument("--parameter", type=str, help="Defines the parameter that is manipulated during experimenting")
     parser.add_argument("--tuning", type=str, help="Defines the tuning function")
+    parser.add_argument(
+        "--less_cpus",
+        type=int,
+        help="Defines the number of CPUs that are used less than full capacity"
+    )
     parser.add_argument("--cluster", type=int, help="Defines the cluster size")
     parser.add_argument(
         "--c_alpha",
@@ -98,6 +103,13 @@ def arg_parse(args):
         dest="load_network",
         action="store_true",
         help="If set, network is load from file"
+    )
+
+    parser.add_argument(
+        "--existing_ok",
+        dest="existing_ok",
+        action="store_true",
+        help="If set, check existing error files and continue from last index"
     )
 
     parsed_args = parser.parse_args(args)
