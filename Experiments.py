@@ -4,10 +4,8 @@ import os
 import multiprocessing
 from itertools import product
 
-from createThesisNetwork import NETWORK_TYPE
-from modules.createStimulus import INPUT_TYPE
 from modules.thesisUtils import arg_parse
-from ThesisReconstructionMeasure import PARAMETER_DICT
+from modules.thesisConstants import *
 
 
 def main_experiment_loop(
@@ -39,7 +37,7 @@ def main_experiment_loop(
     elif parameter.lower() == "patches":
         network_list = [net for net in network_list if "patchy" in net]
 
-    input_list = list(INPUT_TYPE.keys()) if parameter.lower() != "perlin" else ["perlin"]
+    input_list = PERLIN_INPUT
 
     parameter_combination = product(network_list, input_list, img_prop)
 
@@ -50,7 +48,7 @@ def main_experiment_loop(
             args=("python3 %s/ThesisReconstructionMeasure.py "
                   "%s"
                   "--network=%s "
-                  "--input=%s "
+                  "--perlin=%s "
                   "--parameter=%s "
                   "--img_prop=%s "
                   "--num_trials=%s "
