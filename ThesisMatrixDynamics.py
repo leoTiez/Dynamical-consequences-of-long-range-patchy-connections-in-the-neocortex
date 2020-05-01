@@ -1,9 +1,10 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-from modules.createStimulus import stimulus_factory, INPUT_TYPE
+from modules.createStimulus import stimulus_factory
 from modules.thesisUtils import arg_parse
-from createThesisNetwork import network_factory, NETWORK_TYPE
+from createThesisNetwork import network_factory
+from modules.thesisConstants import *
 
 import sys
 import os
@@ -21,8 +22,9 @@ nest.set_verbosity("M_ERROR")
 
 def main_matrix_dynamics(
         network_type=NETWORK_TYPE["local_circ_patchy_sd"],
-        input_type=INPUT_TYPE["plain"],
         num_neurons=int(1e4),
+        perlin_resolution=(4, 4),
+        c_alpha=0.7,
         normalise=False,
         save_fig=True,
         save_prefix="",
@@ -43,7 +45,7 @@ def main_matrix_dynamics(
     """
     # load input stimulus
     stimulus_size = (50, 50)
-    input_stimulus = stimulus_factory(input_type, size=stimulus_size)
+    input_stimulus = stimulus_factory(INPUT_TYPE["perlin"], resolution=perlin_resolution)
     if verbosity > 2:
         plt.imshow(input_stimulus, cmap='gray')
         plt.show()
@@ -53,7 +55,6 @@ def main_matrix_dynamics(
     plot_arrangement_rows = 5
     plot_arrangement_columns = 5
     num_neurons = num_neurons
-    c_alpha = 0.7
     network_shape = (int(np.sqrt(num_neurons)), int(np.sqrt(num_neurons)))
     network = network_factory(
         input_stimulus,
@@ -107,10 +108,11 @@ def main():
     # Initialise parameters
     # #################################################################################################################
     networks = NETWORK_TYPE.keys()
-    stimuli = INPUT_TYPE.keys()
+    perlin_resolution = PERLIN_INPUT
     save_fig = True
     verbosity = VERBOSITY
     num_neurons = int(1e4)
+    c_alpha = 0.7
     normalise = False
 
     # #################################################################################################################
@@ -136,12 +138,11 @@ def main():
         else:
             raise ValueError("Please pass a valid network as parameter")
 
-    if cmd_params.input is not None:
-        if cmd_params.input in list(INPUT_TYPE.keys()):
-            stimuli = [cmd_params.input]
-        else:
-            raise ValueError("Please pass a valid input type as parameter")
+    if cmd_params.c_alpha is not None:
+        c_alpha = cmd_params.alpha
 
+    if cmd_params.perlin is not None:
+        perlin_resolution = [cmd_params.perlin]
     if cmd_params.verbosity is not None:
         verbosity = cmd_params.verbosity
 
@@ -156,12 +157,13 @@ def main():
     # Run stimulus propagation
     # #################################################################################################################
     for net in networks:
-        for stim in stimuli:
-            save_prefix = "%s_%s" % (net, stim)
+        for pr in perlin_resolution:
+            save_prefix = "%s_%s" % (net, pr)
             main_matrix_dynamics(
                 network_type=NETWORK_TYPE[net],
-                input_type=INPUT_TYPE[stim],
+                perlin_resolution=(pr, pr),
                 num_neurons=num_neurons,
+                c_alpha=c_alpha,
                 normalise=normalise,
                 save_fig=save_fig,
                 save_prefix=save_prefix,
