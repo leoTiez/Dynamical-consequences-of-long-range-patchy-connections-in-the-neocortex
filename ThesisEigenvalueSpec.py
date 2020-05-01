@@ -1,10 +1,11 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-from modules.createStimulus import stimulus_factory, INPUT_TYPE
+from modules.createStimulus import stimulus_factory
 from modules.networkAnalysis import *
-from createThesisNetwork import network_factory, NETWORK_TYPE
+from createThesisNetwork import network_factory
 from modules.thesisUtils import arg_parse
+from modules.thesisConstants import *
 
 import sys
 import matplotlib.pyplot as plt
@@ -20,6 +21,7 @@ def main_eigenvalue_spec(
         network_type=NETWORK_TYPE["local_circ_patchy_sd"],
         num_neurons=int(1e4),
         patches=3,
+        c_alpha=0.7,
         compute_sum=False,
         save_plot=False,
         verbosity=VERBOSITY
@@ -45,7 +47,6 @@ def main_eigenvalue_spec(
     # Define values
     # #################################################################################################################
     num_neurons = num_neurons
-    c_alpha = 0.7
 
     network = network_factory(
         input_stimulus,
@@ -83,6 +84,7 @@ def main():
     save_plot = True
     networks = NETWORK_TYPE.keys()
     patches = 3
+    c_alpha = 0.7
     compute_sum = False
 
     # #################################################################################################################
@@ -111,6 +113,9 @@ def main():
     if cmd_params.num_neurons is not None:
         num_neurons = cmd_params.num_neurons
 
+    if cmd_params.c_alpha is not None:
+        c_alpha = cmd_params.c_alpha
+
     if cmd_params.patches is not None:
         patches = cmd_params.patches
 
@@ -125,6 +130,7 @@ def main():
             network_type=NETWORK_TYPE[network_type],
             num_neurons=num_neurons,
             patches=patches,
+            c_alpha=c_alpha,
             compute_sum=compute_sum,
             save_plot=save_plot,
             verbosity=verbosity
