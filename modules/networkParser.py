@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import ast
 from scipy.spatial import KDTree
 import modules.networkConstruction as nc
 
@@ -37,6 +38,7 @@ def save_net(net, network_name, feature_folder, path="", use_cwd=True):
         "positions": [net.torus_layer_positions],
         "tuning_neuron": [net.tuning_to_neuron_map],
         "neuron_tuning": [net.neuron_to_tuning_map],
+        "color_map": [tuple(net.color_map.reshape(-1))],
         "connect": [connect],
     }
 
@@ -57,7 +59,7 @@ def save_net(net, network_name, feature_folder, path="", use_cwd=True):
     net_df.to_csv("%s/%s_%s.csv" % (path, network_name, num), encoding='utf-8', index=False)
 
 
-def load_net(net, network_name, feature_folder="", path="", use_cwd=True, num=None):
+def load_net(net, network_name, feature_folder="", path="", use_cwd=True, num=14):
     """
         Load the neurons and connections of the network from a file
         :param net: The network object
@@ -107,7 +109,17 @@ def load_net(net, network_name, feature_folder="", path="", use_cwd=True, num=No
     net.torus_inh_nodes = convert_string_to_list(net_df["inh_neurons"][0], int)
     del net_df
 
-    net.create_orientation_map()
+    net_df = pd.read_csv("%s/%s_%s.csv" % (path, network_name, num), usecols=["neuron_tuning", "tuning_neuron"])
+    net.neuron_to_tuning_map = ast.literal_eval(net_df["neuron_tuning"][0])
+    net.tuning_to_neuron_map = ast.literal_eval(net_df["tuning_neuron"][0])
+    del net_df
+
+    net_df = pd.read_csv("%s/%s_%s.csv" % (path, network_name, num), usecols=["color_map"])
+    net.color_map = np.asarray(convert_string_to_list(net_df["color_map"][0], dtype=int)).reshape(
+        (int(net.layer_size / net.spacing_perlin), int(net.layer_size / net.spacing_perlin))
+    )
+    del net_df
+
     net.create_retina()
 
     net_df = pd.read_csv("%s/%s_%s.csv" % (path, network_name, num), usecols=["connect"])
