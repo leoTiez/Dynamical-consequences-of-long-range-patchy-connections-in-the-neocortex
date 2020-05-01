@@ -296,6 +296,7 @@ def experiment(
         spatial_sampling=False,
         use_equilibrium=False,
         load_network=False,
+        existing_ok=False,
         save_plots=True,
         num_trials=10,
         verbosity=VERBOSITY
@@ -365,16 +366,22 @@ def experiment(
         firing_rates = []
         errors = []
         tuning_name = list(TUNING_FUNCTION.keys())[p if tuning_function is None else tuning_function]
-        for i in range(num_trials):
-            save_prefix = "%s_%s_%s_%s_img_prop_%s_spatials_%s_no_%s" % (
-                network_name,
-                input_name,
-                parameter_str,
-                p,
-                img_prop,
-                spatial_sampling,
-                i
-            )
+
+        start_index = 0
+        save_prefix = "%s_%s_%s_%s_img_prop_%s" % (
+            network_name,
+            input_name,
+            parameter_str,
+            p,
+            img_prop
+        )
+        if existing_ok:
+            files = os.listdir(curr_dir + "/error/")
+            files = [f for f in files if save_prefix in f]
+            start_index = np.minimum(num_trials, len(files))
+
+        for i in range(start_index, num_trials):
+            save_prefix = "%s_no_%s" % (save_prefix, i)
             if verbosity > 0:
                 print("\n#####################\tThe save prefix is: ", save_prefix)
 
@@ -450,6 +457,7 @@ def main():
     use_equilibrium = False
     verbosity = VERBOSITY
     load_network = False
+    existing_ok = False
 
     # ################################################################################################################
     # Parse command line arguments
@@ -539,6 +547,9 @@ def main():
     if cmd_params.equilibrium:
         use_equilibrium = True
 
+    if cmd_params.existing_ok:
+        existing_ok = True
+
     print("Start experiments for network %s given the input %s."
           " The parameter %s is changed."
           " The number of trials is %s."
@@ -571,6 +582,7 @@ def main():
         use_equilibrium=use_equilibrium,
         save_plots=save_plots,
         load_network=load_network,
+        existing_ok=existing_ok,
         num_trials=num_trials,
         verbosity=verbosity
     )
