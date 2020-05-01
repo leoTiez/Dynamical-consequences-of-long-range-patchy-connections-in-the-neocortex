@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from modules.networkConstruction import TUNING_FUNCTION
+from modules.thesisConstants import TUNING_FUNCTION
 
 NETWORK_TYPE_NAMING = {
     "random": "Random",
