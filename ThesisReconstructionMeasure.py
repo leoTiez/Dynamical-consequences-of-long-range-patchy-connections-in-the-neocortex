@@ -39,7 +39,7 @@ def main_lr(
         img_prop=1.,
         spatial_sampling=False,
         use_equilibrium=False,
-        load_network=True,
+        load_network=False,
         write_to_file=False,
         save_plots=True,
         save_prefix='',
@@ -295,7 +295,7 @@ def experiment(
         img_prop=1.,
         spatial_sampling=False,
         use_equilibrium=False,
-        load_network=True,
+        load_network=False,
         save_plots=True,
         num_trials=10,
         verbosity=VERBOSITY
@@ -341,8 +341,9 @@ def experiment(
         parameters = [(4, 4), (8, 8), (12, 12), (16, 16), (20, 20)]
         parameter_str = "orientation_map"
     elif patches is None:
-        parameters = np.arange(1, 5, 1)
+        parameters = np.arange(1, 10, 1)
         parameter_str = "num_patches"
+        load_network = False
     elif perlin_input_cluster is None:
         parameters = [(8, 8), (15, 15), (20, 20)]
         parameter_str = "perlin_cluster_size"
@@ -355,7 +356,6 @@ def experiment(
 
     curr_dir = os.getcwd()
     Path(curr_dir + "/error/").mkdir(exist_ok=True, parents=True)
-    Path(curr_dir + "/mi/").mkdir(exist_ok=True, parents=True)
 
     # #################################################################################################################
     # Loop over parameter range
@@ -366,12 +366,13 @@ def experiment(
         errors = []
         tuning_name = list(TUNING_FUNCTION.keys())[p if tuning_function is None else tuning_function]
         for i in range(num_trials):
-            save_prefix = "%s_%s_%s_%s_img_prop_%s_no_%s" % (
+            save_prefix = "%s_%s_%s_%s_img_prop_%s_spatials_%s_no_%s" % (
                 network_name,
                 input_name,
                 parameter_str,
                 p,
                 img_prop,
+                spatial_sampling,
                 i
             )
             if verbosity > 0:
@@ -390,6 +391,7 @@ def experiment(
                 spatial_sampling=spatial_sampling,
                 use_equilibrium=use_equilibrium,
                 write_to_file=True,
+                load_network=load_network,
                 save_plots=save_plots,
                 save_prefix=save_prefix,
                 verbosity=verbosity
@@ -401,35 +403,10 @@ def experiment(
             ed_file.close()
 
             errors.append(ed)
-            input_stimuli.append(input_stimulus.reshape(-1))
-            firing_rates.append(firing_rate.reshape(-1))
 
         # #############################################################################################################
         # Write values to file
         # #############################################################################################################
-        save_prefix = "%s_%s_%s_%s_img_prop_%s" % (
-            network_name,
-            input_name,
-            parameter_str,
-            p if tuning_function is not None else tuning_name,
-            img_prop
-        )
-
-        mean_error = np.mean(np.asarray(errors))
-        error_variance = np.var(np.asarray(errors))
-        mutual_information = mutual_information_hist(input_stimuli, firing_rates)
-
-        mean_error_file = open(curr_dir + "/error/%s_mean_error.txt" % save_prefix, "w+")
-        mean_error_file.write(str(mean_error))
-        mean_error_file.close()
-
-        error_variance_file = open(curr_dir + "/error/%s_error_variance.txt" % save_prefix, "w+")
-        error_variance_file.write(str(error_variance))
-        error_variance_file.close()
-
-        mi_file = open(curr_dir + "/mi/%s_mi.txt" % save_prefix, "w+")
-        mi_file.write(str(mutual_information))
-        mi_file.close()
 
         if verbosity > 0:
             print("\n#####################\tMean Error for network type %s, %s %s, image proportion %s,"
@@ -440,7 +417,7 @@ def experiment(
                       p if tuning_function is not None else tuning_name,
                       img_prop,
                       input_name,
-                      mean_error
+                      np.asarray(errors).mean()
                   ))
             print("\n#####################\tError variance for network type %s, %s %s, image proportion %s,"
                   " and input type %s: %s \n"
@@ -450,17 +427,7 @@ def experiment(
                       p if tuning_function is not None else tuning_name,
                       img_prop,
                       input_name,
-                      error_variance
-                  ))
-            print("\n#####################\tMutual Information MI for network type %s, %s %s, image proportion %s,"
-                  " and input type %s: %s \n"
-                  % (
-                      network_name,
-                      parameter_str,
-                      p if tuning_function is not None else tuning_name,
-                      img_prop,
-                      input_name,
-                      mutual_information
+                      np.asarray(errors).mean()
                   ))
 
 
