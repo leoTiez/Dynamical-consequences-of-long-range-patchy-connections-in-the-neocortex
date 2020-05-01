@@ -1,6 +1,7 @@
 #!/usr/bin/python
 from modules.thesisUtils import *
 from modules.networkAnalysis import *
+from modules.thesisConstants import *
 
 import warnings
 from pathlib import Path
@@ -11,16 +12,6 @@ import matplotlib.pyplot as plt
 
 import nest.topology as tp
 import nest
-
-# Define global constants
-GLOBAL_CONNECTIVITY = 0.0123
-R_MAX = 8.
-
-TUNING_FUNCTION = {
-    "step": 0,
-    "gauss": 1,
-    "linear": 2
-}
 
 
 def _create_location_based_patches(
