@@ -554,7 +554,6 @@ class NeuronalNetworkBase:
         :param feature_folder: If a the network should be saved to a particular feature folder
         :return: None
         """
-        self.get_sensory_weight_mat()
         save_net(self, self.network_type, feature_folder=feature_folder)
 
     def import_net(self):
@@ -564,8 +563,6 @@ class NeuronalNetworkBase:
         """
         self._set_nest_kernel()
         load_net(self, self.network_type)
-        self.create_orientation_map()
-        self.create_retina()
 
 
 class RandomNetwork(NeuronalNetworkBase):
