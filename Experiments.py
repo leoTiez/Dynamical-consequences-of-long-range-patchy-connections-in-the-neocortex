@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 import sys
 import os
+import multiprocessing
+from itertools import product
 
 from createThesisNetwork import NETWORK_TYPE
 from modules.createStimulus import INPUT_TYPE
@@ -29,36 +31,43 @@ def main_experiment_loop(
     # #############################################################################################################
     # Looping over network and input types
     # #############################################################################################################
-    for network in NETWORK_TYPE.keys():
-        if network.lower() == "random" and parameter.lower() == "cluster":
-            continue
-        if "patchy" not in network.lower() and parameter.lower() == "patches":
-            continue
+    network_list = list(NETWORK_TYPE.keys())
+    if parameter.lower() == "cluster":
+        network_list = [net for net in network_list if net != "random"]
+    elif parameter.lower() == "patches":
+        network_list = [net for net in network_list if "patchy" in net]
 
-        input_list = INPUT_TYPE.keys()
-        if parameter.lower() == "perlin":
-            input_list = ["perlin"]
-        for stimulus in input_list:
-            for ip in img_prop:
-                os.system("python3 %s/ThesisReconstructionMeasure.py "
-                          "%s"
-                          "--network=%s "
-                          "--input=%s "
-                          "--parameter=%s "
-                          "--img_prop=%s "
-                          "--num_trials=%s "
-                          "%s"
-                          % (
-                              "--load_network " if load_network else "",
-                              curr_dir,
-                              network,
-                              stimulus,
-                              parameter,
-                              ip,
-                              num_trials,
-                              "--spatial_sampling" if spatial_sampling else ""
-                          )
-                          )
+    input_list = list(INPUT_TYPE.keys()) if parameter.lower() != "perlin" else ["perlin"]
+
+    parameter_combination = product(network_list, input_list, img_prop)
+
+    pool = multiprocessing.Pool(multiprocessing.cpu_count() - 2 or 1)
+    for pc in parameter_combination:
+        pool.apply_async(
+            os.system,
+            args=("python3 %s/ThesisReconstructionMeasure.py "
+                  "%s"
+                  "--network=%s "
+                  "--input=%s "
+                  "--parameter=%s "
+                  "--img_prop=%s "
+                  "--num_trials=%s "
+                  "%s"
+                  % (
+                      curr_dir,
+                      "--load_network " if load_network else "",
+                      pc[0],
+                      pc[1],
+                      parameter,
+                      pc[2],
+                      num_trials,
+                      "--spatial_sampling" if spatial_sampling else ""
+                  ),
+                  )
+        )
+
+    pool.close()
+    pool.join()
 
 
 def main():
