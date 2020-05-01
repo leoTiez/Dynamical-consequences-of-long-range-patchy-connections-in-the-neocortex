@@ -2,10 +2,10 @@
 import sys
 import numpy as np
 
-from createThesisNetwork import network_factory, NETWORK_TYPE
-from modules.createStimulus import stimulus_factory, INPUT_TYPE
+from createThesisNetwork import network_factory
+from modules.createStimulus import stimulus_factory
 from modules.thesisUtils import arg_parse
-from modules.networkConstruction import TUNING_FUNCTION
+from modules.thesisConstants import *
 
 
 def main():
