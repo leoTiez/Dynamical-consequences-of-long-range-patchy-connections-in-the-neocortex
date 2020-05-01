@@ -4,24 +4,7 @@ from modules.thesisUtils import *
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-
-
-INPUT_TYPE = {
-    "plain": 0,
-    "perlin": 1,
-    "natural": 2,
-    "random": 3
-}
-
-INPUT_TYPE_EXTENDED = {
-    "plain": 0,
-    "perlin": 1,
-    "bar": 2,
-    "circles": 3,
-    "natural": 4,
-    "edges": 5,
-    "random": 6
-}
+from modules.thesisConstants import *
 
 
 def convert_image_to_orientation_map(image, magnitude_threshold=50, num_orientation_ranges=8, **kwargs):
@@ -166,19 +149,19 @@ def stimulus_factory(input_type=INPUT_TYPE["plain"], **kwargs):
     :param kwargs: Additional parameters that are needed for the respective functions that create the image
     :return: The created image
     """
-    # if input_type == INPUT_TYPE["circles"]:
-    #     input_stimulus = image_with_spatial_correlation(**kwargs)
-    # elif input_type == INPUT_TYPE["bar"]:
-    #     input_stimulus = create_image_bar(**kwargs)
-    if input_type == INPUT_TYPE["natural"]:
+    if input_type == INPUT_TYPE["circles"]:
+        input_stimulus = image_with_spatial_correlation(**kwargs)
+    elif input_type == INPUT_TYPE["bar"]:
+        input_stimulus = create_image_bar(**kwargs)
+    elif input_type == INPUT_TYPE["natural"]:
         input_stimulus = load_image(**kwargs)
     elif input_type == INPUT_TYPE["perlin"]:
         input_stimulus = perlin_image(**kwargs)
     elif input_type == INPUT_TYPE["plain"]:
         input_stimulus = plain_stimulus(**kwargs)
-    # elif input_type == INPUT_TYPE["edges"]:
-    #     input_stimulus = load_image(**kwargs)
-    #     input_stimulus = convert_image_to_orientation_map(input_stimulus, **kwargs)
+    elif input_type == INPUT_TYPE["edges"]:
+        input_stimulus = load_image(**kwargs)
+        input_stimulus = convert_image_to_orientation_map(input_stimulus, **kwargs)
     elif input_type == INPUT_TYPE["random"]:
         input_stimulus = image_with_spatial_correlation(shuffle=True, **kwargs)
     else:
