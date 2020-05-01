@@ -6,6 +6,7 @@ from modules.createStimulus import *
 from modules.networkAnalysis import *
 from modules.thesisUtils import get_in_out_degree
 from modules.networkParser import *
+from modules.thesisConstants import *
 
 from collections import Counter, OrderedDict
 from scipy.spatial import KDTree
@@ -13,16 +14,6 @@ from pathlib import Path
 import nest
 
 nest.set_verbosity("M_ERROR")
-
-NETWORK_TYPE = {
-    "random": 0,
-    "local_circ": 1,
-    "local_sd": 2,
-    "local_circ_patchy_sd": 3,
-    "local_circ_patchy_random": 4,
-    "local_sd_patchy_sd": 5,
-    "input_only": 6
-}
 
 
 class NeuronalNetworkBase:
@@ -699,6 +690,8 @@ class LocalNetwork(NeuronalNetworkBase):
         )
 
         self.r_loc = r_loc
+        if c_alpha > 1.0 or c_alpha < 0.0:
+            raise ValueError("c_alpha must be set between 0 and 1")
         self.c_alpha = c_alpha
         self.global_connect = (1.4 - self.img_prop) * np.minimum(
             np.pi * self.r_loc**2 / float(self.layer_size**2),
