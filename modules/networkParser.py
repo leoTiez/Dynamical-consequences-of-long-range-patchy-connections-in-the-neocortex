@@ -1,11 +1,9 @@
 #!/usr/bin/python3
 import os
-import ast
 from pathlib import Path
 import numpy as np
 import pandas as pd
 from scipy.spatial import KDTree
-
 import modules.networkConstruction as nc
 
 import nest
@@ -31,14 +29,15 @@ def save_net(net, network_name, feature_folder, path="", use_cwd=True):
     :param use_cwd: If set to True, the current directory is added to the path
     :return: None
     """
+    connect = nest.GetConnections(net.torus_layer_nodes)
+    connect = tuple([(c[0], c[1]) for c in connect if c[1] in net.torus_layer_nodes])
     net_dict = {
         "neurons": [tuple(net.torus_layer_nodes)],
         "inh_neurons": [tuple(net.torus_inh_nodes)],
         "positions": [net.torus_layer_positions],
         "tuning_neuron": [net.tuning_to_neuron_map],
         "neuron_tuning": [net.neuron_to_tuning_map],
-        "color_map": [tuple(net.color_map.reshape(-1))],
-        "adj_mat": [tuple(net.adj_sens_sens_mat.reshape(-1))],
+        "connect": [connect],
     }
 
     net_df = pd.DataFrame(net_dict)
@@ -58,7 +57,7 @@ def save_net(net, network_name, feature_folder, path="", use_cwd=True):
     net_df.to_csv("%s/%s_%s.csv" % (path, network_name, num), encoding='utf-8', index=False)
 
 
-def load_net(net, network_name, feature_folder="", path="", use_cwd=True, num=None):
+def load_net(net, network_name, feature_folder="", path="", use_cwd=True, num=13):
     """
         Load the neurons and connections of the network from a file
         :param net: The network object
@@ -85,17 +84,11 @@ def load_net(net, network_name, feature_folder="", path="", use_cwd=True, num=No
         max_num = len(os.listdir(path))
         num = np.random.randint(0, max_num)
 
-    net_df = pd.read_csv("%s/%s_%s.csv" % (path, network_name, num))
-
-    net.torus_layer_nodes = convert_string_to_list(net_df["neurons"][0], dtype=int)
-    net.num_sensory = len(net.torus_layer_nodes)
+    net_df = pd.read_csv("%s/%s_%s.csv" % (path, network_name, num), usecols=["positions"])
 
     net.torus_layer_positions = [convert_string_to_list(coordinates, float)
                                  for coordinates in net_df["positions"][0].strip("(").strip(")").split("), (")]
-
-    net.adj_sens_sens_mat = np.asarray(convert_string_to_list(net_df["adj_mat"][0], float)).reshape(
-        (net.num_sensory, net.num_sensory)
-    )
+    del net_df
 
     net.torus_layer, net.spike_detect, net.multi_meter = nc.create_torus_layer_uniform(
         num_neurons=net.num_sensory,
@@ -108,15 +101,22 @@ def load_net(net, network_name, feature_folder="", path="", use_cwd=True, num=No
     )
     net.torus_layer_tree = KDTree(net.torus_layer_positions)
 
-    min_id = min(net.torus_layer_nodes)
-    net.torus_inh_nodes = set()
-    for s, row in enumerate(net.adj_sens_sens_mat):
-        for t, weight in enumerate(row):
-            if weight != 0:
-                if weight < 0:
-                    weight = net.inh_weight
-                else:
-                    weight = net.cap_s
-                nest.Connect([s + min_id], [t + min_id], syn_spec={"weight": weight})
-
+    net_df = pd.read_csv("%s/%s_%s.csv" % (path, network_name, num), usecols=["neurons", "inh_neurons"])
+    net.torus_layer_nodes = convert_string_to_list(net_df["neurons"][0], dtype=int)
+    net.num_sensory = len(net.torus_layer_nodes)
     net.torus_inh_nodes = convert_string_to_list(net_df["inh_neurons"][0], int)
+    del net_df
+
+    net.create_orientation_map()
+    net.create_retina()
+
+    net_df = pd.read_csv("%s/%s_%s.csv" % (path, network_name, num), usecols=["connect"])
+    conns = [convert_string_to_list(c, int)
+             for c in net_df["connect"][0].strip("(").strip(")").split("), (")]
+    del net_df
+
+    for s, t in conns:
+        weight = net.cap_s if s in net.torus_inh_nodes else net.inh_weight
+        nest.Connect([s], [t], syn_spec={"weight": weight})
+
+
