@@ -14,8 +14,10 @@ def main_experiment_loop(
         parameter=PARAMETER_DICT["tuning"],
         img_prop=[1.0],
         num_trials=10,
+        less_cpus=2,
         spatial_sampling=False,
-        load_network=False
+        load_network=False,
+        existing_ok=False
 ):
     """
     Outer loop for experiments.
@@ -41,7 +43,7 @@ def main_experiment_loop(
 
     parameter_combination = product(network_list, input_list, img_prop)
 
-    pool = multiprocessing.Pool(multiprocessing.cpu_count() - 2 or 1)
+    pool = multiprocessing.Pool(multiprocessing.cpu_count() - less_cpus or 1)
     for pc in parameter_combination:
         pool.apply_async(
             os.system,
@@ -53,6 +55,7 @@ def main_experiment_loop(
                   "--img_prop=%s "
                   "--num_trials=%s "
                   "%s"
+                  "%s"
                   % (
                       curr_dir,
                       "--load_network " if load_network else "",
@@ -61,6 +64,7 @@ def main_experiment_loop(
                       parameter,
                       pc[2],
                       num_trials,
+                      "--existing_ok " if existing_ok else "",
                       "--spatial_sampling" if spatial_sampling else ""
                   ),
                   )
@@ -80,6 +84,8 @@ def main():
     img_prop = None
     spatial_sampling = False
     load_network = False
+    less_cpus = 2
+    existing_ok = False
 
     if cmd_params.parameter in list(PARAMETER_DICT.keys()):
         parameter = cmd_params.parameter
@@ -103,6 +109,12 @@ def main():
     if cmd_params.load_network:
         load_network = True
 
+    if cmd_params.less_cpus is not None:
+        less_cpus = cmd_params.less_cpus
+
+    if cmd_params.existing_ok:
+        existing_ok = True
+
     # #############################################################################################################
     # Running experimental loop
     # #############################################################################################################
@@ -111,7 +123,9 @@ def main():
         img_prop=img_prop,
         num_trials=num_trials,
         spatial_sampling=spatial_sampling,
-        load_network=load_network
+        less_cpus=less_cpus,
+        load_network=load_network,
+        existing_ok=existing_ok
     )
 
 
