@@ -112,6 +112,11 @@ def arg_parse(args):
         help="If set, check existing error files and continue from last index"
     )
 
+    parser.add_argument(
+        "--perlin",
+        type=int,
+        help="Sets the Perlin noise cluster to (perlin, perlin)"
+    )
     parsed_args = parser.parse_args(args)
 
     return parsed_args
