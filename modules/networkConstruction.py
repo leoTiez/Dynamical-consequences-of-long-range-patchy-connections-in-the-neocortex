@@ -1,6 +1,7 @@
 #!/usr/bin/python
 from modules.thesisUtils import *
 from modules.networkAnalysis import *
+from modules.thesisConstants import *
 
 import warnings
 from pathlib import Path
@@ -11,16 +12,6 @@ import matplotlib.pyplot as plt
 
 import nest.topology as tp
 import nest
-
-# Define global constants
-GLOBAL_CONNECTIVITY = 0.0123
-R_MAX = 8.
-
-TUNING_FUNCTION = {
-    "step": 0,
-    "gauss": 1,
-    "linear": 2
-}
 
 
 def _create_location_based_patches(
@@ -217,6 +208,7 @@ def create_torus_layer_uniform(
         synaptic_strength=1.,
         max_spiking=1000.,
         bg_spiking_scaling=0.3,
+        positions=None,
         to_file=False
 ):
     """
@@ -228,11 +220,19 @@ def create_torus_layer_uniform(
     :param time_const: Time constant of the neurons
     :param capacitance: Capacitance of the neurons
     :param size_layer: Size of the layer
+    :param p_rf: The receptive field conenction probability. This is used to determine an adequate background activity
+    :param ff_factor: The weight factor for the ff weights. This is used to determine an adequate background activity
+    :param synaptic_strength: The feedforward activity. This is used to determine an adequate background activity
+    :param max_spiking: The maximal spiking rate of Poisson spike generator when receiving ff input.
+    :param bg_spiking_scaling: Scaling parameter of the maximal spiking rate to deterimen the background activity
+    :param positions: If set to None, positions are generated, otherwise these positions are used. Note that the number
+    of positions must match the number of neurons
     :param to_file: If set to true, the spikes are written to a file
     :return: neural layer, spike detector and mutlimeter
     """
     # Calculate positions
-    positions = np.random.uniform(- size_layer / 2., size_layer / 2., size=(num_neurons, 2)).tolist()
+    if positions is None:
+        positions = np.random.uniform(- size_layer / 2., size_layer / 2., size=(num_neurons, 2)).tolist()
     # Create dict for neural layer that is wrapped as torus to avoid boundary effects
     torus_dict = {
         "extent": [size_layer, size_layer],
@@ -241,7 +241,7 @@ def create_torus_layer_uniform(
         "edge_wrap": True
     }
 
-    if neuron_type is "iaf_psc_delta" or neuron_type is "iaf_psc_alpha":
+    if neuron_type == "iaf_psc_delta" or neuron_type == "iaf_psc_alpha":
         neuron_dict = {
             "V_m": rest_pot,
             "E_L": rest_pot,
@@ -1471,6 +1471,7 @@ def create_connections_rf(
     target_node_ids is lower than the this value
     :param p_rf: Connection probability to the cells in the receptive field
     :param target_layer_size: Size of the square sheet with the sensory neurons
+    :param max_spiking: Maximal spiking rate of a Poisson spike generator
     :param calc_error: If set to true, the reconstruction error is calculated based in the injected input,
     the reconstruction method is applied and the results is saved or displayed
     :param use_dc: If set to True a DC is injected, otherwise a Poisson spike train
@@ -1482,6 +1483,7 @@ def create_connections_rf(
     parameters remain unchanged
     :param plot_point: Number determining after how many established connections the plot is made
     :param retina_size: Size of the retina / input layer
+    :param color_mask: Color mask of the functional map to plot receptive fields and sensory neurons properly
     :return: Adjacency matrix from receptors to sensory nodes
     """
 

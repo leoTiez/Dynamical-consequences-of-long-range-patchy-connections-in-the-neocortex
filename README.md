@@ -123,7 +123,7 @@ firing rate and the input stimulus. Note that the latter metric loses the notion
 Run the file via
 
 ```bash
-pyhton3 ThesisReconstructionMeasure  --network=loc_circ_patchy_sd --input=perlin [optional: --seed --agg --spatial_sampling --show --num_neurons=10000 --parameter=tuning --tuning=gauss --cluster=8 --patches=3 --rec_weight=1. --ff_weight=1. --img_prop=1.0 --num_trials=5 --verbosity=2]
+pyhton3 ThesisReconstructionMeasure  --network=loc_circ_patchy_sd --input=perlin [optional: --seed --agg --spatial_sampling --show --num_neurons=10000 --parameter=tuning --tuning=gauss --cluster=8 --patches=3 --rec_weight=1. --ff_weight=1. --img_prop=1.0 --load_network --num_trials=5 --verbosity=2]
 ``` 
 
 where the parameter `--parameter` defines the parameter that is in question. 
@@ -202,6 +202,7 @@ The possible parameters are
 - `--cluster` is an integer value and defines the extent of the spatially grouped neurons. We use a Perlin noise distribution that interpolates between lattice points on a mesh. The integer defines the size of the mesh, e.g. there are (`--cluster`, `--cluster`) values randomly sampled.
 - `--patches` sets the number of patches per neuron
 - `--verbosity` sets the verbosity level
+- `--load_network` determines whether the network is loaded from file. When running the experiment script this is automatically done
 
 ### Plotting
 The script `PlotData.py` loads all all the error values into a table with the following columns:

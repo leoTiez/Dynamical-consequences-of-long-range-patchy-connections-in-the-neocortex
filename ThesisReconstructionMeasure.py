@@ -2,43 +2,40 @@
 # -*- coding: utf-8 -*-
 
 from modules.stimulusReconstruction import fourier_trans, direct_stimulus_reconstruction
-from modules.createStimulus import *
-from modules.thesisUtils import arg_parse, firing_rate_sorting
+from modules.createStimulus import stimulus_factory
+from modules.thesisUtils import *
 from modules.networkConstruction import TUNING_FUNCTION
 from createThesisNetwork import network_factory, NETWORK_TYPE
-from modules.networkAnalysis import mutual_information_hist, error_distance
+from modules.networkAnalysis import error_distance
+from modules.thesisConstants import *
 
+import os
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 from pathlib import Path
 from webcolors import hex_to_rgb
 import nest
+import nest.topology as tp
 
 VERBOSITY = 3
 nest.set_verbosity("M_ERROR")
 
-PARAMETER_DICT = {
-    "tuning": 0,
-    "cluster": 1,
-    "patches": 2,
-    "perlin": 3,
-    "weights": 4
-}
-
 
 def main_lr(
         network_type=NETWORK_TYPE["local_circ_patchy_random"],
-        input_type=INPUT_TYPE["plain"],
         num_neurons=int(1e4),
         cluster=(15, 15),
         tuning_function=TUNING_FUNCTION["gauss"],
-        perlin_input_cluster=(5, 5),
+        perlin_input_cluster=(4, 4),
         num_patches=3,
         ff_factor=1.,
+        c_alpha=0.7,
         img_prop=1.,
         spatial_sampling=False,
         use_equilibrium=False,
+        load_network=False,
         write_to_file=False,
         save_plots=True,
         save_prefix='',
@@ -47,7 +44,6 @@ def main_lr(
     """
     Main function to create a network, simulate and reconstruct the original stimulus
     :param network_type: The type of the network. This is an integer number defined in the NETWORK_TYPE dictionary
-    :param input_type: The type of the input. This is an integer number defined in the INPUT_TYPE dictionary
     :param num_neurons: Number of sensory neurons
     :param cluster: The size of the Perlin noise mesh
     :param tuning_function: The tuning function that is applied by the neurons. This is an integer number defined
@@ -69,7 +65,7 @@ def main_lr(
     # #################################################################################################################
     # Load stimulus
     # #################################################################################################################
-    input_stimulus = stimulus_factory(input_type, resolution=perlin_input_cluster)
+    input_stimulus = stimulus_factory(INPUT_TYPE["perlin"], resolution=perlin_input_cluster)
 
     stimulus_fft = fourier_trans(input_stimulus)
     if verbosity > 2:
@@ -87,12 +83,10 @@ def main_lr(
     # #################################################################################################################
     simulation_time = 1000.
     eq_time = 600.
-    num_neurons = num_neurons
     cap_s = 1.
     inh_weight = -5.
     ff_weight = 1.0
     all_same_input_current = False
-    c_alpha = 0.7
     p_rf = 0.7
     pot_threshold = -55.
     pot_reset = -70.
@@ -132,7 +126,11 @@ def main_lr(
         verbosity=verbosity,
         to_file=write_to_file
     )
-    network.create_network()
+    if load_network:
+        print("\n#####################\tImport networki")
+        network.import_net()
+    else:
+        network.create_network()
 
     if verbosity > 4:
         print("\n#####################\tPlot in/out degree distribution")
@@ -281,24 +279,25 @@ def main_lr(
 
 
 def experiment(
-        input_type=INPUT_TYPE["plain"],
         network_type=NETWORK_TYPE["random"],
         num_neurons=int(1e4),
         tuning_function=TUNING_FUNCTION["gauss"],
         cluster=(15, 15),
-        perlin_input_cluster=(5, 5),
+        perlin_input_cluster=(4, 4),
         patches=3,
         ff_factor=1.,
+        c_alpha=0.7,
         img_prop=1.,
         spatial_sampling=False,
         use_equilibrium=False,
+        load_network=False,
+        existing_ok=False,
         save_plots=True,
         num_trials=10,
         verbosity=VERBOSITY
 ):
     """
     Computes the mutual information that is averaged over several trials
-    :param input_type: The input type. This is an integer number defined in the INPUT_TYPE dictionary
     :param network_type: The network type. This is an integer number defined in the NETWORK_TYPE dictionary
     :param num_neurons: Set the number of sensory neurons
     :param tuning_function: The tuning function of senory neurons. This is an integer number defined in the
@@ -323,8 +322,8 @@ def experiment(
     # Set experiment parameters
     # #################################################################################################################
     network_name = list(NETWORK_TYPE.keys())[network_type]
-    input_name = list(INPUT_TYPE.keys())[input_type]
-    parameters = [cluster, patches, num_trials]
+    input_name = str(perlin_input_cluster[0])
+    parameters = [tuning_function, cluster, patches, ff_factor, c_alpha]
     if sum(1 for _ in filter(None.__ne__, parameters)) < len(parameters) - 1:
         raise ValueError("The experiment cannot change more than one parameter at a time")
 
@@ -334,24 +333,24 @@ def experiment(
         parameters = TUNING_FUNCTION.values()
         parameter_str = "tuning_function"
     elif cluster is None:
-        parameters = [(4, 4), (8, 8), (12, 12), (16, 16), (20, 20)]
+        parameters = FUNC_MAP_CLUSTER_PAR
         parameter_str = "orientation_map"
     elif patches is None:
-        parameters = np.arange(1, 5, 1)
+        parameters = PATCHES_PAR
         parameter_str = "num_patches"
-    elif perlin_input_cluster is None:
-        parameters = [(8, 8), (15, 15), (20, 20)]
-        parameter_str = "perlin_cluster_size"
+        load_network = False
     elif ff_factor is None:
-        parameters = [0.2, 0.8, 1.2, 1.8]
+        parameters = FF_FACTORS_PAR
         parameter_str = "weight_balance"
+    elif c_alpha is None:
+        parameters = ALPHA_PAR
+        parameter_str = "c_alpha"
 
     if len(list(parameters)) == 0:
         parameters.append("")
 
     curr_dir = os.getcwd()
     Path(curr_dir + "/error/").mkdir(exist_ok=True, parents=True)
-    Path(curr_dir + "/mi/").mkdir(exist_ok=True, parents=True)
 
     # #################################################################################################################
     # Loop over parameter range
@@ -361,31 +360,40 @@ def experiment(
         firing_rates = []
         errors = []
         tuning_name = list(TUNING_FUNCTION.keys())[p if tuning_function is None else tuning_function]
-        for i in range(num_trials):
-            save_prefix = "%s_%s_%s_%s_img_prop_%s_no_%s" % (
-                network_name,
-                input_name,
-                parameter_str,
-                p,
-                img_prop,
-                i
-            )
+
+        start_index = 0
+        save_prefix_root = "%s_%s_%s_%s_img_prop_%s_spatials_%s" % (
+            network_name,
+            input_name,
+            parameter_str,
+            p,
+            img_prop,
+            spatial_sampling
+        )
+        if existing_ok:
+            files = os.listdir(curr_dir + "/error/")
+            files = [f for f in files if save_prefix_root in f]
+            start_index = np.minimum(num_trials, len(files))
+
+        for i in range(start_index, num_trials):
+            save_prefix = "%s_no_%s" % (save_prefix_root, i)
             if verbosity > 0:
                 print("\n#####################\tThe save prefix is: ", save_prefix)
 
             input_stimulus, reconstruction, firing_rate = main_lr(
                 network_type=network_type,
-                input_type=input_type,
                 num_neurons=num_neurons,
                 tuning_function=p if tuning_function is None else tuning_function,
                 cluster=p if cluster is None else cluster,
                 num_patches=p if patches is None else patches,
                 perlin_input_cluster=p if perlin_input_cluster is None else perlin_input_cluster,
                 ff_factor=p if ff_factor is None else ff_factor,
+                c_alpha=p if c_alpha is None else c_alpha,
                 img_prop=img_prop,
                 spatial_sampling=spatial_sampling,
                 use_equilibrium=use_equilibrium,
                 write_to_file=True,
+                load_network=load_network,
                 save_plots=save_plots,
                 save_prefix=save_prefix,
                 verbosity=verbosity
@@ -397,35 +405,10 @@ def experiment(
             ed_file.close()
 
             errors.append(ed)
-            input_stimuli.append(input_stimulus.reshape(-1))
-            firing_rates.append(firing_rate.reshape(-1))
 
         # #############################################################################################################
         # Write values to file
         # #############################################################################################################
-        save_prefix = "%s_%s_%s_%s_img_prop_%s" % (
-            network_name,
-            input_name,
-            parameter_str,
-            p if tuning_function is not None else tuning_name,
-            img_prop
-        )
-
-        mean_error = np.mean(np.asarray(errors))
-        error_variance = np.var(np.asarray(errors))
-        mutual_information = mutual_information_hist(input_stimuli, firing_rates)
-
-        mean_error_file = open(curr_dir + "/error/%s_mean_error.txt" % save_prefix, "w+")
-        mean_error_file.write(str(mean_error))
-        mean_error_file.close()
-
-        error_variance_file = open(curr_dir + "/error/%s_error_variance.txt" % save_prefix, "w+")
-        error_variance_file.write(str(error_variance))
-        error_variance_file.close()
-
-        mi_file = open(curr_dir + "/mi/%s_mi.txt" % save_prefix, "w+")
-        mi_file.write(str(mutual_information))
-        mi_file.close()
 
         if verbosity > 0:
             print("\n#####################\tMean Error for network type %s, %s %s, image proportion %s,"
@@ -436,7 +419,7 @@ def experiment(
                       p if tuning_function is not None else tuning_name,
                       img_prop,
                       input_name,
-                      mean_error
+                      np.asarray(errors).mean()
                   ))
             print("\n#####################\tError variance for network type %s, %s %s, image proportion %s,"
                   " and input type %s: %s \n"
@@ -446,17 +429,7 @@ def experiment(
                       p if tuning_function is not None else tuning_name,
                       img_prop,
                       input_name,
-                      error_variance
-                  ))
-            print("\n#####################\tMutual Information MI for network type %s, %s %s, image proportion %s,"
-                  " and input type %s: %s \n"
-                  % (
-                      network_name,
-                      parameter_str,
-                      p if tuning_function is not None else tuning_name,
-                      img_prop,
-                      input_name,
-                      mutual_information
+                      np.asarray(errors).mean()
                   ))
 
 
@@ -465,19 +438,21 @@ def main():
     # Initialise parameters
     # ################################################################################################################
     network_type = None
-    input_type = None
     num_neurons = int(1e4)
     tuning_function = TUNING_FUNCTION["gauss"]
     cluster = (15, 15)
-    perlin_input_cluster = (5, 5)
+    perlin_input_cluster = (4, 4)
     num_trials = 10
     patches = 3
+    c_alpha = 0.7
     ff_factor = 1.
     img_prop = 1.
     spatial_sampling = False
     save_plots = True
     use_equilibrium = False
     verbosity = VERBOSITY
+    load_network = False
+    existing_ok = False
 
     # ################################################################################################################
     # Parse command line arguments
@@ -501,13 +476,11 @@ def main():
     else:
         raise ValueError("Please pass a valid network as parameter")
 
-    if cmd_params.input in list(INPUT_TYPE.keys()):
-        input_type = INPUT_TYPE[cmd_params.input]
-    else:
-        raise ValueError("Please pass a valid input type as parameter")
-
     if cmd_params.num_neurons is not None:
         num_neurons = int(cmd_params.num_neurons)
+
+    if cmd_params.perlin is not None:
+        perlin_input_cluster = (cmd_params.perlin, cmd_params.perlin)
 
     if cmd_params.parameter in list(PARAMETER_DICT.keys()):
         if cmd_params.parameter.lower() == "tuning":
@@ -516,15 +489,14 @@ def main():
             if "patchy" not in cmd_params.network.lower():
                 raise ValueError("Cannot run experiments about the number of patches a non-patchy network")
             patches = None
+        elif cmd_params.parameter.lower() == "alpha":
+            if "patchy" not in cmd_params.network.lower():
+                raise ValueError("Cannot run experiments about the different alpha values when no patches present")
+            c_alpha = None
         elif cmd_params.parameter.lower() == "cluster":
             if network_type == NETWORK_TYPE["random"]:
                 raise ValueError("Cannot run experiments about the cluster size with a random network")
             cluster = None
-        elif cmd_params.parameter.lower() == "perlin":
-            if cmd_params.input is not None:
-                if cmd_params.input.lower() != "perlin":
-                    raise ValueError("Cannot investigate the effect of the perlin size when not using perlin as input")
-            perlin_input_cluster = None
         elif cmd_params.parameter.lower() == "weights":
             ff_factor = None
 
@@ -546,11 +518,20 @@ def main():
         else:
             raise ValueError("Cannot pass 'patches' as experimental parameter and set patches")
 
+    if cmd_params.c_alpha is not None:
+        if c_alpha is not None:
+            c_alpha = cmd_params.c_alpha
+        else:
+            raise ValueError("Cannot pass 'alpha' as experimental parameter and set c_alpha")
+
     if cmd_params.ff_factor is not None:
         if ff_factor is not None:
             ff_factor = cmd_params.ff_factor
         else:
             raise ValueError("Cannot pass 'weights' as experimental parameter and set feedforward weight factor")
+
+    if cmd_params.load_network:
+        load_network = True
 
     if cmd_params.num_trials is not None:
         num_trials = cmd_params.num_trials
@@ -564,14 +545,17 @@ def main():
     if cmd_params.equilibrium:
         use_equilibrium = True
 
-    print("Start experiments for network %s given the input %s."
+    if cmd_params.existing_ok:
+        existing_ok = True
+
+    print("Start experiments for network %s given the Perlin resolution is %s."
           " The parameter %s is changed."
           " The number of trials is %s."
           " For the reconstruction methods, the equilibrium state of the network is%s used"
           " and sampling rate is %s with%s spatial correlation"
           % (
               cmd_params.network,
-              cmd_params.input,
+              perlin_input_cluster[0],
               cmd_params.parameter,
               num_trials,
               "" if use_equilibrium else " not",
@@ -584,7 +568,6 @@ def main():
     # ################################################################################################################
     experiment(
         network_type=network_type,
-        input_type=input_type,
         num_neurons=num_neurons,
         tuning_function=tuning_function,
         cluster=cluster,
@@ -592,9 +575,12 @@ def main():
         patches=patches,
         ff_factor=ff_factor,
         img_prop=img_prop,
+        c_alpha=c_alpha,
         spatial_sampling=spatial_sampling,
         use_equilibrium=use_equilibrium,
         save_plots=save_plots,
+        load_network=load_network,
+        existing_ok=existing_ok,
         num_trials=num_trials,
         verbosity=verbosity
     )

@@ -55,24 +55,68 @@ def arg_parse(args):
     parser.add_argument("--verbosity", type=int, help="Sets the verbosity flag")
     parser.add_argument("--parameter", type=str, help="Defines the parameter that is manipulated during experimenting")
     parser.add_argument("--tuning", type=str, help="Defines the tuning function")
+    parser.add_argument(
+        "--less_cpus",
+        type=int,
+        help="Defines the number of CPUs that are used less than full capacity"
+    )
     parser.add_argument("--cluster", type=int, help="Defines the cluster size")
+    parser.add_argument(
+        "--c_alpha",
+        type=float,
+        help="Defines the ratio of local connections to long-range connections"
+    )
     parser.add_argument("--patches", type=int, help="Defines the number of patches")
-    parser.add_argument("--sum", dest="sum", action="store_true", help="Computes the sum of the input weights. "
-                                                                       "Only used for ThesisEigenvalueSpec script")
+    parser.add_argument(
+        "--sum",
+        dest="sum",
+        action="store_true",
+        help="Computes the sum of the input weights. Only used for ThesisEigenvalueSpec script"
+    )
     parser.add_argument("--num_trials", type=int, help="Sets the number of trials")
-    parser.add_argument("--ff_factor", type=float, help="Sets the weight factor that is multiplied to the "
-                                                        "default value of the feedforward weights")
+    parser.add_argument(
+        "--ff_factor",
+        type=float,
+        help="Sets the weight factor that is multiplied to the default value of the feedforward weights"
+    )
     parser.add_argument("--img_prop", type=str, help="Sets the sampling rate. Value between 0 and 1")
-    parser.add_argument("--normalise", dest="normalise", action="store_true", help="If set, the activity of the"
-                                                                                   "matrix dynamics test is normalised")
-    parser.add_argument("--spatial_sampling",
-                        dest="spatial_sampling",
-                        action="store_true",
-                        help="If the flag is set, the neurons that receive ff input are chosen with a "
-                             "spatial correlation")
-    parser.add_argument("--equilibrium", dest="equilibrium", action="store_true", help="If set, only the last 400ms are "
-                                                                                       "used for the reconstruction")
+    parser.add_argument(
+        "--normalise",
+        dest="normalise",
+        action="store_true",
+        help="If set, the activity of the matrix dynamics test is normalised"
+    )
+    parser.add_argument(
+        "--spatial_sampling",
+        dest="spatial_sampling",
+        action="store_true",
+        help="If the flag is set, the neurons that receive ff input are chosen with a spatial correlation"
+    )
+    parser.add_argument(
+        "--equilibrium",
+        dest="equilibrium",
+        action="store_true",
+        help="If set, only the last 400ms are used for the reconstruction"
+    )
+    parser.add_argument(
+        "--load_network",
+        dest="load_network",
+        action="store_true",
+        help="If set, network is load from file"
+    )
 
+    parser.add_argument(
+        "--existing_ok",
+        dest="existing_ok",
+        action="store_true",
+        help="If set, check existing error files and continue from last index"
+    )
+
+    parser.add_argument(
+        "--perlin",
+        type=int,
+        help="Sets the Perlin noise cluster to (perlin, perlin)"
+    )
     parsed_args = parser.parse_args(args)
 
     return parsed_args
