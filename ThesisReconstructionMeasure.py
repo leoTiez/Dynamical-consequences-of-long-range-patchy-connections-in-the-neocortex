@@ -127,6 +127,7 @@ def main_lr(
         to_file=write_to_file
     )
     if load_network:
+        print("\n#####################\tImport networki")
         network.import_net()
     else:
         network.create_network()
@@ -361,7 +362,7 @@ def experiment(
         tuning_name = list(TUNING_FUNCTION.keys())[p if tuning_function is None else tuning_function]
 
         start_index = 0
-        save_prefix = "%s_%s_%s_%s_img_prop_%s_spatials_%s" % (
+        save_prefix_root = "%s_%s_%s_%s_img_prop_%s_spatials_%s" % (
             network_name,
             input_name,
             parameter_str,
@@ -371,11 +372,11 @@ def experiment(
         )
         if existing_ok:
             files = os.listdir(curr_dir + "/error/")
-            files = [f for f in files if save_prefix in f]
+            files = [f for f in files if save_prefix_root in f]
             start_index = np.minimum(num_trials, len(files))
 
         for i in range(start_index, num_trials):
-            save_prefix = "%s_no_%s" % (save_prefix, i)
+            save_prefix = "%s_no_%s" % (save_prefix_root, i)
             if verbosity > 0:
                 print("\n#####################\tThe save prefix is: ", save_prefix)
 
