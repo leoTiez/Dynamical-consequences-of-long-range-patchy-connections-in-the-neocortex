@@ -12,6 +12,10 @@ MEAN_IN_OUT_DEG = 45.
 
 
 def main():
+    """
+    Main function to determine the right balance between ff and recurrent input
+    :return: None
+    """
     input_stimulus = stimulus_factory(INPUT_TYPE["perlin"])
 
     c_alpha = 0.7

@@ -7,7 +7,12 @@ from modules.createStimulus import stimulus_factory, INPUT_TYPE
 from modules.thesisUtils import arg_parse
 from modules.networkConstruction import TUNING_FUNCTION
 
+
 def main():
+    """
+    Main file for creating sample networks
+    :return: None
+    """
     # ################################################################################################################
     # Initialise parameters that can be changed from cmd line
     # ################################################################################################################

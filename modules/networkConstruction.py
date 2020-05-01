@@ -229,6 +229,13 @@ def create_torus_layer_uniform(
     :param time_const: Time constant of the neurons
     :param capacitance: Capacitance of the neurons
     :param size_layer: Size of the layer
+    :param p_rf: The receptive field conenction probability. This is used to determine an adequate background activity
+    :param ff_factor: The weight factor for the ff weights. This is used to determine an adequate background activity
+    :param synaptic_strength: The feedforward activity. This is used to determine an adequate background activity
+    :param max_spiking: The maximal spiking rate of Poisson spike generator when receiving ff input.
+    :param bg_spiking_scaling: Scaling parameter of the maximal spiking rate to deterimen the background activity
+    :param positions: If set to None, positions are generated, otherwise these positions are used. Note that the number
+    of positions must match the number of neurons
     :param to_file: If set to true, the spikes are written to a file
     :return: neural layer, spike detector and mutlimeter
     """
@@ -1473,6 +1480,7 @@ def create_connections_rf(
     target_node_ids is lower than the this value
     :param p_rf: Connection probability to the cells in the receptive field
     :param target_layer_size: Size of the square sheet with the sensory neurons
+    :param max_spiking: Maximal spiking rate of a Poisson spike generator
     :param calc_error: If set to true, the reconstruction error is calculated based in the injected input,
     the reconstruction method is applied and the results is saved or displayed
     :param use_dc: If set to True a DC is injected, otherwise a Poisson spike train
@@ -1484,6 +1492,7 @@ def create_connections_rf(
     parameters remain unchanged
     :param plot_point: Number determining after how many established connections the plot is made
     :param retina_size: Size of the retina / input layer
+    :param color_mask: Color mask of the functional map to plot receptive fields and sensory neurons properly
     :return: Adjacency matrix from receptors to sensory nodes
     """
 

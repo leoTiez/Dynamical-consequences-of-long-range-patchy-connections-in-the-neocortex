@@ -69,10 +69,13 @@ class NeuronalNetworkBase:
         :param ratio_inh_neurons: Every ratio_inh_neurons-th neuron is inhibitory,
         meaning that the ration is 1/ratio_inh_neurons
         :param num_stim_discr: The number of discriminated stimulus classes
-
+        :param ff_weight: Weight of feedforward connections
+        :param ff_factor: Factor by which the feedforward input is scaled. This is also the divisor of the recurrent
+        weights and the maximal spiking rate for the Poisson spike generator
         :param cap_s: Excitatory weight
         :param inh_weight: Inhibitory weight
         :param p_rf: Connection probability of the receptive field
+        :param mean_in_out_deg: Mean in/outdegree that is to be maintained throughout the network
         :param rf_size: The size of the receptive field
         :param tuning_function: The tuning function, passed as an integer number defined in
         the dictionary TUNING_FUNCTION defined in the networkConstruction module
@@ -83,11 +86,15 @@ class NeuronalNetworkBase:
         :param capacitance: Capacitance of the sensory neurons
         :param time_constant: Time constant tau of the sensory neurons
         :param layer_size: Size of the sheet of the neural tissue that is modelled
+        :param max_spiking: Maximal spiking rate of the ff input Poisson spike generator
+        :param bg_rate_ratio: Ratio of the rate that is used for background activity
         :param spacing_perlin: The space between two points in x and y for which an interpolation is computed. This
         value is used for creating the tuning map
         :param resolution_perlin: The resolution of the sampled values
         :param img_prop: Amount of information of the input image that is presented to the network
+        :param network_type: The name of the network type as a string
         :param spatial_sampling: If true, the neurons that receive ff input are chosen with a spatial correlation
+        :param num_spatial_samples: Determines the number of centers that are chosen for the spatial sampling
         :param use_input_neurons: If set to True, the reconstruction error based on input is used
         :param use_dc: Flag to determine whether to use a DC as injected current. If set to False a Poisson spike
         generator is used
@@ -523,6 +530,10 @@ class NeuronalNetworkBase:
     # #################################################################################################################
 
     def _set_nest_kernel(self):
+        """
+        Reset the nest kernel. It is triggered when creating or loading a network
+        :return:
+        """
         nest.ResetKernel()
         curr_dir = os.getcwd()
         path = "%s/network_files/spikes/" % curr_dir
@@ -547,10 +558,19 @@ class NeuronalNetworkBase:
             self.create_retina()
 
     def export_net(self, feature_folder=""):
+        """
+        Export the network neuron positions and connections
+        :param feature_folder: If a the network should be saved to a particular feature folder
+        :return: None
+        """
         self.get_sensory_weight_mat()
         save_net(self, self.network_type, feature_folder=feature_folder)
 
     def import_net(self):
+        """
+        Loading a network from file. This resets the current nest kernel
+        :return: None
+        """
         self._set_nest_kernel()
         load_net(self, self.network_type)
         self.create_orientation_map()
@@ -570,9 +590,11 @@ class RandomNetwork(NeuronalNetworkBase):
         """
         Random network class
         :param input_stimulus: The input stimulus
-        :param p_random: Connection probability to connect to another neuron in the network
         :param num_sensory: Number of sensory nodes in the sheet
         :param layer_size: Size of the layer
+        :param r_loc: Defines the radius for local connections. Although this parameter is not used for establishing
+        any distance dependent functions, it is applied for determining a connection probability that makes a comparison
+        possible between the different network types
         :param verbosity: Verbosity flag to determine the amount of printed output and created plots
         :param kwargs: Key value arguments that are passed to the base class
         """

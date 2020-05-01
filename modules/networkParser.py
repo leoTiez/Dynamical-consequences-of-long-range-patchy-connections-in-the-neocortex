@@ -12,10 +12,25 @@ import nest
 
 
 def convert_string_to_list(tuple_string, dtype=int):
+    """
+    Convert a tuple string to a list of values. Must be one-dimensional
+    :param tuple_string: The string with the tuple
+    :param dtype: Type to which the values are converted
+    :return: List with values
+    """
     return [dtype(s) for s in tuple_string.strip("(").strip(")").split(", ")]
 
 
 def save_net(net, network_name, feature_folder, path="", use_cwd=True):
+    """
+    Save the neurons and connections of the network to be loaded quicker later
+    :param net: The network object
+    :param network_name: Network name for determining the saving location
+    :param feature_folder: For saving the network with a particular feature
+    :param path: Path where the network is saved to. If not set, the default is used
+    :param use_cwd: If set to True, the current directory is added to the path
+    :return: None
+    """
     net_dict = {
         "neurons": [tuple(net.torus_layer_nodes)],
         "inh_neurons": [tuple(net.torus_inh_nodes)],
@@ -44,6 +59,17 @@ def save_net(net, network_name, feature_folder, path="", use_cwd=True):
 
 
 def load_net(net, network_name, feature_folder="", path="", use_cwd=True, num=None):
+    """
+        Load the neurons and connections of the network from a file
+        :param net: The network object
+        :param network_name: Network name for determining the location where the file is saved
+        :param feature_folder: For saving the network with a particular feature
+        :param path: Path where the network is loaded from. If not set, the default is used
+        :param use_cwd: If set to True, the current directory is added to the path
+        :param num: Determines the network file number that is to be loaded. If set to None, a network is randomly
+        chosen
+        :return: None
+        """
     if path == "":
         curr_dir = os.getcwd()
         if feature_folder != "":
