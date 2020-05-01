@@ -31,8 +31,8 @@ def main():
 
     curr_dir = os.getcwd()
 
+    pool = multiprocessing.Pool(multiprocessing.cpu_count() - less_cpus or 1)
     for network in NETWORK_TYPE.keys():
-        pool = multiprocessing.Pool(multiprocessing.cpu_count() - less_cpus or 1)
         pool.apply_async(
             os.system,
             args=(
