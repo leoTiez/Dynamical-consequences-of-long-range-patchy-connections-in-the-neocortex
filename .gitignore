@@ -16,3 +16,6 @@ InputFiringRateCorrelation.py
 /error
 /sum
 /network_files/spikes
+/network_files/models
+*Err.txt
+*Out.txt
