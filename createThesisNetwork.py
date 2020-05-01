@@ -690,7 +690,7 @@ class LocalNetwork(NeuronalNetworkBase):
         if c_alpha > 1.0 or c_alpha < 0.0:
             raise ValueError("c_alpha must be set between 0 and 1")
         self.c_alpha = c_alpha
-        self.global_connect = (1.4 - self.img_prop) * np.minimum(
+        self.global_connect = np.minimum(1., 1.4 - self.img_prop) * np.minimum(
             np.pi * self.r_loc**2 / float(self.layer_size**2),
             self.mean_in_out_deg/float(self.num_sensory)
         )
