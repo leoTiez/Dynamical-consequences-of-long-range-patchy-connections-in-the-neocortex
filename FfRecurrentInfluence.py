@@ -2,9 +2,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from createThesisNetwork import network_factory, NETWORK_TYPE
-from modules.createStimulus import stimulus_factory, INPUT_TYPE
-from modules.networkConstruction import TUNING_FUNCTION
+from createThesisNetwork import network_factory
+from modules.createStimulus import stimulus_factory
+from modules.thesisConstants import *
 
 import nest
 
