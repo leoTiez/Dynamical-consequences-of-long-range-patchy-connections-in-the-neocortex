@@ -34,7 +34,7 @@ def main_experiment_loop(
     network_list = list(NETWORK_TYPE.keys())
     if parameter.lower() == "cluster":
         network_list = [net for net in network_list if net != "random"]
-    elif parameter.lower() == "patches":
+    elif parameter.lower() == "patches" or parameter.lower() == "alpha":
         network_list = [net for net in network_list if "patchy" in net]
 
     input_list = PERLIN_INPUT
