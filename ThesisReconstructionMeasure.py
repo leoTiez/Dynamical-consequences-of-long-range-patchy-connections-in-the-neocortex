@@ -33,6 +33,7 @@ def main_lr(
         ff_factor=1.,
         c_alpha=0.7,
         img_prop=1.,
+        presentation_time=1000.,
         spatial_sampling=False,
         use_equilibrium=False,
         load_network=False,
@@ -115,6 +116,7 @@ def main_lr(
         capacitance=capacitance,
         time_constant=time_constant,
         tuning_function=tuning_function,
+        presentation_time=presentation_time,
         resolution_perlin=cluster,
         num_patches=num_patches,
         use_input_neurons=True if network_type == NETWORK_TYPE["input_only"] else False,
@@ -288,6 +290,7 @@ def experiment(
         ff_factor=1.,
         c_alpha=0.7,
         img_prop=1.,
+        presentation_time=1000.,
         spatial_sampling=False,
         use_equilibrium=False,
         load_network=False,
@@ -390,6 +393,7 @@ def experiment(
                 ff_factor=p if ff_factor is None else ff_factor,
                 c_alpha=p if c_alpha is None else c_alpha,
                 img_prop=img_prop,
+                presentation_time=presentation_time,
                 spatial_sampling=spatial_sampling,
                 use_equilibrium=use_equilibrium,
                 write_to_file=True,
@@ -447,6 +451,7 @@ def main():
     c_alpha = 0.7
     ff_factor = 1.
     img_prop = 1.
+    presentation_time = 1000.
     spatial_sampling = False
     save_plots = True
     use_equilibrium = False
@@ -563,6 +568,9 @@ def main():
               "" if spatial_sampling else "out"
           ))
 
+    if cmd_params.presentation_time is not None:
+        presentation_time = cmd_params.presentation_time
+
     # ################################################################################################################
     # Run experiment
     # ################################################################################################################
@@ -576,6 +584,7 @@ def main():
         ff_factor=ff_factor,
         img_prop=img_prop,
         c_alpha=c_alpha,
+        presentation_time=presentation_time,
         spatial_sampling=spatial_sampling,
         use_equilibrium=use_equilibrium,
         save_plots=save_plots,

@@ -117,6 +117,14 @@ def arg_parse(args):
         type=int,
         help="Sets the Perlin noise cluster to (perlin, perlin)"
     )
+
+    parser.add_argument(
+        "--presentation_time",
+        type=float,
+        help="The time an image is presented to the network. "
+             "Note that this parameter is ignored if the source code is changed, such that dc is used"
+    )
+
     parsed_args = parser.parse_args(args)
 
     return parsed_args

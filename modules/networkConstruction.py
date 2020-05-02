@@ -1446,6 +1446,7 @@ def create_connections_rf(
         p_rf=0.7,
         target_layer_size=8.,
         max_spiking=1000.,
+        presentation_time=1000.,
         calc_error=False,
         use_dc=True,
         ff_factor=1.,
@@ -1472,6 +1473,7 @@ def create_connections_rf(
     :param p_rf: Connection probability to the cells in the receptive field
     :param target_layer_size: Size of the square sheet with the sensory neurons
     :param max_spiking: Maximal spiking rate of a Poisson spike generator
+    :param presentation_time: The time the image is presented to the network. Only possible with a Poisson spike train
     :param calc_error: If set to true, the reconstruction error is calculated based in the injected input,
     the reconstruction method is applied and the results is saved or displayed
     :param use_dc: If set to True a DC is injected, otherwise a Poisson spike train
@@ -1562,9 +1564,14 @@ def create_connections_rf(
             current_dict = {"amplitude": np.maximum(amplitude.sum() / max_scale, 0) / ff_factor}
         else:
             rate = (max_spiking / ff_factor) * amplitude.sum() / max_scale
-            current_dict = {"rate": np.maximum(rate, 0)}
+            current_dict = {"rate": np.maximum(rate, 0), "stop": presentation_time}
 
-        _set_input_current(target_node, current_dict, synaptic_strength, use_dc=use_dc)
+        _set_input_current(
+            target_node,
+            current_dict,
+            synaptic_strength,
+            use_dc=use_dc
+        )
 
         if counter == plot_point:
             if plot_src_target:
