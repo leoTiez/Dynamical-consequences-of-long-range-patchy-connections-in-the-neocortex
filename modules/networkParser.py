@@ -59,7 +59,7 @@ def save_net(net, network_name, feature_folder, path="", use_cwd=True):
     net_df.to_csv("%s/%s_%s.csv" % (path, network_name, num), encoding='utf-8', index=False)
 
 
-def load_net(net, network_name, feature_folder="", path="", use_cwd=True, num=14):
+def load_net(net, network_name, feature_folder="", path="", use_cwd=True, num=None):
     """
         Load the neurons and connections of the network from a file
         :param net: The network object
