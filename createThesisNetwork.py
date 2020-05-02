@@ -39,6 +39,7 @@ class NeuronalNetworkBase:
             layer_size=8.,
             max_spiking=1000.,
             bg_rate_ratio=.5,
+            presentation_time=1000.,
             spacing_perlin=0.01,
             resolution_perlin=(15, 15),
             img_prop=1.,
@@ -79,6 +80,8 @@ class NeuronalNetworkBase:
         :param layer_size: Size of the sheet of the neural tissue that is modelled
         :param max_spiking: Maximal spiking rate of the ff input Poisson spike generator
         :param bg_rate_ratio: Ratio of the rate that is used for background activity
+        :param presentation_time: Time the image is presented to the network. Only possible if Poisson spike generator
+        is used
         :param spacing_perlin: The space between two points in x and y for which an interpolation is computed. This
         value is used for creating the tuning map
         :param resolution_perlin: The resolution of the sampled values
@@ -122,6 +125,7 @@ class NeuronalNetworkBase:
         self.layer_size = layer_size
         self.max_spiking = max_spiking
         self.bg_rate_ratio = bg_rate_ratio
+        self.presentation_time = presentation_time
 
         self.spacing_perlin = spacing_perlin
         self.resolution_perlin = resolution_perlin
@@ -367,6 +371,7 @@ class NeuronalNetworkBase:
             rf_size=self.rf_size,
             target_layer_size=self.layer_size,
             max_spiking=self.max_spiking,
+            presentation_time=self.presentation_time,
             calc_error=self.use_input_neurons,
             use_dc=self.use_dc,
             plot_src_target=self.plot_rf_relation,
