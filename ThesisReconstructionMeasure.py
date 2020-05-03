@@ -4,8 +4,7 @@
 from modules.stimulusReconstruction import fourier_trans, direct_stimulus_reconstruction
 from modules.createStimulus import stimulus_factory
 from modules.thesisUtils import *
-from modules.networkConstruction import TUNING_FUNCTION
-from createThesisNetwork import network_factory, NETWORK_TYPE
+from createThesisNetwork import network_factory
 from modules.networkAnalysis import error_distance
 from modules.thesisConstants import *
 
@@ -13,12 +12,9 @@ import os
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
 from pathlib import Path
-from webcolors import hex_to_rgb
-import imageio
 import nest
-import nest.topology as tp
+
 
 VERBOSITY = 3
 nest.set_verbosity("M_ERROR")
@@ -134,13 +130,13 @@ def main_lr(
         to_file=write_to_file
     )
     if load_network:
-        print("\n#####################\tImport network")
+        print_msg("Import network")
         network.import_net()
     else:
         network.create_network()
 
     if verbosity > 4:
-        print("\n#####################\tPlot in/out degree distribution")
+        print_msg("Plot in/out degree distribution")
         network.connect_distribution("connect_distribution.png")
 
     if network_type == NETWORK_TYPE["input_only"]:
@@ -166,194 +162,50 @@ def main_lr(
 
     if verbosity > 0:
         average_firing_rate = np.mean(firing_rates)
-        print("\n#####################\tAverage firing rate: %s" % average_firing_rate)
+        print_msg("Average firing rate: %s" % average_firing_rate)
 
     # #################################################################################################################
     # Plot neural activity
     # #################################################################################################################
     if verbosity > 2:
-        print("\n#####################\tPlot firing pattern over time")
-        plt.figure(figsize=(10, 5))
-        positions = np.asarray(tp.GetPosition(spikes_s.tolist()))
-        plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=network.num_stim_discr)
+        print_msg("Plot firing pattern over time")
+        plot_spikes_over_time(
+            spikes_s,
+            time_s,
+            network,
+            t_start=0.,
+            t_end=simulation_time,
+            t_stim_start=[eq_time] if use_equilibrium else [],
+            t_stim_end=[presentation_time] if presentation_time < simulation_time else [],
+            save_plot=save_plots,
+            save_prefix=save_prefix
+        )
 
-        inh_mask = np.zeros(len(spikes_s)).astype('bool')
-        for inh_n in network.torus_inh_nodes:
-            inh_mask[spikes_s == inh_n] = True
-
-        x_grid, y_grid = coordinates_to_cmap_index(network.layer_size, positions[~inh_mask], network.spacing_perlin)
-        stim_classes = network.color_map[x_grid, y_grid]
-        cl = np.full(len(spikes_s), -1)
-        cl[~inh_mask] = stim_classes
-        c = np.full(len(spikes_s), '#000000')
-        c[~inh_mask] = np.asarray(list(mcolors.TABLEAU_COLORS.items()))[stim_classes, 1]
-        sorted_zip = sorted(zip(time_s, spikes_s, c, cl), key=lambda l: l[3])
-        sorted_time, sorted_spikes, sorted_c, _ = zip(*sorted_zip)
-        new_idx_spikes = []
-        new_idx_neurons = {}
-        for s in sorted_spikes:
-            new_idx_spikes.append(firing_rate_sorting(new_idx_spikes, sorted_spikes, new_idx_neurons, s))
-        plt.scatter(sorted_time, new_idx_spikes, s=1, c=list(sorted_c))
-        if use_equilibrium:
-            plt.axvline(x=eq_time, c="red")
-
-        if not save_plots:
-            plt.show()
-        else:
-            curr_dir = os.getcwd()
-            Path(curr_dir + "/figures/firing_rate").mkdir(parents=True, exist_ok=True)
-            plt.savefig(curr_dir + "/figures/firing_rate/%s_firing_time.png" % save_prefix)
-            plt.close()
-
+    c_rgba = None
     if verbosity > 2:
-        print("\n#####################\tPlot firing pattern over space")
-        plt.figure(figsize=(10, 5))
-        plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=network.num_stim_discr)
+        print_msg("Plot firing pattern over space")
+        c_rgba = plot_spikes_over_space(firing_rates, network, save_plot=save_plots, save_prefix=save_prefix)
 
-        inh_mask = np.zeros(len(network.torus_layer_nodes)).astype('bool')
-        inh_mask[np.asarray(network.torus_inh_nodes) - min(network.torus_layer_nodes)] = True
-
-        x_grid, y_grid = coordinates_to_cmap_index(
-            network.layer_size,
-            np.asarray(network.torus_layer_positions)[~inh_mask],
-            network.spacing_perlin
+    if verbosity > 4:
+        print_msg("Create network animation")
+        plot_network_animation(
+            network,
+            spikes_s,
+            time_s,
+            c_rgba=c_rgba,
+            min_mem_pot=min_mem_pot,
+            animation_start=plot_start,
+            animation_end=plot_end,
+            save_plot=save_plots,
+            save_prefix=save_prefix
         )
-        stim_classes = network.color_map[x_grid, y_grid]
-
-        c = np.full(len(network.torus_layer_nodes), '#000000')
-        c[~inh_mask] = np.asarray(list(mcolors.TABLEAU_COLORS.items()))[stim_classes, 1]
-
-        c_rgba = np.zeros((len(network.torus_layer_nodes), 4))
-        for num, color in enumerate(c):
-            c_rgba[num, :3] = np.asarray(hex_to_rgb(color))[:] / 255.
-        c_rgba[:, 3] = firing_rates/float(max(firing_rates))
-        plt.scatter(
-            np.asarray(network.torus_layer_positions)[:, 0],
-            np.asarray(network.torus_layer_positions)[:, 1],
-            c=c_rgba
-        )
-
-        plt.imshow(
-            network.color_map,
-            cmap=custom_cmap(),
-            alpha=0.3,
-            origin=(network.color_map.shape[0] // 2, network.color_map.shape[1] // 2),
-            extent=(
-                -network.layer_size / 2.,
-                network.layer_size / 2.,
-                -network.layer_size / 2.,
-                network.layer_size / 2.
-            )
-        )
-        if not save_plots:
-            plt.show()
-        else:
-            curr_dir = os.getcwd()
-            Path(curr_dir + "/figures/firing_rate").mkdir(parents=True, exist_ok=True)
-            plt.savefig(curr_dir + "/figures/firing_rate/%s_firing_space.png" % save_prefix)
-            plt.close()
-
-        if verbosity > 4:
-            multi_events = nest.GetStatus(network.multi_meter, "events")[0]
-            times_multi = multi_events["times"]
-            potential_multi = multi_events["V_m"]
-            min_potential = potential_multi.min()
-
-            figure_spike = plt.figure(figsize=(10, 5))
-            figure_pot = plt.figure(figsize=(10, 5))
-            ax_spike = figure_spike.gca()
-            ax_pot = figure_pot.gca()
-            plot_colorbar(figure_spike, ax_spike, num_stim_classes=network.num_stim_discr)
-            plot_colorbar(figure_pot, ax_pot, num_stim_classes=network.num_stim_discr)
-
-            spike_images = []
-            pot_images = []
-            for t in np.arange(plot_start, plot_end, 1.):
-                membrane_potential = potential_multi[times_multi == t]
-                spiking_neurons = spikes_s[np.logical_and(t <= time_s, time_s < t + 1)]
-
-                c_rgba_spike = c_rgba.copy()
-                c_rgba_pot = c_rgba.copy()
-
-                mp = membrane_potential - min_potential
-                mp -= min_mem_pot
-                mp[mp < 0.] = 0.
-                c_rgba_pot[:, 3] = mp / mp.max()
-                c_rgba_pot[spiking_neurons - min(network.torus_layer_nodes), :] = np.asarray([1., 1., 1., 1.])
-
-                c_rgba_spike[:, 3] = 0
-                c_rgba_spike[spiking_neurons - min(network.torus_layer_nodes), 3] = 1.
-
-                ax_spike.imshow(
-                    network.color_map,
-                    cmap=custom_cmap(),
-                    alpha=0.3,
-                    origin=(network.color_map.shape[0] // 2, network.color_map.shape[1] // 2),
-                    extent=(
-                        -network.layer_size / 2.,
-                        network.layer_size / 2.,
-                        -network.layer_size / 2.,
-                        network.layer_size / 2.
-                    )
-                )
-
-                ax_pot.imshow(
-                    network.color_map,
-                    cmap=custom_cmap(),
-                    alpha=0.3,
-                    origin=(network.color_map.shape[0] // 2, network.color_map.shape[1] // 2),
-                    extent=(
-                        -network.layer_size / 2.,
-                        network.layer_size / 2.,
-                        -network.layer_size / 2.,
-                        network.layer_size / 2.
-                    )
-                )
-
-                ax_spike.scatter(
-                    np.asarray(network.torus_layer_positions)[:, 0],
-                    np.asarray(network.torus_layer_positions)[:, 1],
-                    c=c_rgba_spike
-                )
-
-                ax_pot.scatter(
-                    np.asarray(network.torus_layer_positions)[:, 0],
-                    np.asarray(network.torus_layer_positions)[:, 1],
-                    c=c_rgba_pot
-                )
-
-                ax_spike.set_title("Spikes at time %s ms" % t)
-                ax_pot.set_title("Membrane potential over %s mV at time %s ms" % (network.pot_reset + min_mem_pot, t))
-                if save_plots:
-                    figure_spike.canvas.draw()
-                    image_spike = np.frombuffer(figure_spike.canvas.tostring_rgb(), dtype='uint8')
-                    image_spike = image_spike.reshape(figure_spike.canvas.get_width_height()[::-1] + (3,))
-                    spike_images.append(image_spike)
-
-                    figure_pot.canvas.draw()
-                    image_pot = np.frombuffer(figure_pot.canvas.tostring_rgb(), dtype='uint8')
-                    image_pot = image_pot.reshape(figure_pot.canvas.get_width_height()[::-1] + (3,))
-                    pot_images.append(image_pot)
-                else:
-                    figure_spike.canvas.draw(), plt.pause(1e-3)
-                    figure_pot.canvas.draw(), plt.pause(1e-3)
-
-                ax_pot.clear()
-                ax_spike.clear()
-
-            if save_plots:
-                curr_dir = os.getcwd()
-                path = "%s/figures/animations" % curr_dir
-                Path(path).mkdir(exist_ok=True, parents=True)
-                imageio.mimsave("%s/%s_mem_pot_animation.gif" % (path, save_prefix), pot_images, fps=10)
-                imageio.mimsave("%s/%s_spike_animation.gif" % (path, save_prefix), spike_images, fps=5)
 
     # #############################################################################################################
     # Reconstruct stimulus
     # #############################################################################################################
     # Reconstruct input stimulus
     if verbosity > 0:
-        print("\n#####################\tReconstruct stimulus")
+        print_msg("Reconstruct stimulus")
 
     reconstruction = direct_stimulus_reconstruction(
         firing_rates,
@@ -481,7 +333,7 @@ def experiment(
         for i in range(start_index, num_trials):
             save_prefix = "%s_no_%s" % (save_prefix_root, i)
             if verbosity > 0:
-                print("\n#####################\tThe save prefix is: ", save_prefix)
+                print_msg("The save prefix is: ", save_prefix)
 
             input_stimulus, reconstruction, firing_rate = main_lr(
                 network_type=network_type,
@@ -515,8 +367,8 @@ def experiment(
         # #############################################################################################################
 
         if verbosity > 0:
-            print("\n#####################\tMean Error for network type %s, %s %s, image proportion %s,"
-                  " and input type %s: %s \n"
+            print_msg("Mean Error for network type %s, %s %s, image proportion %s, "
+                      "and input type %s: %s \n"
                   % (
                       network_name,
                       parameter_str,
@@ -525,8 +377,8 @@ def experiment(
                       input_name,
                       np.asarray(errors).mean()
                   ))
-            print("\n#####################\tError variance for network type %s, %s %s, image proportion %s,"
-                  " and input type %s: %s \n"
+            print_msg("Error variance for network type %s, %s %s, image proportion %s, "
+                      "and input type %s: %s \n"
                   % (
                       network_name,
                       parameter_str,
