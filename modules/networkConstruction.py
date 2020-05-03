@@ -275,7 +275,7 @@ def create_torus_layer_uniform(
         conn_spec = {"rule": "one_to_one"}
         nest.Connect(spike_gen, sensory_nodes, conn_spec=conn_spec, syn_spec=syn_spec)
 
-    return torus_layer, spikedetector, multimeter
+    return torus_layer, spikedetector, multimeter, spike_gen
 
 
 def create_torus_layer_with_jitter(
@@ -1437,6 +1437,7 @@ def create_connections_rf(
         rf_centers,
         neuron_to_tuning_map,
         inh_neurons,
+        input_generators=None,
         synaptic_strength=1.,
         total_num_target=int(1e4),
         rf_size=(10, 10),
@@ -1516,7 +1517,7 @@ def create_connections_rf(
     else:
         max_scale = rf_size[0] * rf_size[1] * 255.
     amplitudes = []
-    for target_node, rf_center in zip(target_node_ids, rf_centers):
+    for num, (target_node, rf_center) in enumerate(zip(target_node_ids, rf_centers)):
         counter += 1
         upper_left = (np.asarray(rf_center) + np.asarray(mask_specs["lower_left"])).astype('int')
         lower_right = (np.asarray(rf_center) + np.asarray(mask_specs["upper_right"])).astype('int')
@@ -1564,12 +1565,15 @@ def create_connections_rf(
             rate = (max_spiking / ff_factor) * amplitude.sum() / max_scale
             current_dict = {"rate": np.maximum(rate, 0), "stop": presentation_time}
 
-        _set_input_current(
-            target_node,
-            current_dict,
-            synaptic_strength,
-            use_dc=use_dc
-        )
+        if input_generators is None:
+            _set_input_current(
+                target_node,
+                current_dict,
+                synaptic_strength,
+                use_dc=use_dc
+            )
+        else:
+            nest.SetStatus([input_generators[num]], current_dict)
 
         if counter == plot_point:
             if plot_src_target:
