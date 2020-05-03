@@ -149,6 +149,7 @@ class NeuronalNetworkBase:
         self.torus_layer = None
         self.spike_detect = None
         self.multi_meter = None
+        self.spike_gen = None
         self.torus_layer_tree = None
         self.torus_layer_nodes = None
         self.torus_inh_nodes = None
@@ -174,7 +175,7 @@ class NeuronalNetworkBase:
         :return: None
         """
         if self.verbosity > 0:
-            print("\n#####################\tCreate sensory layer")
+            print_msg("Create sensory layer")
 
         # Check ups
         if self.num_sensory < 1:
@@ -191,7 +192,7 @@ class NeuronalNetworkBase:
                              " Set it larger than 0. Current value is %s" % self.layer_size)
 
         # Create the layer
-        self.torus_layer, self.spike_detect, self.multi_meter = create_torus_layer_uniform(
+        self.torus_layer, self.spike_detect, self.multi_meter, self.spike_gen = create_torus_layer_uniform(
             self.num_sensory,
             threshold_pot=self.pot_threshold,
             capacitance=self.capacitance,
@@ -220,7 +221,7 @@ class NeuronalNetworkBase:
         """
         # Create stimulus tuning map
         if self.verbosity > 0:
-            print("\n#####################\tCreate stimulus tuning map")
+            print_msg("Create stimulus tuning map")
 
         # Check ups
         if self.torus_layer is None:
@@ -252,6 +253,61 @@ class NeuronalNetworkBase:
             save_prefix=self.save_prefix
         )
 
+    def _choose_ff_neurons(self, exc_only=False):
+        neuron_mask = np.ones(self.num_sensory).astype("bool")
+        if exc_only:
+            neuron_mask[np.asarray(self.torus_inh_nodes) - min(self.torus_layer_nodes)] = False
+
+        if self.img_prop == 1.0:
+            neurons_with_input = np.asarray(self.torus_layer_nodes)[neuron_mask]
+            positions_with_input = np.asarray(self.torus_layer_positions)[neuron_mask]
+            input_generators = np.asarray(self.spike_gen)[neuron_mask] if not self.use_dc else None
+        else:
+            if not self.spatial_sampling:
+                neurons_with_input_idx = np.random.choice(
+                    np.arange(self.num_sensory).astype("int")[neuron_mask],
+                    int(self.img_prop * self.num_sensory),
+                    replace=False
+                ).tolist()
+
+                neurons_with_input = np.asarray(self.torus_layer_nodes)[neurons_with_input_idx]
+                positions_with_input = np.asarray(self.torus_layer_positions)[neurons_with_input_idx]
+                input_generators = np.asarray(self.spike_gen)[neurons_with_input_idx] if not self.use_dc else None
+
+            else:
+                if exc_only:
+                    Warning("Not yet implemented to choose only excitatory neurons when using spatial sampling")
+                sample_centers_idx = np.random.choice(
+                    len(self.torus_layer_positions),
+                    self.num_spatial_samples,
+                    replace=False
+                )
+                sample_centers = np.asarray(self.torus_layer_positions)[sample_centers_idx]
+                k = int(self.num_sensory / self.num_spatial_samples)
+                while True:
+                    _, neurons_with_input_idx = self.torus_layer_tree.query(
+                        sample_centers,
+                        k=k
+                    )
+
+                    neurons_with_input_idx = list(set(neurons_with_input_idx.flatten()))
+                    diff = len(neurons_with_input_idx) - int(self.img_prop * self.num_sensory)
+                    if diff > 0:
+                        neurons_with_input_idx = neurons_with_input_idx[:int(self.img_prop * self.num_sensory)]
+                        break
+                    k += np.maximum(-diff, 1)
+
+                chosen_neurons = np.zeros(self.num_sensory).astype("bool")
+                chosen_neurons[neurons_with_input_idx] = True
+                neurons_with_input = np.asarray(self.torus_layer_nodes)[np.logical_and(chosen_neurons, neuron_mask)]
+                positions_with_input = np.asarray(self.torus_layer_positions)[
+                    np.logical_and(chosen_neurons, neuron_mask)
+                ]
+                input_generators = np.asarray(self.spike_gen)[np.logical_and(chosen_neurons, neuron_mask)]\
+                    if not self.use_dc else None
+
+        return neurons_with_input.tolist(), positions_with_input.tolist(), input_generators.tolist()
+
     def create_retina(self):
         """
         Creates the receptive fields and computes the injected DC / spike rate of a Poisson generator for every
@@ -259,7 +315,7 @@ class NeuronalNetworkBase:
         :return: None
         """
         if self.verbosity > 0:
-            print("\n#####################\tCreate central points for receptive fields")
+            print_msg("Create central points for receptive fields")
 
         # Check ups
         if self.layer_size <= 0:
@@ -284,44 +340,9 @@ class NeuronalNetworkBase:
 
         # Create connections to receptive field
         if self.verbosity > 0:
-            print("\n#####################\tCreate connections between receptors and sensory neurons")
+            print_msg("Create connections between receptors and sensory neurons")
 
-        if self.img_prop == 1.0:
-            neurons_with_input = np.asarray(self.torus_layer_nodes)[:]
-            positions_with_input = np.asarray(self.torus_layer_positions)[:]
-        else:
-            if not self.spatial_sampling:
-                neurons_with_input_idx = np.random.choice(
-                    len(self.torus_layer_nodes),
-                    int(self.img_prop * self.num_sensory),
-                    replace=False
-                ).tolist()
-                neurons_with_input = np.asarray(self.torus_layer_nodes)[neurons_with_input_idx]
-                positions_with_input = np.asarray(self.torus_layer_positions)[neurons_with_input_idx]
-
-            else:
-                sample_centers_idx = np.random.choice(
-                    len(self.torus_layer_positions),
-                    self.num_spatial_samples,
-                    replace=False
-                )
-                sample_centers = np.asarray(self.torus_layer_positions)[sample_centers_idx]
-                k = int(self.num_sensory / self.num_spatial_samples)
-                while True:
-                    _, neurons_with_input_idx = self.torus_layer_tree.query(
-                        sample_centers,
-                        k=k
-                    )
-
-                    neurons_with_input_idx = list(set(neurons_with_input_idx.flatten()))
-                    diff = len(neurons_with_input_idx) - int(self.img_prop * self.num_sensory)
-                    if diff > 0:
-                        neurons_with_input_idx = neurons_with_input_idx[:int(self.img_prop * self.num_sensory)]
-                        break
-                    k += np.maximum(-diff, 1)
-
-                neurons_with_input = np.asarray(self.torus_layer_nodes)[neurons_with_input_idx]
-                positions_with_input = np.asarray(self.torus_layer_positions)[neurons_with_input_idx]
+        neurons_with_input, positions_with_input, input_generators = self._choose_ff_neurons()
 
         if self.plot_tuning_map:
             inh_mask = np.zeros(self.num_sensory).astype('bool')
@@ -362,6 +383,7 @@ class NeuronalNetworkBase:
             self.rf_center_map,
             self.neuron_to_tuning_map,
             self.torus_inh_nodes,
+            input_generators=input_generators,
             total_num_target=int(self.num_sensory),
             synaptic_strength=self.ff_weight,
             tuning_function=self.tuning_function,
@@ -394,7 +416,7 @@ class NeuronalNetworkBase:
         :return: The firing rates, (node IDs of the spiking neurons, the respective spike times)
         """
         if self.verbosity > 0:
-            print("\n#####################\tSimulate")
+            print_msg("Simulate")
 
         # Check ups
         if self.spike_detect is None:
@@ -487,7 +509,7 @@ class NeuronalNetworkBase:
         :return: Sensory weight matrix
         """
         if self.verbosity > 0:
-            print("\n#####################\tCreate adjacency matrix for sensory-to-sensory connections")
+            print_msg("Create adjacency matrix for sensory-to-sensory connections")
         if self.adj_sens_sens_mat is None:
             self.adj_sens_sens_mat = create_adjacency_matrix(self.torus_layer_nodes, self.torus_layer_nodes)
         return self.adj_sens_sens_mat
@@ -502,7 +524,7 @@ class NeuronalNetworkBase:
         :return: None
         """
         if self.verbosity > 0:
-            print("\n#####################\tSet synaptic weights for sensory to sensory neurons")
+            print_msg("Set synaptic weights for sensory to sensory neurons")
         adj_sens_sens_mat = self.get_sensory_weight_mat()
         set_synaptic_strength(
             self.torus_layer_nodes,
@@ -519,6 +541,34 @@ class NeuronalNetworkBase:
         """
         self.input_stimulus = img
         self.create_retina()
+
+    def set_input_generator(self, input_generators, input_rate=None, origin=0., start=0., end=1000.):
+        if self.use_dc:
+            Warning("Cannot set input rate when using DC input. Nothing changed.")
+            return
+
+        if input_rate is None:
+            input_rate = self.max_spiking
+
+        nest.SetStatus(input_generators, {"rate": input_rate, "origin": origin, "start": start, "stop": end})
+
+    def set_input_rate(self, input_rate=None, origin=0., start=0., end=1000., exc_only=True):
+        if self.use_dc:
+            Warning("Cannot set input rate when using DC input. Nothing changed.")
+            return
+
+        _, _, input_generators = self._choose_ff_neurons(exc_only=exc_only)
+
+        self.set_input_generator(
+            input_generators=input_generators,
+            input_rate=input_rate,
+            origin=origin,
+            start=start,
+            end=end
+        )
+
+        return input_generators
+
 
     # #################################################################################################################
     # Abstract methods
@@ -620,7 +670,7 @@ class RandomNetwork(NeuronalNetworkBase):
         :return: None
         """
         if self.verbosity > 0:
-            print("\n#####################\tCreate random connections")
+            print_msg("Create random connections")
 
         # Check ups
         if self.torus_layer is None:
@@ -734,7 +784,7 @@ class LocalNetwork(NeuronalNetworkBase):
 
         if self.loc_connection_type == "sd":
             if self.verbosity > 0:
-                print("\n#####################\tCreate local stimulus dependent connections")
+                print_msg("Create local stimulus dependent connections")
             # Connection specific check up
             if self.neuron_to_tuning_map is None:
                 raise ValueError("The mapping from neuron to orientation tuning must be created first."
@@ -760,7 +810,7 @@ class LocalNetwork(NeuronalNetworkBase):
             )
         elif self.loc_connection_type == "circular":
             if self.verbosity > 0:
-                print("\n#####################\tCreate local circular connections")
+                print_msg("Create local circular connections")
             create_local_circular_connections(
                 self.torus_layer,
                 self.torus_layer_tree,
@@ -910,7 +960,7 @@ class PatchyNetwork(LocalNetwork):
 
         if self.lr_connection_type == "sd":
             if self.verbosity > 0:
-                print("\n#####################\tCreate long-range patchy stimulus dependent connections")
+                print_msg("Create long-range patchy stimulus dependent connections")
             # Connection specific check up
             if self.torus_layer_tree is None:
                 raise ValueError("The torus layer organised in a tree must be created first. Run create_layer")
@@ -941,7 +991,7 @@ class PatchyNetwork(LocalNetwork):
 
         if self.lr_connection_type == "random":
             if self.verbosity > 0:
-                print("\n#####################\tCreate long-range patchy random connections")
+                print_msg("Create long-range patchy random connections")
             create_random_patches(
                 self.torus_layer,
                 self.torus_inh_nodes,
