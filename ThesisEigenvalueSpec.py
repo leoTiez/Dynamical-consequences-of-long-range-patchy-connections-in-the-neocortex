@@ -4,7 +4,7 @@
 from modules.createStimulus import stimulus_factory
 from modules.networkAnalysis import *
 from createThesisNetwork import network_factory
-from modules.thesisUtils import arg_parse
+from modules.thesisUtils import arg_parse, print_msg
 from modules.thesisConstants import *
 
 import sys
@@ -62,9 +62,9 @@ def main_eigenvalue_spec(
     if compute_sum:
         rec_sum = sens_weight_mat.sum(axis=0)
         ff_sum = network.ff_weight_mat.sum(axis=0)[:-1]
-        print("\n#####################\t Mean input weight of recurrent weight matrix for %s: %s"
+        print_msg("Mean input weight of recurrent weight matrix for %s: %s"
               % (list(NETWORK_TYPE.keys())[network_type], rec_sum.mean()))
-        print("\n#####################\t Mean input weight of recurrent and ff weights %s: %s"
+        print_msg("Mean input weight of recurrent and ff weights %s: %s"
               % (list(NETWORK_TYPE.keys())[network_type], (rec_sum + ff_sum).mean()))
 
     _, _ = eigenvalue_analysis(
