@@ -6,6 +6,7 @@ import pandas as pd
 import ast
 from scipy.spatial import KDTree
 import modules.networkConstruction as nc
+from modules.thesisUtils import print_msg
 
 import nest
 
@@ -92,9 +93,17 @@ def load_net(net, network_name, feature_folder="", path="", use_cwd=True, num=No
                                  for coordinates in net_df["positions"][0].strip("(").strip(")").split("), (")]
     del net_df
 
-    net.torus_layer, net.spike_detect, net.multi_meter = nc.create_torus_layer_uniform(
+    if net.verbosity > 0:
+        print_msg("Create nodes")
+
+    net.torus_layer, net.spike_detect, net.multi_meter, net.spike_gen = nc.create_torus_layer_uniform(
         num_neurons=net.num_sensory,
         size_layer=net.layer_size,
+        rest_pot=net.pot_reset,
+        threshold_pot=net.pot_threshold,
+        time_const=net.time_constant,
+        capacitance=net.capacitance,
+        bg_rate=net.bg_rate,
         p_rf=net.p_rf,
         ff_factor=net.ff_factor,
         synaptic_strength=net.ff_weight,
@@ -122,13 +131,16 @@ def load_net(net, network_name, feature_folder="", path="", use_cwd=True, num=No
 
     net.create_retina()
 
+    if net.verbosity > 0:
+        print_msg("Create connections")
+
     net_df = pd.read_csv("%s/%s_%s.csv" % (path, network_name, num), usecols=["connect"])
     conns = [convert_string_to_list(c, int)
              for c in net_df["connect"][0].strip("(").strip(")").split("), (")]
     del net_df
 
     for s, t in conns:
-        weight = net.cap_s if s in net.torus_inh_nodes else net.inh_weight
+        weight = net.inh_weight if s in net.torus_inh_nodes else net.cap_s
         nest.Connect([s], [t], syn_spec={"weight": weight})
 
 
