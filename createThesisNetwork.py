@@ -38,7 +38,7 @@ class NeuronalNetworkBase:
             time_constant=20.,
             layer_size=8.,
             max_spiking=1000.,
-            bg_rate_ratio=.5,
+            bg_rate=500.,
             presentation_time=1000.,
             spacing_perlin=0.01,
             resolution_perlin=(15, 15),
@@ -79,7 +79,7 @@ class NeuronalNetworkBase:
         :param time_constant: Time constant tau of the sensory neurons
         :param layer_size: Size of the sheet of the neural tissue that is modelled
         :param max_spiking: Maximal spiking rate of the ff input Poisson spike generator
-        :param bg_rate_ratio: Ratio of the rate that is used for background activity
+        :param bg_rate: Rate that is used for background activity
         :param presentation_time: Time the image is presented to the network. Only possible if Poisson spike generator
         is used
         :param spacing_perlin: The space between two points in x and y for which an interpolation is computed. This
@@ -124,7 +124,7 @@ class NeuronalNetworkBase:
         self.time_constant = time_constant
         self.layer_size = layer_size
         self.max_spiking = max_spiking
-        self.bg_rate_ratio = bg_rate_ratio
+        self.bg_rate = bg_rate
         self.presentation_time = presentation_time
 
         self.spacing_perlin = spacing_perlin
@@ -198,8 +198,7 @@ class NeuronalNetworkBase:
             rest_pot=self.pot_reset,
             time_const=self.time_constant,
             size_layer=self.layer_size,
-            max_spiking=self.max_spiking,
-            bg_spiking_scaling=self.bg_rate_ratio,
+            bg_rate=self.bg_rate,
             p_rf=self.p_rf,
             ff_factor=self.ff_factor,
             synaptic_strength=self.ff_weight,
