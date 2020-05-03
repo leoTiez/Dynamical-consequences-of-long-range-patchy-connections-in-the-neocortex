@@ -206,8 +206,7 @@ def create_torus_layer_uniform(
         p_rf=.7,
         ff_factor=1.,
         synaptic_strength=1.,
-        max_spiking=1000.,
-        bg_spiking_scaling=0.3,
+        bg_rate=300.,
         positions=None,
         to_file=False
 ):
@@ -223,8 +222,7 @@ def create_torus_layer_uniform(
     :param p_rf: The receptive field conenction probability. This is used to determine an adequate background activity
     :param ff_factor: The weight factor for the ff weights. This is used to determine an adequate background activity
     :param synaptic_strength: The feedforward activity. This is used to determine an adequate background activity
-    :param max_spiking: The maximal spiking rate of Poisson spike generator when receiving ff input.
-    :param bg_spiking_scaling: Scaling parameter of the maximal spiking rate to deterimen the background activity
+    :param bg_rate: Maximal spiking rate for background activity
     :param positions: If set to None, positions are generated, otherwise these positions are used. Note that the number
     of positions must match the number of neurons
     :param to_file: If set to true, the spikes are written to a file
@@ -269,8 +267,8 @@ def create_torus_layer_uniform(
     nest.Connect(multimeter, sensory_nodes)
 
     # Create Poisson generator for background activity
-    if bg_spiking_scaling is not None:
-        rate = (max_spiking / ff_factor) * p_rf * bg_spiking_scaling
+    if bg_rate is not None:
+        rate = (bg_rate / ff_factor) * p_rf
         spike_gen = nest.Create("poisson_generator", n=num_neurons, params={"rate": rate})
 
         syn_spec = {"weight": synaptic_strength}
