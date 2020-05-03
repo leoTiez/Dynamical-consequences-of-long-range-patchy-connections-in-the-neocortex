@@ -333,7 +333,7 @@ def experiment(
         for i in range(start_index, num_trials):
             save_prefix = "%s_no_%s" % (save_prefix_root, i)
             if verbosity > 0:
-                print_msg("The save prefix is: ", save_prefix)
+                print_msg("The save prefix is: %s" % save_prefix)
 
             input_stimulus, reconstruction, firing_rate = main_lr(
                 network_type=network_type,
