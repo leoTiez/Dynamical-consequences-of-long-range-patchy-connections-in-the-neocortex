@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from pathlib import Path
 from webcolors import hex_to_rgb
+import imageio
 import nest
 import nest.topology as tp
 
@@ -95,6 +96,10 @@ def main_lr(
     time_constant = 20.
     use_dc = False
 
+    plot_start = 1.
+    plot_end = 200.
+    min_mem_pot = 10.
+
     # #################################################################################################################
     # Create network
     # #################################################################################################################
@@ -129,7 +134,7 @@ def main_lr(
         to_file=write_to_file
     )
     if load_network:
-        print("\n#####################\tImport networki")
+        print("\n#####################\tImport network")
         network.import_net()
     else:
         network.create_network()
@@ -247,6 +252,101 @@ def main_lr(
             Path(curr_dir + "/figures/firing_rate").mkdir(parents=True, exist_ok=True)
             plt.savefig(curr_dir + "/figures/firing_rate/%s_firing_space.png" % save_prefix)
             plt.close()
+
+        if verbosity > 4:
+            multi_events = nest.GetStatus(network.multi_meter, "events")[0]
+            times_multi = multi_events["times"]
+            potential_multi = multi_events["V_m"]
+            min_potential = potential_multi.min()
+
+            figure_spike = plt.figure(figsize=(10, 5))
+            figure_pot = plt.figure(figsize=(10, 5))
+            ax_spike = figure_spike.gca()
+            ax_pot = figure_pot.gca()
+            plot_colorbar(figure_spike, ax_spike, num_stim_classes=network.num_stim_discr)
+            plot_colorbar(figure_pot, ax_pot, num_stim_classes=network.num_stim_discr)
+
+            spike_images = []
+            pot_images = []
+            for t in np.arange(plot_start, plot_end, 1.):
+                membrane_potential = potential_multi[times_multi == t]
+                spiking_neurons = spikes_s[np.logical_and(t <= time_s, time_s < t + 1)]
+
+                c_rgba_spike = c_rgba.copy()
+                c_rgba_pot = c_rgba.copy()
+
+                mp = membrane_potential - min_potential
+                mp -= min_mem_pot
+                mp[mp < 0.] = 0.
+                c_rgba_pot[:, 3] = mp / mp.max()
+                c_rgba_pot[spiking_neurons - min(network.torus_layer_nodes), :] = np.asarray([1., 1., 1., 1.])
+
+                c_rgba_spike[:, 3] = 0
+                c_rgba_spike[spiking_neurons - min(network.torus_layer_nodes), 3] = 1.
+
+                ax_spike.imshow(
+                    network.color_map,
+                    cmap=custom_cmap(),
+                    alpha=0.3,
+                    origin=(network.color_map.shape[0] // 2, network.color_map.shape[1] // 2),
+                    extent=(
+                        -network.layer_size / 2.,
+                        network.layer_size / 2.,
+                        -network.layer_size / 2.,
+                        network.layer_size / 2.
+                    )
+                )
+
+                ax_pot.imshow(
+                    network.color_map,
+                    cmap=custom_cmap(),
+                    alpha=0.3,
+                    origin=(network.color_map.shape[0] // 2, network.color_map.shape[1] // 2),
+                    extent=(
+                        -network.layer_size / 2.,
+                        network.layer_size / 2.,
+                        -network.layer_size / 2.,
+                        network.layer_size / 2.
+                    )
+                )
+
+                ax_spike.scatter(
+                    np.asarray(network.torus_layer_positions)[:, 0],
+                    np.asarray(network.torus_layer_positions)[:, 1],
+                    c=c_rgba_spike
+                )
+
+                ax_pot.scatter(
+                    np.asarray(network.torus_layer_positions)[:, 0],
+                    np.asarray(network.torus_layer_positions)[:, 1],
+                    c=c_rgba_pot
+                )
+
+                ax_spike.set_title("Spikes at time %s ms" % t)
+                ax_pot.set_title("Membrane potential over %s mV at time %s ms" % (network.pot_reset + min_mem_pot, t))
+                if save_plots:
+                    figure_spike.canvas.draw()
+                    image_spike = np.frombuffer(figure_spike.canvas.tostring_rgb(), dtype='uint8')
+                    image_spike = image_spike.reshape(figure_spike.canvas.get_width_height()[::-1] + (3,))
+                    spike_images.append(image_spike)
+
+                    figure_pot.canvas.draw()
+                    image_pot = np.frombuffer(figure_pot.canvas.tostring_rgb(), dtype='uint8')
+                    image_pot = image_pot.reshape(figure_pot.canvas.get_width_height()[::-1] + (3,))
+                    pot_images.append(image_pot)
+                else:
+                    figure_spike.canvas.draw(), plt.pause(1e-3)
+                    figure_pot.canvas.draw(), plt.pause(1e-3)
+
+                ax_pot.clear()
+                ax_spike.clear()
+
+            if save_plots:
+                curr_dir = os.getcwd()
+                path = "%s/figures/animations" % curr_dir
+                Path(path).mkdir(exist_ok=True, parents=True)
+                imageio.mimsave("%s/%s_mem_pot_animation.gif" % (path, save_prefix), pot_images, fps=10)
+                imageio.mimsave("%s/%s_spike_animation.gif" % (path, save_prefix), spike_images, fps=5)
 
     # #############################################################################################################
     # Reconstruct stimulus
