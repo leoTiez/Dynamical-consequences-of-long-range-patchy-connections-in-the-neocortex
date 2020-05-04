@@ -97,6 +97,10 @@ def check_experiment_type(file_name):
         experiment_type = "equilibrium"
         offset = 1
 
+    elif "alpha" in file_name:
+        experiment_type = "alpha"
+        offset = 1
+
     num_letters = len(experiment_type)
     idx = file_name.index(experiment_type)
     experiment_parameter = file_name[idx + num_letters + offset:].split("_")[0]
@@ -104,7 +108,17 @@ def check_experiment_type(file_name):
         if experiment_parameter not in TUNING_FUNCTION.keys():
             experiment_parameter = list(TUNING_FUNCTION.keys())[int(experiment_parameter)]
 
+    if experiment_type == "alpha":
+        experiment_parameter = str(np.around(float(experiment_parameter), decimals=1))
+
     return experiment_type, experiment_parameter
+
+
+def check_spatial_sampling(file_name):
+    img_prop_str = "spatials"
+    idx = file_name.index(img_prop_str)
+    use_spatial_sampling = file_name[idx + 1:].split("_")[1]
+    return use_spatial_sampling
 
 
 def read_files(path, add_cwd=True):
@@ -125,11 +139,21 @@ def read_files(path, add_cwd=True):
         sampling_rate = check_sampling_rate(fn)
         measure = check_measure_type(fn)
         experiment_type, experiment_parameter = check_experiment_type(fn)
+        use_spatial_sampling = check_spatial_sampling(fn)
 
         file = open(path + "/" + fn, "r")
         value = float(file.read())
         file.close()
-        data_dict.append([network_name, stimulus, experiment_type, sampling_rate, experiment_parameter, measure, value])
+        data_dict.append([
+            network_name,
+            stimulus,
+            experiment_type,
+            sampling_rate,
+            use_spatial_sampling,
+            experiment_parameter,
+            measure,
+            value
+        ])
 
     df = pd.DataFrame(data_dict)
     df.rename(columns={
@@ -137,9 +161,10 @@ def read_files(path, add_cwd=True):
             1: "stimulus",
             2: "experiment",
             3: "sampling",
-            4: "parameter",
-            5: "measure",
-            6: "value"
+            4: "spatial_sampling",
+            5: "parameter",
+            6: "measure",
+            7: "value"
         }, inplace=True)
 
     return df
