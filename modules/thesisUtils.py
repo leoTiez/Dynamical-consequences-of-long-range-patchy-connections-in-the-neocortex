@@ -497,6 +497,7 @@ def plot_spikes_over_time(
         t_end=1000.,
         t_stim_start=[],
         t_stim_end=[],
+        title="",
         save_plot=True,
         save_prefix=""
 ):
@@ -528,6 +529,7 @@ def plot_spikes_over_time(
     for st in t_stim_end:
         plt.axvline(x=st, c="blue")
 
+    plt.title(title)
     if save_plot:
         curr_dir = os.getcwd()
         Path(curr_dir + "/figures/firing_rate").mkdir(parents=True, exist_ok=True)
@@ -557,7 +559,7 @@ def get_neuron_rgba(network):
     return c_rgba
 
 
-def plot_spikes_over_space(firing_rates, network, c_rgba=None, save_plot=False, save_prefix=""):
+def plot_spikes_over_space(firing_rates, network, title="", c_rgba=None, save_plot=False, save_prefix=""):
     plt.figure(figsize=(10, 5))
     plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=network.num_stim_discr)
 
@@ -584,6 +586,7 @@ def plot_spikes_over_space(firing_rates, network, c_rgba=None, save_plot=False, 
         )
     )
 
+    plt.title(title)
     if save_plot:
         curr_dir = os.getcwd()
         Path(curr_dir + "/figures/firing_rate").mkdir(parents=True, exist_ok=True)
@@ -599,6 +602,7 @@ def plot_network_animation(
         network,
         spikes_s,
         time_s,
+        title="",
         c_rgba=None,
         min_mem_pot=10.,
         animation_start=0.,
@@ -658,7 +662,10 @@ def plot_network_animation(
             np.asarray(network.torus_layer_positions)[spiking_mask, 1],
             c=c_rgba_pot[spiking_mask]
         )
-        ax_pot.set_title("Membrane potential over %s mV at time %s ms" % (network.pot_reset + min_mem_pot, t))
+
+        ax_pot.set_title(
+            "%s\nMembrane potential over %s mV at time %s ms" % (title, network.pot_reset + min_mem_pot, t)
+        )
         if save_plot:
             figure_pot.canvas.draw()
             image_pot = np.frombuffer(figure_pot.canvas.tostring_rgb(), dtype='uint8')

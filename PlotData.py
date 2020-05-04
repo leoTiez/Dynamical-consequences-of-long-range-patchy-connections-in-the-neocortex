@@ -18,7 +18,7 @@ def get_parameters():
     cmd_par = arg_parse_plts(sys.argv[1:])
 
     parameter_dict = {
-        "path": "experiments/error",
+        "path": "experiments/new/error",
         "x": None,
         "y": None,
         "group": None,
@@ -83,22 +83,22 @@ def filter_dataframe(df, params, ignore_sampling=False):
     new_df = df.copy()
     save_string = params["x"] + "_" + params["y"]
     if params["network"] is not None:
-        save_string += "_%s" % params["network"]
+        save_string += "_network_%s" % params["network"]
         new_df = new_df[new_df["network"] == params["network"]]
     if params["stimulus"] is not None:
-        save_string += "_%s" % params["stimulus"]
+        save_string += "_input_%s" % params["stimulus"]
         new_df = new_df[new_df["stimulus"] == params["stimulus"]]
     if params["experiment"] is not None:
-        save_string += "_%s" % params["experiment"]
+        save_string += "_experiment_%s" % params["experiment"]
         new_df = new_df[new_df["experiment"] == params["experiment"]]
     if params["sampling"] is not None and not ignore_sampling:
-        save_string += "_%s" % params["sampling"]
+        save_string += "_sampling_%s" % params["sampling"]
         new_df = new_df[new_df["sampling"] == params["sampling"]]
     if params["parameter"] is not None:
-        save_string += "_%s" % params["parameter"]
+        save_string += "_parameter_%s" % params["parameter"]
         new_df = new_df[new_df["parameter"] == params["parameter"]]
     if params["measure"] is not None and params["measure"] != "li":
-        save_string += "_%s" % params["measure"]
+        save_string += "_measure_%s" % params["measure"]
         new_df = new_df[new_df["measure"] == params["measure"]]
 
     new_df.dropna()
