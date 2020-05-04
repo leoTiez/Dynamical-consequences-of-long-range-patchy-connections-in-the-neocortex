@@ -21,8 +21,8 @@ def main():
     input_resolution = (PERLIN_INPUT[0], PERLIN_INPUT[0])
     network_type = NETWORK_TYPE["local_circ_patchy_sd"]
     num_neurons = int(1e4)
-    img_prop = .4
-    bg_rate = 300.
+    img_prop = 1/float(num_neurons) if use_single_neuron else 0.4
+    bg_rate = 500.
     max_single_spiking = 1e5
     max_firing_rate = 1000.
 
@@ -135,8 +135,8 @@ def main():
         min_mem_pot=min_mem_pot,
         animation_start=1000.,
         animation_end=1500.,
-        save_plot=False,
-        save_prefix=""
+        save_plot=save_plots,
+        save_prefix=save_prefix
     )
 
 
