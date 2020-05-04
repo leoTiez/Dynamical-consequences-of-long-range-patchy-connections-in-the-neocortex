@@ -19,15 +19,17 @@ def main():
     # #################################################################################################################
     use_single_neuron = True
     input_resolution = (PERLIN_INPUT[0], PERLIN_INPUT[0])
-    network_type = NETWORK_TYPE["local_circ_patchy_sd"]
+    network_type_id = "random"
+    network_type = NETWORK_TYPE[network_type_id]
+    network_name = "Random Network"
     num_neurons = int(1e4)
     img_prop = 1/float(num_neurons) if use_single_neuron else 0.4
     bg_rate = 500.
     max_single_spiking = 1e5
     max_firing_rate = 1000.
 
-    save_plots = False
-    save_prefix = ""
+    save_plots = True
+    save_prefix = network_type_id
 
     cap_s = 1.
     inh_weight = -5.
@@ -115,6 +117,7 @@ def main():
         spikes_s,
         time_s,
         network,
+        title=network_name,
         t_start=0.,
         t_end=2000.,
         t_stim_start=np.arange(1000., 2000., sim_time),
@@ -124,13 +127,20 @@ def main():
     )
 
     print_msg("Plot firing pattern over space")
-    c_rgba = plot_spikes_over_space(firing_rates, network, save_plot=save_plots, save_prefix=save_prefix)
+    c_rgba = plot_spikes_over_space(
+        firing_rates,
+        network,
+        title=network_name,
+        save_plot=save_plots,
+        save_prefix=save_prefix
+    )
 
     print_msg("Create network animation")
     plot_network_animation(
         network,
         spikes_s,
         time_s,
+        title=network_name,
         c_rgba=c_rgba,
         min_mem_pot=min_mem_pot,
         animation_start=1000.,
