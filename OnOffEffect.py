@@ -25,7 +25,6 @@ def main():
     num_neurons = int(1e4)
     img_prop = 1/float(num_neurons) if use_single_neuron else 0.4
     bg_rate = 500.
-    max_single_spiking = 1e5
     max_firing_rate = 1000.
 
     save_plots = True
@@ -51,17 +50,11 @@ def main():
     min_mem_pot = 10.
 
     # #################################################################################################################
-    # Load stimulus
-    # #################################################################################################################
-    input_stimulus = stimulus_factory(INPUT_TYPE["perlin"], resolution=input_resolution)
-
-    # #################################################################################################################
     # Create network
     # #################################################################################################################
     # Note: when using the same input current for all neurons, we obtain synchrony, and due to the refactory phase
     # all recurrent connections do not have any effect
     network = network_factory(
-        input_stimulus,
         network_type=network_type,
         num_sensory=num_neurons,
         all_same_input_current=all_same_input_current,
@@ -71,7 +64,7 @@ def main():
         c_alpha=c_alpha,
         p_rf=p_rf,
         ff_factor=ff_factor,
-        max_spiking=0. if use_single_neuron else max_firing_rate,
+        max_spiking=max_firing_rate,
         bg_rate=bg_rate,
         pot_reset=pot_reset,
         pot_threshold=pot_threshold,
@@ -98,7 +91,7 @@ def main():
     )
 
     if use_single_neuron:
-        input_generator = network.set_input_rate(input_rate=max_single_spiking, origin=1000., end=50., exc_only=True)
+        input_generator = network.set_input_rate(input_rate=max_firing_rate, origin=1000., end=50., exc_only=True)
     sim_time = 120.
     spikes_s = None
     time_s = None
@@ -110,7 +103,7 @@ def main():
             use_equilibrium=False
         )
         if use_single_neuron:
-            network.set_input_generator(input_generator, input_rate=max_single_spiking, origin=t+sim_time, end=50.)
+            network.set_input_generator(input_generator, input_rate=max_firing_rate, origin=t+sim_time, end=50.)
 
     print_msg("Plot firing pattern over time")
     plot_spikes_over_time(
