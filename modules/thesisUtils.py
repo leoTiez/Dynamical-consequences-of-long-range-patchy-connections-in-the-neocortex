@@ -132,23 +132,6 @@ def arg_parse(args):
     return parsed_args
 
 
-def custom_cmap(num_stimulus_discr=4, add_inh=False):
-    """
-    Custom color map for coloring the neurons and tuning map
-    :param num_stimulus_discr: Number of stimulus feature classes that can be discriminated
-    :param add_inh: Flag to determine whether inhibitory neurons are to be included as they don't have any
-    stimulus tuning
-    :return: The customised color map
-    """
-    cmap = plt.get_cmap('tab10')
-    new_cmap = mcolors.LinearSegmentedColormap.from_list(
-        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=0.0, b=(1/num_stimulus_discr)+0.1),
-        cmap(np.linspace(0.0, (1/num_stimulus_discr)+0.1, 100)))
-    if add_inh:
-        new_cmap.set_under('k')
-    return new_cmap
-
-
 def degree_to_rad(deg):
     """
     Convert degree to radians
@@ -315,6 +298,75 @@ def firing_rate_sorting(idx_based_list, sorted_list, new_idx_neurons, element):
     return new_idx_neurons[element]
 
 
+def print_msg(msg):
+    print("\n#####################\t%s" % msg)
+
+# #################################################################################################################
+# Plotting functions
+# #################################################################################################################
+
+
+def custom_cmap(num_stimulus_discr=4, add_inh=False):
+    """
+    Custom color map for coloring the neurons and tuning map
+    :param num_stimulus_discr: Number of stimulus feature classes that can be discriminated
+    :param add_inh: Flag to determine whether inhibitory neurons are to be included as they don't have any
+    stimulus tuning
+    :return: The customised color map
+    """
+    cmap = plt.get_cmap('tab10')
+    new_cmap = mcolors.LinearSegmentedColormap.from_list(
+        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=0.0, b=(1/num_stimulus_discr)+0.1),
+        cmap(np.linspace(0.0, (1/num_stimulus_discr)+0.1, 100)))
+    if add_inh:
+        new_cmap.set_under('k')
+    return new_cmap
+
+
+def plot_colorbar(fig, ax, num_stim_classes=4):
+    """
+    Adds a color bar to the plot
+    :param fig: The matplotlib figure
+    :param ax: The matplotlib axis
+    :param num_stim_classes: The number of stimulus feature classes that can be discriminated
+    :return: None
+    """
+    step_size = 255 / float(num_stim_classes)
+    bounds = [i * step_size for i in range(0, num_stim_classes + 1)]
+    cmap = custom_cmap(num_stimulus_discr=num_stim_classes, add_inh=True)
+    norm = mcolors.BoundaryNorm(bounds, cmap.N)
+    fig.colorbar(
+        cm.ScalarMappable(norm=norm, cmap=cmap),
+        ax=ax,
+        extend='min',
+        boundaries=[-1] + bounds,
+        ticks=bounds,
+        spacing='uniform',
+        orientation='vertical'
+    )
+
+
+def get_neuron_rgba(network):
+    inh_mask = np.zeros(len(network.torus_layer_nodes)).astype('bool')
+    inh_mask[np.asarray(network.torus_inh_nodes) - min(network.torus_layer_nodes)] = True
+
+    x_grid, y_grid = coordinates_to_cmap_index(
+        network.layer_size,
+        np.asarray(network.torus_layer_positions)[~inh_mask],
+        network.spacing_perlin
+    )
+    stim_classes = network.color_map[x_grid, y_grid]
+
+    c = np.full(len(network.torus_layer_nodes), '#000000')
+    c[~inh_mask] = np.asarray(list(mcolors.TABLEAU_COLORS.items()))[stim_classes, 1]
+
+    c_rgba = np.zeros((len(network.torus_layer_nodes), 4))
+    for num, color in enumerate(c):
+        c_rgba[num, :3] = np.asarray(hex_to_rgb(color))[:] / 255.
+
+    return c_rgba
+
+
 def plot_connections(
         src_nodes,
         target_nodes,
@@ -380,30 +432,16 @@ def plot_connections(
         plt.show()
 
 
-def plot_colorbar(fig, ax, num_stim_classes=4):
-    """
-    Adds a color bar to the plot
-    :param fig: The matplotlib figure
-    :param ax: The matplotlib axis
-    :param num_stim_classes: The number of stimulus feature classes that can be discriminated
-    :return: None
-    """
-    step_size = 255 / float(num_stim_classes)
-    bounds = [i * step_size for i in range(0, num_stim_classes + 1)]
-    cmap = custom_cmap(num_stimulus_discr=num_stim_classes, add_inh=True)
-    norm = mcolors.BoundaryNorm(bounds, cmap.N)
-    fig.colorbar(
-        cm.ScalarMappable(norm=norm, cmap=cmap),
-        ax=ax,
-        extend='min',
-        boundaries=[-1] + bounds,
-        ticks=bounds,
-        spacing='uniform',
-        orientation='vertical'
-    )
-
-
-def plot_reconstruction(input_stimulus, reconstruction, save_plots=False, save_prefix=""):
+def plot_reconstruction(
+        input_stimulus,
+        reconstruction,
+        color_mask=None,
+        size_layer=8.,
+        resolution=(15, 15),
+        num_stimulus_discr=4,
+        save_plots=False,
+        save_prefix=""
+):
     """
     Plot stimulus reconstruction
     :param input_stimulus: Original input stimulus
@@ -412,9 +450,19 @@ def plot_reconstruction(input_stimulus, reconstruction, save_plots=False, save_p
     :param save_prefix: Prefix that is used for the saved file to identify the plot and the corresponding experiment
     :return: None
     """
-    _, fig_2 = plt.subplots(1, 2, figsize=(10, 5))
-    fig_2[0].imshow(reconstruction, cmap='gray')
-    fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
+    _, ax = plt.subplots(1, 2 if color_mask is None else 3, figsize=(10, 5))
+    ax[0].imshow(reconstruction, origin="lower", cmap="gray")
+    ax[1].imshow(input_stimulus, origin="lower", cmap="gray", vmin=0, vmax=255)
+    if color_mask is not None:
+        stimulus_grid_range_x = np.linspace(0, size_layer, resolution[0])
+        stimulus_grid_range_y = np.linspace(0, size_layer, resolution[1])
+        ax[2].imshow(
+            color_mask,
+            origin=(stimulus_grid_range_x.size // 2, stimulus_grid_range_y.size // 2),
+            extent=(-size_layer / 2.,  size_layer/ 2., -size_layer / 2., size_layer / 2.),
+            cmap=custom_cmap(num_stimulus_discr),
+            alpha=0.4
+        )
     if not save_plots:
         plt.show()
     else:
@@ -537,26 +585,6 @@ def plot_spikes_over_time(
         plt.close()
     else:
         plt.show()
-
-def get_neuron_rgba(network):
-    inh_mask = np.zeros(len(network.torus_layer_nodes)).astype('bool')
-    inh_mask[np.asarray(network.torus_inh_nodes) - min(network.torus_layer_nodes)] = True
-
-    x_grid, y_grid = coordinates_to_cmap_index(
-        network.layer_size,
-        np.asarray(network.torus_layer_positions)[~inh_mask],
-        network.spacing_perlin
-    )
-    stim_classes = network.color_map[x_grid, y_grid]
-
-    c = np.full(len(network.torus_layer_nodes), '#000000')
-    c[~inh_mask] = np.asarray(list(mcolors.TABLEAU_COLORS.items()))[stim_classes, 1]
-
-    c_rgba = np.zeros((len(network.torus_layer_nodes), 4))
-    for num, color in enumerate(c):
-        c_rgba[num, :3] = np.asarray(hex_to_rgb(color))[:] / 255.
-
-    return c_rgba
 
 
 def plot_spikes_over_space(firing_rates, network, title="", c_rgba=None, save_plot=False, save_prefix=""):
@@ -686,6 +714,68 @@ def plot_network_animation(
     return c_rgba
 
 
-def print_msg(msg):
-    print("\n#####################\t%s" % msg)
+def plot_rf(net, image, rf_list, counter=9):
+    fig, ax = plt.subplots(1, 2, sharex='none', sharey='none', figsize=(10, 5))
+    ax[0].axis((0, net.stimulus_size[1], 0, net.stimulus_size[0]))
+    if net.color_map is not None:
+        ax[0].imshow(image, cmap="gray")
+        ax[1].imshow(
+            net.color_map,
+            origin=(net.color_map.shape[0] // 2, net.color_map.shape[1] // 2),
+            extent=(
+                -net.layer_size / 2., net.layer_size / 2.,
+                -net.layer_size / 2., net.layer_size / 2.),
+            cmap=custom_cmap(net.color_map.max() + 1),
+            alpha=0.4
+        )
+    color_list = list(mcolors.TABLEAU_COLORS.items())
+    target_positions = net.torus_layer_positions[:counter + 1]
+    for num, (rf, (x, y)) in enumerate(list(zip(rf_list, target_positions))):
+        # De-zip to get x and y values separately
+        color = color_list[num % len(color_list)]
+        area_rect = patches.Rectangle(
+            rf[0],
+            width=rf[1],
+            height=rf[2],
+            color=color[0],
+            alpha=0.4
+        )
+        ax[0].add_patch(area_rect)
+        ax[1].plot(x, y, 'o')
+    ax[0].set_xlabel("Retina tissue in X")
+    ax[0].set_ylabel("Retina tissue in Y")
+
+    ax[1].set_xlabel("V1 tissue in X")
+    ax[1].set_ylabel("V1 tissue in Y")
+    ax[1].set_xlim([-net.layer_size / 2., net.layer_size / 2.])
+    ax[1].set_ylim([-net.layer_size / 2., net.layer_size / 2.])
+
+    if net.save_plots:
+        curr_dir = os.getcwd()
+        Path(curr_dir + "/figures/rf/").mkdir(parents=True, exist_ok=True)
+        plt.savefig(curr_dir + "/figures/rf/%s_receptive_fields.png" % net.save_prefix)
+        plt.close()
+    else:
+        plt.show()
+
+
+def plot_tuning_classes(tuning_fun, num_tuning_discr=4, save_plot=False, save_prefix=""):
+    applied_current = np.arange(0, 255)
+    plt.figure(figsize=(10, 5))
+    for tune in range(num_tuning_discr):
+        plt.plot(
+            applied_current,
+            tuning_fun(applied_current, tune, 255. / 4.),
+            label="Class %s" % tune
+        )
+    plt.xlabel("Pixel intensity")
+    plt.ylabel("Injected current I in nA")
+    plt.legend()
+    if not save_plot:
+        plt.show()
+    else:
+        curr_dir = os.getcwd()
+        Path(curr_dir + "/figures/rf/").mkdir(parents=True, exist_ok=True)
+        plt.savefig(curr_dir + "/figures/rf/%s_tuning_function.png" % save_prefix)
+        plt.close()
 
