@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-from modules.stimulusReconstruction import fourier_trans, direct_stimulus_reconstruction
+from modules.stimulusReconstruction import fourier_trans, oblivious_stimulus_reconstruction
 from modules.createStimulus import stimulus_factory
 from modules.thesisUtils import *
 from createThesisNetwork import network_factory
@@ -67,7 +67,7 @@ def main_lr(
 
     stimulus_fft = fourier_trans(input_stimulus)
     if verbosity > 2:
-        plt.imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
+        plt.imshow(input_stimulus, origin="lower", cmap="gray", vmin=0, vmax=255)
         if not save_plots:
             plt.show()
         else:
@@ -84,6 +84,8 @@ def main_lr(
     cap_s = 1.
     inh_weight = -5.
     ff_weight = 1.0
+    max_spiking = 2000.
+    bg_rate = 500.
     all_same_input_current = False
     p_rf = 0.7
     pot_threshold = -55.
@@ -102,7 +104,6 @@ def main_lr(
     # Note: when using the same input current for all neurons, we obtain synchrony, and due to the refactory phase
     # all recurrent connections do not have any effect
     network = network_factory(
-        input_stimulus,
         network_type=network_type,
         num_sensory=num_neurons,
         all_same_input_current=all_same_input_current,
@@ -111,6 +112,8 @@ def main_lr(
         inh_weight=inh_weight,
         c_alpha=c_alpha,
         p_rf=p_rf,
+        bg_rate=bg_rate,
+        max_spiking=max_spiking,
         ff_factor=ff_factor,
         pot_reset=pot_reset,
         pot_threshold=pot_threshold,
@@ -131,9 +134,9 @@ def main_lr(
     )
     if load_network:
         print_msg("Import network")
-        network.import_net()
+        network.import_net(input_stimulus)
     else:
-        network.create_network()
+        network.create_network(input_stimulus)
 
     if verbosity > 4:
         print_msg("Plot in/out degree distribution")
@@ -207,9 +210,10 @@ def main_lr(
     if verbosity > 0:
         print_msg("Reconstruct stimulus")
 
-    reconstruction = direct_stimulus_reconstruction(
+    reconstruction = oblivious_stimulus_reconstruction(
         firing_rates,
         network.ff_weight_mat,
+        network.tuning_vector
     )
     response_fft = fourier_trans(reconstruction)
 
