@@ -23,6 +23,7 @@ def main_eigenvalue_spec(
         patches=3,
         c_alpha=0.7,
         compute_sum=False,
+        load_network=False,
         save_plot=False,
         verbosity=VERBOSITY
 ):
@@ -36,27 +37,22 @@ def main_eigenvalue_spec(
     :param verbosity: Verbosity flag
     :return: None
     """
-    # load input stimulus
-    stimulus_size = (50, 50)
-    input_stimulus = stimulus_factory(input_type=INPUT_TYPE["plain"], size=stimulus_size)
-    if verbosity > 2:
-        plt.imshow(input_stimulus, cmap='gray')
-        plt.show()
-
     # #################################################################################################################
     # Define values
     # #################################################################################################################
     num_neurons = num_neurons
 
     network = network_factory(
-        input_stimulus,
         c_alpha=c_alpha,
         network_type=network_type,
         num_patches=patches,
         num_sensory=num_neurons,
         verbosity=verbosity
     )
-    network.create_network()
+    if load_network:
+        network.import_net()
+    else:
+        network.create_network()
     sens_weight_mat = network.get_sensory_weight_mat()
 
     if compute_sum:
@@ -83,6 +79,7 @@ def main():
     num_neurons = int(1e4)
     save_plot = True
     networks = NETWORK_TYPE.keys()
+    load_network = False
     patches = 3
     c_alpha = 0.7
     compute_sum = False
@@ -116,6 +113,9 @@ def main():
     if cmd_params.c_alpha is not None:
         c_alpha = cmd_params.c_alpha
 
+    if cmd_params.load_network:
+        load_network = True
+
     if cmd_params.patches is not None:
         patches = cmd_params.patches
 
@@ -128,6 +128,7 @@ def main():
     for network_type in networks:
         main_eigenvalue_spec(
             network_type=NETWORK_TYPE[network_type],
+            load_network=load_network,
             num_neurons=num_neurons,
             patches=patches,
             c_alpha=c_alpha,
