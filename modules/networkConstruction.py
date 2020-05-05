@@ -1442,7 +1442,11 @@ def create_rf(net, image_size=(50, 50)):
                   upper_left[1]:lower_right[1]
                   ]
 
-        rf_list.append((upper_left, lower_right[0] - upper_left[0], lower_right[1] - upper_left[1]))
+        rf_list.append((
+            (upper_left[1], upper_left[0]),
+            lower_right[1] - upper_left[1],
+            lower_right[0] - upper_left[0]
+        ))
 
         connections = np.random.binomial(1, net.p_rf, size=indices.size)
         indices = indices[connections.astype('bool').reshape(indices.shape)]
