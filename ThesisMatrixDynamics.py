@@ -25,6 +25,7 @@ def main_matrix_dynamics(
         num_neurons=int(1e4),
         perlin_resolution=(4, 4),
         c_alpha=0.7,
+        load_network=False,
         normalise=False,
         save_fig=True,
         save_prefix="",
@@ -57,13 +58,15 @@ def main_matrix_dynamics(
     num_neurons = num_neurons
     network_shape = (int(np.sqrt(num_neurons)), int(np.sqrt(num_neurons)))
     network = network_factory(
-        input_stimulus,
         c_alpha=c_alpha,
         network_type=network_type,
         num_sensory=num_neurons,
         verbosity=verbosity
     )
-    network.create_network()
+    if load_network:
+        network.import_net(input_stimulus)
+    else:
+        network.create_network(input_stimulus)
     sens_weight_mat = network.get_sensory_weight_mat()
 
     # #################################################################################################################
@@ -112,6 +115,7 @@ def main():
     save_fig = True
     verbosity = VERBOSITY
     num_neurons = int(1e4)
+    load_network = False
     c_alpha = 0.7
     normalise = False
 
@@ -125,6 +129,9 @@ def main():
     if cmd_params.agg:
         import matplotlib
         matplotlib.use("Agg")
+
+    if cmd_params.load_network:
+        load_network = True
 
     if cmd_params.show:
         save_fig = False
@@ -143,6 +150,7 @@ def main():
 
     if cmd_params.perlin is not None:
         perlin_resolution = [cmd_params.perlin]
+
     if cmd_params.verbosity is not None:
         verbosity = cmd_params.verbosity
 
