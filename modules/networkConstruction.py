@@ -267,6 +267,7 @@ def create_torus_layer_uniform(
     nest.Connect(multimeter, sensory_nodes)
 
     # Create Poisson generator for background activity
+    spike_gen = None
     if bg_rate is not None:
         rate = (bg_rate / ff_factor) * p_rf
         spike_gen = nest.Create("poisson_generator", n=num_neurons, params={"rate": rate})
@@ -745,7 +746,7 @@ def create_partially_overlapping_patches(
 def create_stimulus_based_local_connections(
         layer,
         node_tree,
-        neuron_to_tuning_map,
+        tuning_vector,
         tuning_to_neuron_map,
         inh_nodes,
         inh_weight=-1.,
@@ -761,7 +762,7 @@ def create_stimulus_based_local_connections(
     Create local connections only to neurons with same stimulus feature preference
     :param layer: Layer with neurons
     :param node_tree: Node positions organised in a tree
-    :param neuron_to_tuning_map: Dictionary mapping from neurons to their respective tuning preference
+    :param tuning_vector: Vector with tuning classes
     :param tuning_to_neuron_map: Dictionary mapping from tuning preference to all neurons with that preference
     :param inh_nodes: IDs of inhibitory nodes
     :param inh_weight: Weight of the inhibitory connections
@@ -781,11 +782,12 @@ def create_stimulus_based_local_connections(
         }
 
     node_ids = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
+    min_node_id = min(node_ids)
     node_pos = tp.GetPosition(node_ids)
     for node, pos in zip(node_ids, node_pos):
-        connect_partners = (np.asarray(node_tree.query_ball_point(pos, r_loc)) + min(node_ids)).tolist()
+        connect_partners = (np.asarray(node_tree.query_ball_point(pos, r_loc)) + min_node_id).tolist()
         if node not in inh_nodes:
-            stimulus_tuning = neuron_to_tuning_map[node]
+            stimulus_tuning = tuning_vector[node - min_node_id]
             similar_tuned_neurons = tuning_to_neuron_map[stimulus_tuning]
             same_stimulus_area = set(filter(lambda n: n != node, similar_tuned_neurons))
             connect_partners = list(set(connect_partners).intersection(same_stimulus_area))
@@ -796,7 +798,7 @@ def create_stimulus_based_local_connections(
         nest.Connect([node], connect_partners, conn_spec=connect_dict, syn_spec=syn_spec)
 
         # Plot first one
-        if node - min(node_ids) == 0:
+        if node - min_node_id == 0:
             if plot:
                 # Assume that layer is a square
                 layer_size = nest.GetStatus(layer, "topology")[0]["extent"][0]
@@ -816,7 +818,7 @@ def create_stimulus_based_local_connections(
 
 def create_stimulus_based_patches_random(
         layer,
-        neuron_to_tuning_map,
+        tuning_vector,
         tuning_to_neuron_map,
         inh_neurons,
         node_tree,
@@ -836,7 +838,7 @@ def create_stimulus_based_patches_random(
     """
     Create patchy connections based on tuning preference
     :param layer: Layer with neurons
-    :param neuron_to_tuning_map: Dictionary mapping from neurons to their respective tuning preference
+    :param tuning_vector: Vector with tuning classes
     :param tuning_to_neuron_map: Dictionary mapping from tuning preference to all neurons with that preference
     :param inh_neurons: IDs of inhibitory neurons
     :param node_tree: Node positions organised in a tree
@@ -872,13 +874,14 @@ def create_stimulus_based_patches_random(
     node_ids = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
 
     # Do not establish lr connections for inh neurons
+    min_id = min(node_ids)
     exc_neurons = list(set(node_ids).difference(set(inh_neurons)))
     exc_pos = tp.GetPosition(exc_neurons)
     for neuron, pos in zip(exc_neurons, exc_pos):
         inner_nodes = (np.asarray(node_tree.query_ball_point(pos, min_distance)) + min(node_ids)).tolist()
         outer_nodes = (np.asarray(node_tree.query_ball_point(pos, max_distance)) + min(node_ids)).tolist()
         patchy_candidates = set(outer_nodes).difference(set(inner_nodes))
-        stimulus_tuning = neuron_to_tuning_map[neuron]
+        stimulus_tuning = tuning_vector[neuron - min_id]
         same_tuning_nodes = tuning_to_neuron_map[stimulus_tuning]
         patchy_candidates = patchy_candidates.intersection(set(same_tuning_nodes))
 
@@ -1096,7 +1099,7 @@ def create_perlin_stimulus_map(
     nodes = nest.GetNodes(layer, properties={"element_type": "neuron"})[0]
 
     tuning_to_neuron_map = {stimulus: [] for stimulus in range(num_stimulus_discr)}
-    neuron_to_tuning_map = {}
+    tuning_vector = np.zeros(len(nodes))
 
     c_map = perlin_noise(size_layer, resolution=resolution, spacing=spacing)
 
@@ -1119,7 +1122,8 @@ def create_perlin_stimulus_map(
     x_grid, y_grid = coordinates_to_cmap_index(size_layer, positions[~inh_mask], spacing)
     stim_class = color_map[x_grid, y_grid]
     zip_node_class = list(zip(np.asarray(nodes)[~inh_mask].tolist(), stim_class.tolist()))
-    neuron_to_tuning_map.update(zip_node_class)
+    tuning_vector[~inh_mask] = stim_class
+    tuning_vector[inh_mask] = -1
     for c in range(num_stimulus_discr):
         stimulus_class_list = list(filter(lambda x: x[1] == c, zip_node_class))
         stim_nodes, _ = zip(*stimulus_class_list)
@@ -1139,7 +1143,7 @@ def create_perlin_stimulus_map(
             save_prefix=save_prefix
         )
 
-    return tuning_to_neuron_map, neuron_to_tuning_map, color_map
+    return tuning_to_neuron_map, tuning_vector, color_map
 
 
 def create_stimulus_tuning_map(
@@ -1267,7 +1271,7 @@ def continuous_tuning_curve(
     :return: Tuning
     """
     sigma = sigma if sigma is not None else tuning_discr_steps
-    mu = stimulus_tuning * tuning_discr_steps
+    mu = (stimulus_tuning + 1) * tuning_discr_steps
 
     return max_value * np.exp((input_stimulus - mu)**2 / float(-2 * sigma**2))
 
@@ -1344,7 +1348,11 @@ def same_input_current(layer, synaptic_strength, connect_prob, value=255/2., rf_
     return generators
 
 
-def convert_step_tuning(target_node, rf, neuron_tuning, tuning_discr_step, indices, adj_mat, min_target):
+def convert_step_tuning(
+        rf,
+        neuron_tuning,
+        tuning_discr_step
+):
     """
     Convert the values from the receptive field to an activation according to the step function
     :param target_node: Node that receives input from the receptive field
@@ -1367,21 +1375,13 @@ def convert_step_tuning(target_node, rf, neuron_tuning, tuning_discr_step, indic
         )
     )
     amplitude[mask] = 255.
-    indices = indices[mask]
-    adj_mat[indices.reshape(-1), target_node - min_target] = 255. / (
-            rf + np.finfo("float64").eps)[mask].reshape(-1).astype("float64")
-
     return amplitude
 
 
 def convert_gauss_tuning(
-        target_node,
         rf,
         neuron_tuning,
-        tuning_discr_step,
-        indices,
-        adj_mat,
-        min_target,
+        tuning_discr_step
 ):
     """
     Convert the values from the receptive field to an activation according to the Gauss function
@@ -1396,21 +1396,13 @@ def convert_gauss_tuning(
     :return: Amplitudes
     """
     amplitude = continuous_tuning_curve(rf, neuron_tuning, tuning_discr_step)
-    rf = rf.astype("float64")
-    rf[rf == 0] = np.finfo("float64").eps
-    adj_mat[indices.reshape(-1), target_node - min_target] = amplitude.reshape(-1) / rf.reshape(-1).astype("float64")
-
     return amplitude
 
 
 def convert_linear_tuning(
-        target_node,
         rf,
         neuron_tuning,
-        tuning_discr_step,
-        indices,
-        adj_mat,
-        min_target
+        tuning_discr_step
 ):
     """
     Convert the values from the receptive field to an activation according to a linear function
@@ -1425,44 +1417,55 @@ def convert_linear_tuning(
     :return: Amplitudes
     """
     amplitude, slope, intercept = linear_tuning(rf, neuron_tuning, tuning_discr_step)
-    adj_mat[indices.reshape(-1), target_node - min_target] = slope
-    adj_mat[-1, target_node - min_target] = amplitude.size * intercept
-
     return amplitude
+
+
+def create_rf(net, image_size=(50, 50)):
+    # Follow the nest convention [columns, rows]
+    mask_specs = {
+        "lower_left": [-net.rf_size[0] // 2, -net.rf_size[1] // 2],
+        "upper_right": [net.rf_size[0] // 2, net.rf_size[1] // 2]
+    }
+    net.ff_weight_mat = np.zeros((image_size[0] * image_size[1], net.num_sensory))
+    index_values = np.arange(0, image_size[0] * image_size[1], 1).astype("int").reshape(image_size)
+    min_id_target = min(net.torus_layer_nodes)
+
+    rf_list = []
+    for num, (target_node, rf_c) in enumerate(zip(net.torus_layer_nodes, net.rf_center_map)):
+        upper_left = (np.asarray(rf_c) + np.asarray(mask_specs["lower_left"])).astype('int')
+        lower_right = (np.asarray(rf_c) + np.asarray(mask_specs["upper_right"])).astype('int')
+
+        upper_left = np.minimum(np.maximum(upper_left, 0), image_size[0])
+        lower_right = np.minimum(np.maximum(lower_right, 0), image_size[0])
+        indices = index_values[
+                  upper_left[0]:lower_right[0],
+                  upper_left[1]:lower_right[1]
+                  ]
+
+        rf_list.append((upper_left, lower_right[0] - upper_left[0], lower_right[1] - upper_left[1]))
+
+        connections = np.random.binomial(1, net.p_rf, size=indices.size)
+        indices = indices[connections.astype('bool').reshape(indices.shape)]
+
+        # Set connections in matrix
+        net.ff_weight_mat[indices.reshape(-1), target_node - min_id_target] = 1.
+
+    return rf_list
 
 
 def create_connections_rf(
         image,
-        target_node_ids,
-        rf_centers,
-        neuron_to_tuning_map,
-        inh_neurons,
-        input_generators=None,
-        synaptic_strength=1.,
-        total_num_target=int(1e4),
-        rf_size=(10, 10),
-        tuning_function=TUNING_FUNCTION["step"],
-        p_rf=0.7,
-        target_layer_size=8.,
-        max_spiking=1000.,
-        presentation_time=1000.,
-        calc_error=False,
-        use_dc=True,
-        ff_factor=1.,
-        plot_src_target=False,
-        save_plot=False,
-        save_prefix="",
-        non_changing_connections=False,
+        sampled_neurons,
+        net,
+        rf_list=None,
         plot_point=9,
-        retina_size=(100, 100),
-        color_mask=None
 ):
     """
     Create receptive fields for sensory neurons and establishes connections
     :param image: Input image
     :param target_node_ids: Neurons in the target layer (i.e. the sheet with sensory neurons) to an input is injected
     :param rf_centers: The centers of the receptive fields
-    :param neuron_to_tuning_map: The map from neuron to stimulus tuning
+    :param tuning_vector: The map from neuron to stimulus tuning
     :param inh_neurons: IDs of inhibitory neurons
     :param rf_size: The size of a receptive field
     :param tuning_function: The tuning function of the sensory neurons
@@ -1487,171 +1490,89 @@ def create_connections_rf(
     :param color_mask: Color mask of the functional map to plot receptive fields and sensory neurons properly
     :return: Adjacency matrix from receptors to sensory nodes
     """
-
-    # Follow the nest convention [columns, rows]
-    mask_specs = {
-        "lower_left": [-rf_size[1] // 2, -rf_size[0] // 2],
-        "upper_right": [rf_size[1] // 2, rf_size[0] // 2]
-    }
-    num_tuning_discr = max(neuron_to_tuning_map.values()) + 1
+    num_tuning_discr = int(net.tuning_vector.max() + 1)
     tuning_discr_step = 256. / float(num_tuning_discr)
-    min_id_target = min(target_node_ids)
-    adj_mat = np.zeros((image.size + 1, total_num_target + 1))
-    adj_mat[-1, -1] = 1.
+    min_id_target = min(net.torus_layer_nodes)
+
+    max_scale = net.rf_size[0] * net.rf_size[1] * 255.
 
     tuning_fun = None
-    if tuning_function == TUNING_FUNCTION["step"]:
+    if net.tuning_function == TUNING_FUNCTION["step"]:
         tuning_fun = convert_step_tuning
-    elif tuning_function == TUNING_FUNCTION["gauss"]:
+    elif net.tuning_function == TUNING_FUNCTION["gauss"]:
         tuning_fun = convert_gauss_tuning
-    elif tuning_function == TUNING_FUNCTION["linear"]:
+    elif net.tuning_function == TUNING_FUNCTION["linear"]:
         tuning_fun = convert_linear_tuning
     else:
         raise ValueError("The passed tuning function is not supported")
 
     counter = 0
-    rf_list = []
-    index_values = np.arange(0, image.size, 1).astype('int').reshape(image.shape)
-    if use_dc:
-        max_scale = 450. / float(rf_size[0] * rf_size[1] * 255.)
-    else:
-        max_scale = rf_size[0] * rf_size[1] * 255.
-    amplitudes = []
-    for num, (target_node, rf_center) in enumerate(zip(target_node_ids, rf_centers)):
+    amplitudes = np.zeros(net.num_sensory)
+    for num, target_node in enumerate(sampled_neurons):
         counter += 1
-        upper_left = (np.asarray(rf_center) + np.asarray(mask_specs["lower_left"])).astype('int')
-        lower_right = (np.asarray(rf_center) + np.asarray(mask_specs["upper_right"])).astype('int')
 
-        upper_left = np.minimum(np.maximum(upper_left, 0), image.shape[0])
-        lower_right = np.minimum(np.maximum(lower_right, 0), image.shape[0])
-        rf = image[
-             upper_left[0]:lower_right[0],
-             upper_left[1]:lower_right[1]
-             ]
+        if counter == plot_point:
+            if net.plot_rf_relation:
+                plot_rf(net, image, rf_list, counter=counter)
 
-        indices = index_values[
-                  upper_left[0]:lower_right[0],
-                  upper_left[1]:lower_right[1]
-                  ]
+        # Choose connections
+        connections = net.ff_weight_mat[:, num]
 
-        rf_list.append((upper_left, lower_right[0] - upper_left[0], lower_right[1] - upper_left[1]))
+        rf = image.reshape(-1)[connections.astype('bool')]
 
-        # Establish connections
-        if non_changing_connections:
-            rng = np.random.RandomState(1)
-            connections = rng.binomial(1, p_rf, size=rf.size)
-        else:
-            connections = np.random.binomial(1, p_rf, size=rf.size)
-        indices = indices[connections.astype('bool').reshape(rf.shape)]
-        rf = rf[connections.astype('bool').reshape(rf.shape)]
-        if target_node not in inh_neurons:
+        # Determine input based on RF
+        if target_node not in net.torus_inh_nodes:
             amplitude = tuning_fun(
-                target_node,
                 rf,
-                neuron_to_tuning_map[target_node],
-                tuning_discr_step,
-                indices,
-                adj_mat,
-                min_id_target
+                net.tuning_vector[target_node - min_id_target],
+                tuning_discr_step
             )
         else:
             amplitude = rf
-            adj_mat[indices.reshape(-1), target_node - min_id_target] = 1.
 
-        amplitudes.append(amplitude.sum())
-        if use_dc:
-            current_dict = {"amplitude": np.maximum(amplitude.sum() / max_scale, 0) / ff_factor}
+        if net.use_dc:
+            inject = np.maximum((amplitude.sum() / max_scale) / net.ff_factor, 0.)
+            current_dict = {"amplitude": inject}
         else:
-            rate = (max_spiking / ff_factor) * amplitude.sum() / max_scale
-            current_dict = {"rate": np.maximum(rate, 0), "stop": presentation_time}
+            inject = np.maximum((net.max_spiking / net.ff_factor) * amplitude.sum() / max_scale, 0)
+            current_dict = {"rate": inject, "stop": net.presentation_time}
 
-        if input_generators is None:
+        amplitudes[target_node - min_id_target] = inject
+        # Create new input generator if they haven't. This is usually the case with dc
+        if net.spike_gen is None:
             _set_input_current(
                 target_node,
                 current_dict,
-                synaptic_strength,
-                use_dc=use_dc
+                net.ff_weight,
+                use_dc=net.use_dc
             )
         else:
-            nest.SetStatus([input_generators[num]], current_dict)
-
-        if counter == plot_point:
-            if plot_src_target:
-                fig, ax = plt.subplots(1, 2, sharex='none', sharey='none', figsize=(10, 5))
-                ax[0].axis((0, retina_size[1], 0, retina_size[0]))
-                if color_mask is not None:
-                    ax[0].imshow(image, cmap="gray")
-                    ax[1].imshow(
-                        color_mask,
-                        origin=(color_mask.shape[0] // 2, color_mask.shape[1] // 2),
-                        extent=(
-                            -target_layer_size / 2., target_layer_size / 2.,
-                            -target_layer_size / 2., target_layer_size / 2.),
-                        cmap=custom_cmap(color_mask.max() + 1),
-                        alpha=0.4
-                    )
-                color_list = list(mcolors.TABLEAU_COLORS.items())
-                target_positions = tp.GetPosition(target_node_ids[: counter + 1].tolist())
-                for num, (rf, (x, y)) in enumerate(list(zip(rf_list, target_positions))):
-                    # De-zip to get x and y values separately
-                    color = color_list[num % len(color_list)]
-                    area_rect = patches.Rectangle(
-                        rf[0],
-                        width=rf[1],
-                        height=rf[2],
-                        color=color[0],
-                        alpha=0.4
-                    )
-                    ax[0].add_patch(area_rect)
-                    ax[1].plot(x, y, 'o')
-                ax[0].set_xlabel("Retina tissue in X")
-                ax[0].set_ylabel("Retina tissue in Y")
-
-                ax[1].set_xlabel("V1 tissue in X")
-                ax[1].set_ylabel("V1 tissue in Y")
-                ax[1].set_xlim([-target_layer_size / 2., target_layer_size / 2.])
-                ax[1].set_ylim([-target_layer_size / 2., target_layer_size / 2.])
-
-                if save_plot:
-                    curr_dir = os.getcwd()
-                    Path(curr_dir + "/figures/rf/").mkdir(parents=True, exist_ok=True)
-                    plt.savefig(curr_dir + "/figures/rf/%s_receptive_fields.png" % save_prefix)
-                    plt.close()
-                else:
-                    plt.show()
+            nest.SetStatus([net.spike_gen[target_node - min_id_target]], current_dict)
 
     recons = None
-    if calc_error:
+    if net.use_input_neurons:
         import modules.stimulusReconstruction as sr
-        full_ampl = np.zeros(total_num_target)
-        full_ampl[np.asarray(target_node_ids) - min_id_target] = np.asarray(amplitudes)
-        recons = sr.direct_stimulus_reconstruction(
-            full_ampl,
-            adj_mat
+        recons = sr.oblivious_stimulus_reconstruction(
+            amplitudes,
+            net.ff_weight_mat,
+            net.tuning_vector
         )
 
-        if plot_src_target:
-            plot_reconstruction(image, recons, save_plots=save_plot, save_prefix=save_prefix)
+        if net.plot_rf_relation:
+            plot_reconstruction(
+                image,
+                recons,
+                color_mask=net.color_map,
+                save_plots=net.save_plots,
+                save_prefix=net.save_prefix
+            )
 
-            applied_current = np.arange(0, 255)
-            ad = np.zeros((255, 1))
-            plt.figure(figsize=(10, 5))
-            for tune in range(num_tuning_discr):
-                plt.plot(
-                    applied_current,
-                    tuning_fun(0, applied_current, tune, 255./4., applied_current, ad, 0),
-                    label="Class %s" % tune
-                )
-            plt.xlabel("Pixel intensity")
-            plt.ylabel("Injected current I in nA")
-            plt.legend()
-            if not save_plot:
-                plt.show()
-            else:
-                curr_dir = os.getcwd()
-                Path(curr_dir + "/figures/rf/").mkdir(parents=True, exist_ok=True)
-                plt.savefig(curr_dir + "/figures/rf/%s_tuning_function.png" % save_prefix)
-                plt.close()
+            plot_tuning_classes(
+                tuning_fun,
+                num_tuning_discr=num_tuning_discr,
+                save_plot=net.save_plots,
+                save_prefix=net.save_prefix
+            )
 
-    return adj_mat, recons
+    return recons
 
