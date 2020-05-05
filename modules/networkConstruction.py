@@ -1534,11 +1534,12 @@ def create_connections_rf(
             inject = np.maximum((amplitude.sum() / max_scale) / net.ff_factor, 0.)
             current_dict = {"amplitude": inject}
         else:
+            # inject = np.maximum((net.max_spiking / net.ff_factor) * amplitude.sum() / max_scale + net.bg_rate, 0)
             inject = np.maximum((net.max_spiking / net.ff_factor) * amplitude.sum() / max_scale, 0)
             current_dict = {"rate": inject, "stop": net.presentation_time}
 
         amplitudes[target_node - min_id_target] = inject
-        # Create new input generator if they haven't. This is usually the case with dc
+        # Create new input generator if they haven't been created yet. This is usually the case with dc
         if net.spike_gen is None:
             _set_input_current(
                 target_node,
