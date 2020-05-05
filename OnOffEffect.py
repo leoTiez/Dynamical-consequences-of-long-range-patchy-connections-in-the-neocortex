@@ -9,6 +9,7 @@ from modules.createStimulus import stimulus_factory
 from createThesisNetwork import network_factory
 from modules.thesisConstants import *
 from modules.thesisUtils import *
+from modules.stimulusReconstruction import oblivious_stimulus_reconstruction
 
 import nest
 
@@ -18,16 +19,15 @@ def main():
     # Define values
     # #################################################################################################################
     use_single_neuron = True
-    input_resolution = (PERLIN_INPUT[0], PERLIN_INPUT[0])
-    network_type_id = "random"
+    network_type_id = "local_circ_patchy_sd"
     network_type = NETWORK_TYPE[network_type_id]
-    network_name = "Random Network"
-    num_neurons = int(1e4)
+    network_name = "Local Circular Network"
+    num_neurons = int(1e3)
     img_prop = 1/float(num_neurons) if use_single_neuron else 0.4
     bg_rate = 500.
-    max_firing_rate = 1000.
+    max_firing_rate = 2000.
 
-    save_plots = True
+    save_plots = False
     save_prefix = network_type_id
 
     cap_s = 1.
@@ -35,7 +35,7 @@ def main():
     ff_weight = 1.0
     all_same_input_current = False
     p_rf = 0.7
-    c_alpha = 0.7
+    c_alpha = 0.5
     ff_factor = 1.
     pot_threshold = -55.
     pot_reset = -70.
@@ -83,7 +83,8 @@ def main():
     )
 
     print_msg("Import network")
-    network.import_net()
+    # network.import_net()
+    network.create_network()
 
     firing_rates, (spikes_s, time_s) = network.simulate(
         1000.,
@@ -91,8 +92,14 @@ def main():
     )
 
     if use_single_neuron:
-        input_generator = network.set_input_rate(input_rate=max_firing_rate, origin=1000., end=50., exc_only=True)
-    sim_time = 120.
+        input_generator = network.set_input_rate(
+            input_rate=max_firing_rate,
+            origin=1000.,
+            end=1000.,
+            exc_only=True,
+            tc=2
+        )
+    sim_time = 1000.
     spikes_s = None
     time_s = None
     for t in np.arange(1000., 2000., sim_time):
@@ -102,8 +109,12 @@ def main():
             sim_time,
             use_equilibrium=False
         )
+
         if use_single_neuron:
             network.set_input_generator(input_generator, input_rate=max_firing_rate, origin=t+sim_time, end=50.)
+
+    recon = oblivious_stimulus_reconstruction(firing_rates, network.ff_weight_mat, network.tuning_vector)
+    plot_reconstruction(recon, recon, save_plots=save_plots, save_prefix=save_prefix)
 
     print_msg("Plot firing pattern over time")
     plot_spikes_over_time(
