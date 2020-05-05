@@ -37,7 +37,6 @@ def main():
     spatial_sampling = False
 
     network = network_factory(
-        input_stimulus,
         network_type=NETWORK_TYPE["local_circ_patchy_sd"],
         num_sensory=num_neurons,
         ff_weight=ff_weight,
@@ -60,7 +59,7 @@ def main():
         to_file=False
     )
 
-    network.create_network()
+    network.create_network(input_stimulus)
     firing_rate_ff, _ = network.simulate(simulation_time)
 
     inh_mask = np.zeros(len(network.torus_layer_nodes)).astype('bool')
