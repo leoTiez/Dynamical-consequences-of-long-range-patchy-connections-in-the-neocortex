@@ -114,7 +114,7 @@ def image_with_spatial_correlation(
     return image
 
 
-def perlin_image(size=50, resolution=(5, 5), **kwargs):
+def perlin_image(size=50, num_stimulus_discr=4, resolution=(5, 5), **kwargs):
     """
     Create an image with spatial correlation using the Perlin noise distribution
     :param size: Size of the image. It takes only a single integer and assumes the image to be quadratic
@@ -128,6 +128,17 @@ def perlin_image(size=50, resolution=(5, 5), **kwargs):
     perlin_img = perlin_noise(size, resolution=resolution, spacing=1)
     perlin_img -= perlin_img.min()
     perlin_img = 255. * perlin_img / perlin_img.max()
+
+    ind = np.indices(perlin_img.shape)
+    # Zip the row and column indices
+    ind = list(zip(ind[0].reshape(-1), ind[1].reshape(-1)))
+    c_map_sorted = sorted(zip(perlin_img.reshape(-1), ind), key=lambda x: x[0])
+    _, ind = zip(*c_map_sorted)
+    step_size = len(c_map_sorted) // num_stimulus_discr
+    for stim_class in range(num_stimulus_discr):
+        row, col = zip(*ind[stim_class * step_size: np.minimum(len(ind) - 1, (stim_class + 1) * step_size)])
+        perlin_img[row, col] = (stim_class + 1) * 255/num_stimulus_discr
+
     return perlin_img.astype('int')
 
 
