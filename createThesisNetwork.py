@@ -111,7 +111,7 @@ class NeuronalNetworkBase:
 
         self.rf_size = rf_size
         if self.rf_size is None:
-            self.rf_size = (stimulus_size[0] // 5, stimulus_size[1] // 5)
+            self.rf_size = (stimulus_size[0] // 7, stimulus_size[1] // 7)
 
         self.all_same_input_current = all_same_input_current
         self.tuning_function = tuning_function
@@ -253,10 +253,14 @@ class NeuronalNetworkBase:
             save_prefix=self.save_prefix
         )
 
-    def _choose_ff_neurons(self, exc_only=False):
+    def _choose_ff_neurons(self, exc_only=False, tc=None):
         neuron_mask = np.ones(self.num_sensory).astype("bool")
         if exc_only:
             neuron_mask[np.asarray(self.torus_inh_nodes) - min(self.torus_layer_nodes)] = False
+        if tc is not None:
+            tuning_mask = np.zeros(self.num_sensory).astype("bool")
+            tuning_mask[np.asarray(self.tuning_to_neuron_map[tc]) - min(self.torus_layer_nodes)] = True
+            neuron_mask &= tuning_mask
 
         if self.img_prop == 1.0:
             neurons_with_input = np.asarray(self.torus_layer_nodes)[neuron_mask]
@@ -321,8 +325,8 @@ class NeuronalNetworkBase:
 
         self.rf_center_map = [
             (
-                (x + (self.layer_size / 2.)) / float(self.layer_size) * self.stimulus_size[1],
-                (y + (self.layer_size / 2.)) / float(self.layer_size) * self.stimulus_size[0]
+                (y + (self.layer_size / 2.)) / float(self.layer_size) * self.stimulus_size[1],
+                (x + (self.layer_size / 2.)) / float(self.layer_size) * self.stimulus_size[0]
             )
             for (x, y) in self.torus_layer_positions
         ]
@@ -537,13 +541,13 @@ class NeuronalNetworkBase:
 
         nest.SetStatus(input_generators, {"rate": input_rate, "origin": origin, "start": start, "stop": end})
 
-    def set_input_rate(self, input_rate=None, origin=0., start=0., end=1000., exc_only=True):
+    def set_input_rate(self, input_rate=None, origin=0., start=0., end=1000., exc_only=True, tc=None):
         if self.use_dc:
             Warning("Cannot set input rate when using DC input. Nothing changed.")
             return
 
-        _, _, input_generators = self._choose_ff_neurons(exc_only=exc_only)
-
+        input_neurons = self._choose_ff_neurons(exc_only=exc_only, tc=tc)
+        input_generators = np.asarray(self.spike_gen)[np.asarray(input_neurons) - min(self.torus_layer_nodes)].tolist()
         self.set_input_generator(
             input_generators=input_generators,
             input_rate=input_rate,
@@ -584,7 +588,7 @@ class NeuronalNetworkBase:
         self.create_layer()
         self.create_orientation_map()
         self.create_rf()
-        if not self.all_same_input_current or input_stimulus is not None:
+        if not self.all_same_input_current and input_stimulus is not None:
             self.create_retina(input_stimulus)
 
     def export_net(self, feature_folder=""):
@@ -683,7 +687,7 @@ class RandomNetwork(NeuronalNetworkBase):
             color_mask=self.color_map
         )
 
-    def create_network(self, input_stimulus):
+    def create_network(self, input_stimulus=None):
         """
         Create the network and establish the connections. Calls create function of parent class
         :return: None
@@ -857,7 +861,7 @@ class LocalNetwork(NeuronalNetworkBase):
         else:
             plt.show()
 
-    def create_network(self, input_stimulus):
+    def create_network(self, input_stimulus=None):
         """
         Creates the network and class the create function of the parent class
         :return: None
@@ -1044,7 +1048,7 @@ class PatchyNetwork(LocalNetwork):
         else:
             plt.show()
 
-    def create_network(self, input_stimulus):
+    def create_network(self, input_stimulus=None):
         """
         Create the network, establishes the connections and calls the create function of the parent class
         :return:
