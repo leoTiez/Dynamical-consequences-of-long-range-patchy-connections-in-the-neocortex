@@ -190,6 +190,7 @@ def perlin_noise(size_layer=50, resolution=(5, 5), spacing=0.01):
 
     ipol = ip.RectBivariateSpline(stimulus_grid_range_x, stimulus_grid_range_y, V)
     c_map = ipol(grid_nodes_range, grid_nodes_range)
+
     return c_map
 
 
@@ -451,7 +452,7 @@ def plot_reconstruction(
     :return: None
     """
     _, ax = plt.subplots(1, 2 if color_mask is None else 3, figsize=(10, 5))
-    ax[0].imshow(reconstruction, origin="lower", cmap="gray")
+    ax[0].imshow(reconstruction, origin="lower", cmap="gray", vmin=0., vmax=1.0)
     ax[1].imshow(input_stimulus, origin="lower", cmap="gray", vmin=0, vmax=255)
     if color_mask is not None:
         stimulus_grid_range_x = np.linspace(0, size_layer, resolution[0])
