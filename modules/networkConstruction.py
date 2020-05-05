@@ -1534,7 +1534,6 @@ def create_connections_rf(
             inject = np.maximum((amplitude.sum() / max_scale) / net.ff_factor, 0.)
             current_dict = {"amplitude": inject}
         else:
-            # inject = np.maximum((net.max_spiking / net.ff_factor) * amplitude.sum() / max_scale + net.bg_rate, 0)
             inject = np.maximum((net.max_spiking / net.ff_factor) * amplitude.sum() / max_scale, 0)
             current_dict = {"rate": inject, "stop": net.presentation_time}
 
