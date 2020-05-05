@@ -114,6 +114,20 @@ def direct_stimulus_reconstruction(
     return reconstruction.reshape(int(np.sqrt(reconstruction.size)), int(np.sqrt(reconstruction.size)))
 
 
+def oblivious_stimulus_reconstruction(
+        firing_rates,
+        ff_adj_matrix,
+        tuning_vector
+):
+    class_transformation = (tuning_vector) / (tuning_vector.max())
+    # Set no transformation for inhibitory neurons
+    class_transformation[class_transformation <= 0] = 1.
+    feat_trans_fr = firing_rates * class_transformation
+    reconstruction = ff_adj_matrix.dot(feat_trans_fr)
+    reconstruction /= ff_adj_matrix.sum()
+    return reconstruction.reshape(int(np.sqrt(reconstruction.size)), int(np.sqrt(reconstruction.size)))
+
+
 def fourier_trans(signal):
     """
     Fourier transformation of a two dimensional signal, e.g. image
