@@ -374,6 +374,7 @@ def plot_connections(
         layer_size,
         save_plot=False,
         plot_name=None,
+        font_size=16,
         save_prefix="",
         color_mask=None
 ):
@@ -391,6 +392,7 @@ def plot_connections(
     plt.axis((-layer_size/2., layer_size/2., -layer_size/2., layer_size/2.))
     source_positions = tp.GetPosition(src_nodes)
     x_source, y_source = zip(*source_positions)
+    plt.rcParams.update({"font.size": font_size})
     plt.plot(x_source, y_source, 'o')
 
     if len(target_nodes) > 0:
@@ -440,6 +442,7 @@ def plot_reconstruction(
         size_layer=8.,
         resolution=(15, 15),
         num_stimulus_discr=4,
+        font_size=16,
         save_plots=False,
         save_prefix=""
 ):
@@ -452,6 +455,7 @@ def plot_reconstruction(
     :return: None
     """
     _, ax = plt.subplots(1, 2 if color_mask is None else 3, figsize=(10, 5))
+    plt.rcParams.update({"font.size": font_size})
     ax[0].imshow(reconstruction, origin="lower", cmap="gray", vmin=0., vmax=1.0)
     ax[1].imshow(input_stimulus, origin="lower", cmap="gray", vmin=0, vmax=255)
     if color_mask is not None:
@@ -481,6 +485,7 @@ def plot_cmap(
         positions,
         muted_nodes=[],
         size_layer=8.,
+        font_size=16,
         resolution=(10, 10),
         num_stimulus_discr=4,
         save_plot=False,
@@ -501,6 +506,7 @@ def plot_cmap(
     :param save_prefix: Prefix that is used for the saved file to identify the plot and the corresponding experiment
     :return: None
     """
+    plt.rcParams.update({"font.size": font_size})
     stimulus_grid_range_x = np.linspace(0, size_layer, resolution[0])
     stimulus_grid_range_y = np.linspace(0, size_layer, resolution[1])
     plt.imshow(
@@ -547,10 +553,12 @@ def plot_spikes_over_time(
         t_stim_start=[],
         t_stim_end=[],
         title="",
+        font_size=16,
         save_plot=True,
         save_prefix=""
 ):
     plt.figure(figsize=(10, 5))
+    plt.rcParams.update({"font.size": font_size})
     positions = np.asarray(tp.GetPosition(spikes_s.tolist()))
     plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=network.num_stim_discr)
 
@@ -578,6 +586,8 @@ def plot_spikes_over_time(
     for st in t_stim_end:
         plt.axvline(x=st, c="blue")
 
+    plt.xlabel("Time", fontsize=font_size)
+    plt.ylabel("Neuron", fontsize=font_size)
     plt.title(title)
     if save_plot:
         curr_dir = os.getcwd()
@@ -588,8 +598,9 @@ def plot_spikes_over_time(
         plt.show()
 
 
-def plot_spikes_over_space(firing_rates, network, title="", c_rgba=None, save_plot=False, save_prefix=""):
+def plot_spikes_over_space(firing_rates, network, title="", c_rgba=None, font_size=16, save_plot=False, save_prefix=""):
     plt.figure(figsize=(10, 5))
+    plt.rcParams.update({"font.size": font_size})
     plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=network.num_stim_discr)
 
     if c_rgba is None:
@@ -636,6 +647,7 @@ def plot_network_animation(
         min_mem_pot=10.,
         animation_start=0.,
         animation_end=200.,
+        font_size=16,
         save_plot=False,
         save_prefix=""
 ):
@@ -645,6 +657,7 @@ def plot_network_animation(
     min_potential = potential_multi.min()
 
     figure_pot = plt.figure(figsize=(10, 5))
+    plt.rcParams.update({"font.size": font_size})
     ax_pot = figure_pot.gca()
     plot_colorbar(figure_pot, ax_pot, num_stim_classes=network.num_stim_discr)
 
@@ -715,11 +728,16 @@ def plot_network_animation(
     return c_rgba
 
 
-def plot_rf(net, image, rf_list, counter=9):
+def plot_rf(net, image, rf_list, counter=9, font_size=16):
     fig, ax = plt.subplots(1, 2, sharex='none', sharey='none', figsize=(10, 5))
     ax[0].axis((0, net.stimulus_size[1], 0, net.stimulus_size[0]))
     if net.color_map is not None:
-        ax[0].imshow(image, cmap="gray")
+        ax[0].imshow(
+            image,
+            cmap="gray",
+            origin="lower",
+            extent=(0, image.shape[0], 0, image.shape[1])
+        )
         ax[1].imshow(
             net.color_map,
             origin=(net.color_map.shape[0] // 2, net.color_map.shape[1] // 2),
@@ -736,18 +754,19 @@ def plot_rf(net, image, rf_list, counter=9):
         color = color_list[num % len(color_list)]
         area_rect = patches.Rectangle(
             rf[0],
-            width=rf[1],
-            height=rf[2],
+            width=rf[1]-1,
+            height=rf[2]-1,
             color=color[0],
             alpha=0.4
         )
         ax[0].add_patch(area_rect)
         ax[1].plot(x, y, 'o')
-    ax[0].set_xlabel("Retina tissue in X")
-    ax[0].set_ylabel("Retina tissue in Y")
+    plt.rcParams.update({"font.size": font_size})
+    ax[0].set_xlabel("Input in X", fontsize=font_size)
+    ax[0].set_ylabel("Input tissue in Y", fontsize=font_size)
 
-    ax[1].set_xlabel("V1 tissue in X")
-    ax[1].set_ylabel("V1 tissue in Y")
+    ax[1].set_xlabel("V1 tissue in X", fontsize=font_size)
+    ax[1].set_ylabel("V1 tissue in Y", fontsize=font_size)
     ax[1].set_xlim([-net.layer_size / 2., net.layer_size / 2.])
     ax[1].set_ylim([-net.layer_size / 2., net.layer_size / 2.])
 
@@ -760,7 +779,7 @@ def plot_rf(net, image, rf_list, counter=9):
         plt.show()
 
 
-def plot_tuning_classes(tuning_fun, num_tuning_discr=4, save_plot=False, save_prefix=""):
+def plot_tuning_classes(tuning_fun, num_tuning_discr=4, save_plot=False, save_prefix="", font_size=16):
     applied_current = np.arange(0, 255)
     plt.figure(figsize=(10, 5))
     for tune in range(num_tuning_discr):
@@ -769,8 +788,9 @@ def plot_tuning_classes(tuning_fun, num_tuning_discr=4, save_plot=False, save_pr
             tuning_fun(applied_current, tune, 255. / 4.),
             label="Class %s" % tune
         )
-    plt.xlabel("Pixel intensity")
-    plt.ylabel("Injected current I in nA")
+    plt.rcParams.update({"font.size": font_size})
+    plt.xlabel("Pixel intensity", fontsize=font_size)
+    plt.ylabel("Transformed value", fontsize=font_size)
     plt.legend()
     if not save_plot:
         plt.show()
