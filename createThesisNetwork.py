@@ -27,7 +27,6 @@ class NeuronalNetworkBase:
             cap_s=1.,
             inh_weight=-5.,
             p_rf=0.7,
-            mean_in_out_deg=45.,
             rf_size=None,
             tuning_function=TUNING_FUNCTION["step"],
             all_same_input_current=False,
@@ -66,7 +65,6 @@ class NeuronalNetworkBase:
         :param cap_s: Excitatory weight
         :param inh_weight: Inhibitory weight
         :param p_rf: Connection probability of the receptive field
-        :param mean_in_out_deg: Mean in/outdegree that is to be maintained throughout the network
         :param rf_size: The size of the receptive field
         :param tuning_function: The tuning function, passed as an integer number defined in
         the dictionary TUNING_FUNCTION defined in the networkConstruction module
@@ -107,7 +105,6 @@ class NeuronalNetworkBase:
         self.cap_s = cap_s / self.ff_factor
         self.inh_weight = inh_weight / self.ff_factor
         self.p_rf = p_rf
-        self.mean_in_out_deg = mean_in_out_deg
 
         self.rf_size = rf_size
         if self.rf_size is None:
@@ -466,7 +463,7 @@ class NeuronalNetworkBase:
             color_mask=self.color_map
         )
 
-    def connect_distribution(self, plot_name="in_out_deg_dist.png"):
+    def connect_distribution(self, plot_name="in_out_deg_dist.png", **kwargs):
         """
         Plot the in-/outdegree distribution in the network
         :param plot_name: Name of the plot
@@ -646,11 +643,7 @@ class RandomNetwork(NeuronalNetworkBase):
         )
         # Set probability to a value such that it becomes comparable to clustered networks
         # Calculation is taken from Voges et al.
-        self.p_random = (1.4 - self.img_prop) * np.minimum(
-            self.mean_in_out_deg / float(self.num_sensory),
-            np.pi * r_loc**2 / self.layer_size**2
-        )
-        self.plot_random_connections = False if verbosity < 4 else True
+        self.p_random = np.minimum(1., 1.4 - self.img_prop) * np.pi * r_loc**2 / self.layer_size**2
 
     def create_random_connections(self):
         """
@@ -729,10 +722,8 @@ class LocalNetwork(NeuronalNetworkBase):
         if c_alpha > 1.0 or c_alpha < 0.0:
             raise ValueError("c_alpha must be set between 0 and 1")
         self.c_alpha = c_alpha
-        self.global_connect = np.minimum(1., 1.4 - self.img_prop) * np.minimum(
-            np.pi * self.r_loc**2 / float(self.layer_size**2),
-            self.mean_in_out_deg/float(self.num_sensory)
-        )
+        self.global_connect = np.minimum(1., 1.4 - self.img_prop) * np.pi * self.r_loc**2 / float(self.layer_size**2)
+
         self.p_loc = self.global_connect * self.c_alpha * self.layer_size**2 / (np.pi * self.r_loc**2)
 
         self.loc_connection_type = loc_connection_type.lower()
@@ -812,7 +803,7 @@ class LocalNetwork(NeuronalNetworkBase):
         else:
             raise ValueError("The passed connection type %s is not accepted." % self.loc_connection_type)
 
-    def connect_distribution(self, plot_name="in_out_deg_dist.png"):
+    def connect_distribution(self, distinguish_connections=True, plot_name="in_out_deg_dist.png"):
         """
         Create plot for the in/outdegree distribution. There are different plots created for all connections and
         for only local connections
@@ -823,43 +814,46 @@ class LocalNetwork(NeuronalNetworkBase):
         if self.torus_layer_nodes is None:
             raise ValueError("The sensory nodes have not been created yet. Run create_layer")
 
-        in_degree, out_degree, in_degree_loc, out_degree_loc, _, _ = get_in_out_degree(
-            self.torus_layer_nodes,
-            node_tree=self.torus_layer_tree,
-            node_pos=self.torus_layer_positions,
-            r_loc=self.r_loc,
-            size_layer=self.layer_size
-        )
-
-        in_deg_dist = OrderedDict(sorted(Counter(in_degree).items()))
-        out_deg_dist = OrderedDict(sorted(Counter(out_degree).items()))
-
-        in_deg_dist_loc = OrderedDict(sorted(Counter(in_degree_loc).items()))
-        out_deg_dist_loc = OrderedDict(sorted(Counter(out_degree_loc).items()))
-
-        fig, ax = plt.subplots(2, 2, figsize=(10, 10))
-        ax[0][0].bar(list(in_deg_dist.keys()), list(in_deg_dist.values()))
-        ax[0][0].set_xlabel("Indegree total")
-        ax[0][0].set_ylabel("Number of nodes")
-
-        ax[0][1].bar(list(out_deg_dist.keys()), list(out_deg_dist.values()))
-        ax[0][1].set_xlabel("Outdegree total")
-        ax[0][1].set_ylabel("Number of nodes")
-
-        ax[1][0].bar(list(in_deg_dist_loc.keys()), list(in_deg_dist_loc.values()))
-        ax[1][0].set_xlabel("Indegree local")
-        ax[1][0].set_ylabel("Number of nodes")
-
-        ax[1][1].bar(list(out_deg_dist_loc.keys()), list(out_deg_dist_loc.values()))
-        ax[1][1].set_xlabel("Outdegree local")
-        ax[1][1].set_ylabel("Number of nodes")
-
-        if self.save_plots:
-            curr_dir = os.getcwd()
-            Path(curr_dir + "/figures/in-out-dist/").mkdir(parents=True, exist_ok=True)
-            plt.savefig(curr_dir + "/figures/in-out-dist/%s_%s" % (self.save_prefix, plot_name))
+        if not distinguish_connections:
+            NeuronalNetworkBase.connect_distribution(self, plot_name)
         else:
-            plt.show()
+            in_degree, out_degree, in_degree_loc, out_degree_loc, _, _ = get_in_out_degree(
+                self.torus_layer_nodes,
+                node_tree=self.torus_layer_tree,
+                node_pos=self.torus_layer_positions,
+                r_loc=self.r_loc,
+                size_layer=self.layer_size
+            )
+
+            in_deg_dist = OrderedDict(sorted(Counter(in_degree).items()))
+            out_deg_dist = OrderedDict(sorted(Counter(out_degree).items()))
+
+            in_deg_dist_loc = OrderedDict(sorted(Counter(in_degree_loc).items()))
+            out_deg_dist_loc = OrderedDict(sorted(Counter(out_degree_loc).items()))
+
+            fig, ax = plt.subplots(2, 2, figsize=(10, 10))
+            ax[0][0].bar(list(in_deg_dist.keys()), list(in_deg_dist.values()))
+            ax[0][0].set_xlabel("Indegree total")
+            ax[0][0].set_ylabel("Number of nodes")
+
+            ax[0][1].bar(list(out_deg_dist.keys()), list(out_deg_dist.values()))
+            ax[0][1].set_xlabel("Outdegree total")
+            ax[0][1].set_ylabel("Number of nodes")
+
+            ax[1][0].bar(list(in_deg_dist_loc.keys()), list(in_deg_dist_loc.values()))
+            ax[1][0].set_xlabel("Indegree local")
+            ax[1][0].set_ylabel("Number of nodes")
+
+            ax[1][1].bar(list(out_deg_dist_loc.keys()), list(out_deg_dist_loc.values()))
+            ax[1][1].set_xlabel("Outdegree local")
+            ax[1][1].set_ylabel("Number of nodes")
+
+            if self.save_plots:
+                curr_dir = os.getcwd()
+                Path(curr_dir + "/figures/in-out-dist/").mkdir(parents=True, exist_ok=True)
+                plt.savefig(curr_dir + "/figures/in-out-dist/%s_%s" % (self.save_prefix, plot_name))
+            else:
+                plt.show()
 
     def create_network(self, input_stimulus=None):
         """
@@ -989,7 +983,7 @@ class PatchyNetwork(LocalNetwork):
                 color_mask=self.color_map
             )
 
-    def connect_distribution(self, plot_name="in_out_deg_dist.png"):
+    def connect_distribution(self, distinguish_connections=True, plot_name="in_out_deg_dist.png"):
         """
         Plot in/outdegree distribution. There are different subplots created for all connections, local, and long-range
         :param plot_name: Name of the plot if self.save_plots is set to True
@@ -999,54 +993,57 @@ class PatchyNetwork(LocalNetwork):
         if self.torus_layer_nodes is None:
             raise ValueError("The sensory nodes have not been created yet. Run create_layer")
 
-        in_degree, out_degree, in_degree_loc, out_degree_loc, in_degree_lr, out_degree_lr = get_in_out_degree(
-            self.torus_layer_nodes,
-            node_tree=self.torus_layer_tree,
-            node_pos=self.torus_layer_positions,
-            r_loc=self.r_loc,
-            size_layer=self.layer_size
-        )
-
-        in_deg_dist = OrderedDict(sorted(Counter(in_degree).items()))
-        out_deg_dist = OrderedDict(sorted(Counter(out_degree).items()))
-
-        in_deg_dist_loc = OrderedDict(sorted(Counter(in_degree_loc).items()))
-        out_deg_dist_loc = OrderedDict(sorted(Counter(out_degree_loc).items()))
-
-        in_deg_dist_lr = OrderedDict(sorted(Counter(in_degree_lr).items()))
-        out_deg_dist_lr = OrderedDict(sorted(Counter(out_degree_lr).items()))
-
-        fig, ax = plt.subplots(3, 2, figsize=(10, 10))
-        ax[0][0].bar(list(in_deg_dist.keys()), list(in_deg_dist.values()))
-        ax[0][0].set_xlabel("Indegree total")
-        ax[0][0].set_ylabel("Number of nodes")
-
-        ax[0][1].bar(list(out_deg_dist.keys()), list(out_deg_dist.values()))
-        ax[0][1].set_xlabel("Outdegree total")
-        ax[0][1].set_ylabel("Number of nodes")
-
-        ax[1][0].bar(list(in_deg_dist_loc.keys()), list(in_deg_dist_loc.values()))
-        ax[1][0].set_xlabel("Indegree local")
-        ax[1][0].set_ylabel("Number of nodes")
-
-        ax[1][1].bar(list(out_deg_dist_loc.keys()), list(out_deg_dist_loc.values()))
-        ax[1][1].set_xlabel("Outdegree local")
-        ax[1][1].set_ylabel("Number of nodes")
-
-        ax[2][0].bar(list(in_deg_dist_lr.keys()), list(in_deg_dist_lr.values()))
-        ax[2][0].set_xlabel("Indegree long-range")
-        ax[2][0].set_ylabel("Number of nodes")
-
-        ax[2][1].bar(list(out_deg_dist_lr.keys()), list(out_deg_dist_lr.values()))
-        ax[2][1].set_xlabel("Outdegree long-range")
-        ax[2][1].set_ylabel("Number of nodes")
-
-        if self.save_plots:
-            curr_dir = os.getcwd()
-            Path(curr_dir + "/figures/in-out-dist/").mkdir(parents=True, exist_ok=True)
-            plt.savefig(curr_dir + "/figures/in-out-dist/%s_%s" % (self.save_prefix, plot_name))
+        if not distinguish_connections:
+            NeuronalNetworkBase.connect_distribution(self, plot_name)
         else:
-            plt.show()
+            in_degree, out_degree, in_degree_loc, out_degree_loc, in_degree_lr, out_degree_lr = get_in_out_degree(
+                self.torus_layer_nodes,
+                node_tree=self.torus_layer_tree,
+                node_pos=self.torus_layer_positions,
+                r_loc=self.r_loc,
+                size_layer=self.layer_size
+            )
+
+            in_deg_dist = OrderedDict(sorted(Counter(in_degree).items()))
+            out_deg_dist = OrderedDict(sorted(Counter(out_degree).items()))
+
+            in_deg_dist_loc = OrderedDict(sorted(Counter(in_degree_loc).items()))
+            out_deg_dist_loc = OrderedDict(sorted(Counter(out_degree_loc).items()))
+
+            in_deg_dist_lr = OrderedDict(sorted(Counter(in_degree_lr).items()))
+            out_deg_dist_lr = OrderedDict(sorted(Counter(out_degree_lr).items()))
+
+            fig, ax = plt.subplots(3, 2, figsize=(10, 10))
+            ax[0][0].bar(list(in_deg_dist.keys()), list(in_deg_dist.values()))
+            ax[0][0].set_xlabel("Indegree total")
+            ax[0][0].set_ylabel("Number of nodes")
+
+            ax[0][1].bar(list(out_deg_dist.keys()), list(out_deg_dist.values()))
+            ax[0][1].set_xlabel("Outdegree total")
+            ax[0][1].set_ylabel("Number of nodes")
+
+            ax[1][0].bar(list(in_deg_dist_loc.keys()), list(in_deg_dist_loc.values()))
+            ax[1][0].set_xlabel("Indegree local")
+            ax[1][0].set_ylabel("Number of nodes")
+
+            ax[1][1].bar(list(out_deg_dist_loc.keys()), list(out_deg_dist_loc.values()))
+            ax[1][1].set_xlabel("Outdegree local")
+            ax[1][1].set_ylabel("Number of nodes")
+
+            ax[2][0].bar(list(in_deg_dist_lr.keys()), list(in_deg_dist_lr.values()))
+            ax[2][0].set_xlabel("Indegree long-range")
+            ax[2][0].set_ylabel("Number of nodes")
+
+            ax[2][1].bar(list(out_deg_dist_lr.keys()), list(out_deg_dist_lr.values()))
+            ax[2][1].set_xlabel("Outdegree long-range")
+            ax[2][1].set_ylabel("Number of nodes")
+
+            if self.save_plots:
+                curr_dir = os.getcwd()
+                Path(curr_dir + "/figures/in-out-dist/").mkdir(parents=True, exist_ok=True)
+                plt.savefig(curr_dir + "/figures/in-out-dist/%s_%s" % (self.save_prefix, plot_name))
+            else:
+                plt.show()
 
     def create_network(self, input_stimulus=None):
         """
