@@ -97,7 +97,7 @@ def main():
         if str(cmd_params.img_prop) != "all":
             img_prop = [float(cmd_params.img_prop)]
         else:
-            img_prop = [1.0, 0.8, 0.6, 0.4]
+            img_prop = IMG_PROP
     else:
         img_prop = [1.0]
 
