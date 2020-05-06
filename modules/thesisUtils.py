@@ -77,7 +77,7 @@ def arg_parse(args):
     )
     parser.add_argument("--num_trials", type=int, help="Sets the number of trials")
     parser.add_argument(
-        "--ff_factor",
+        "--rec_factor",
         type=float,
         help="Sets the weight factor that is multiplied to the default value of the feedforward weights"
     )
