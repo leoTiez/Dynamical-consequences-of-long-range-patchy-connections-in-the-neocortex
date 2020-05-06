@@ -140,7 +140,7 @@ def main_lr(
 
     if verbosity > 4:
         print_msg("Plot in/out degree distribution")
-        network.connect_distribution("connect_distribution.png")
+        network.connect_distribution(distinguish_connections=False, plot_name="connect_distribution.png")
 
     if network_type == NETWORK_TYPE["input_only"]:
         reconstruction = network.input_recon
