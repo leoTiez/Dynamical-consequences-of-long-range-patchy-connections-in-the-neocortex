@@ -22,13 +22,14 @@ class NeuronalNetworkBase:
             num_sensory=int(1e4),
             ratio_inh_neurons=5,
             num_stim_discr=4,
-            ff_factor=1.,
+            rec_factor=1.,
             ff_weight=1.,
             cap_s=1.,
             inh_weight=-5.,
             p_rf=0.7,
             rf_size=None,
-            tuning_function=TUNING_FUNCTION["step"],
+            tuning_function=TUNING_FUNCTION["gauss"],
+            global_connect=0.01,
             all_same_input_current=False,
             pot_threshold=-55.,
             pot_reset=-70.,
@@ -100,18 +101,19 @@ class NeuronalNetworkBase:
         self.num_sensory = int(num_sensory)
         self.ratio_inh_neurons = ratio_inh_neurons
         self.num_stim_discr = num_stim_discr
-        self.ff_factor = float(ff_factor)
-        self.ff_weight = ff_weight * self.ff_factor
-        self.cap_s = cap_s / self.ff_factor
-        self.inh_weight = inh_weight / self.ff_factor
+        self.rec_factor = float(rec_factor)
+        self.ff_weight = ff_weight
+        self.cap_s = (.5 - img_prop/2.)**2 * cap_s * rec_factor
+        self.inh_weight = (.5 - img_prop/2.)**2 * inh_weight * rec_factor
         self.p_rf = p_rf
 
         self.rf_size = rf_size
         if self.rf_size is None:
-            self.rf_size = (stimulus_size[0] // 7, stimulus_size[1] // 7)
+            self.rf_size = (stimulus_size[0] // 5, stimulus_size[1] // 5)
 
         self.all_same_input_current = all_same_input_current
         self.tuning_function = tuning_function
+        self.global_connect = global_connect
 
         self.pot_threshold = pot_threshold
         self.pot_reset = pot_reset
@@ -198,7 +200,6 @@ class NeuronalNetworkBase:
             size_layer=self.layer_size,
             bg_rate=self.bg_rate,
             p_rf=self.p_rf,
-            ff_factor=self.ff_factor,
             synaptic_strength=self.ff_weight,
             to_file=self.to_file
         )
@@ -643,7 +644,9 @@ class RandomNetwork(NeuronalNetworkBase):
         )
         # Set probability to a value such that it becomes comparable to clustered networks
         # Calculation is taken from Voges et al.
-        self.p_random = np.minimum(1., 1.4 - self.img_prop) * np.pi * r_loc**2 / self.layer_size**2
+        self.p_random = self.global_connect
+
+        self.plot_random_connections = False if verbosity < 4 else True
 
     def create_random_connections(self):
         """
@@ -722,7 +725,6 @@ class LocalNetwork(NeuronalNetworkBase):
         if c_alpha > 1.0 or c_alpha < 0.0:
             raise ValueError("c_alpha must be set between 0 and 1")
         self.c_alpha = c_alpha
-        self.global_connect = np.minimum(1., 1.4 - self.img_prop) * np.pi * self.r_loc**2 / float(self.layer_size**2)
 
         self.p_loc = self.global_connect * self.c_alpha * self.layer_size**2 / (np.pi * self.r_loc**2)
 
