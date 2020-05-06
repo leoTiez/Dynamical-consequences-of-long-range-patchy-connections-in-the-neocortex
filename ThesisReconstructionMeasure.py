@@ -27,7 +27,7 @@ def main_lr(
         tuning_function=TUNING_FUNCTION["gauss"],
         perlin_input_cluster=(4, 4),
         num_patches=3,
-        ff_factor=1.,
+        rec_factor=1.,
         c_alpha=0.7,
         img_prop=1.,
         presentation_time=1000.,
@@ -49,7 +49,7 @@ def main_lr(
     :param perlin_input_cluster: Cluster size of the perlin input image. If the input is not perlin, this parameter
     is ignored
     :param num_patches: number of patches. If the network does not establish patches this parameter is ignored
-    :param ff_factor: Multiplier for the ff weights
+    :param rec_factor: Multiplier for the ff weights
     :param img_prop: Proportion of the image information that is used
     :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
     :param use_equilibrium: If set to true, only the last 400ms of the simulation are used, ie when the network is
@@ -114,7 +114,7 @@ def main_lr(
         p_rf=p_rf,
         bg_rate=bg_rate,
         max_spiking=max_spiking,
-        ff_factor=ff_factor,
+        rec_factor=rec_factor,
         pot_reset=pot_reset,
         pot_threshold=pot_threshold,
         capacitance=capacitance,
@@ -243,7 +243,7 @@ def experiment(
         cluster=(15, 15),
         perlin_input_cluster=(4, 4),
         patches=3,
-        ff_factor=1.,
+        rec_factor=1.,
         c_alpha=0.7,
         img_prop=1.,
         presentation_time=1000.,
@@ -266,7 +266,7 @@ def experiment(
     :param perlin_input_cluster: Cluster size of the perlin input image
     :param patches: The number of patches. This parameter is ignored if network is chosen that does not make use of
     patchy connctions
-    :param ff_factor: Multiplier for the ff weights
+    :param rec_factor: Multiplier for the ff weights
     (second index)
     :param img_prop: Defines the sparse sampling, i.e. the number of neurons that receive feedforward input.
     :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
@@ -282,7 +282,7 @@ def experiment(
     # #################################################################################################################
     network_name = list(NETWORK_TYPE.keys())[network_type]
     input_name = str(perlin_input_cluster[0])
-    parameters = [tuning_function, cluster, patches, ff_factor, c_alpha]
+    parameters = [tuning_function, cluster, patches, rec_factor, c_alpha]
     if sum(1 for _ in filter(None.__ne__, parameters)) < len(parameters) - 1:
         raise ValueError("The experiment cannot change more than one parameter at a time")
 
@@ -298,8 +298,8 @@ def experiment(
         parameters = PATCHES_PAR
         parameter_str = "num_patches"
         load_network = False
-    elif ff_factor is None:
-        parameters = FF_FACTORS_PAR
+    elif rec_factor is None:
+        parameters = REC_FACTORS_PAR
         parameter_str = "weight_balance"
     elif c_alpha is None:
         parameters = ALPHA_PAR
@@ -346,7 +346,7 @@ def experiment(
                 cluster=p if cluster is None else cluster,
                 num_patches=p if patches is None else patches,
                 perlin_input_cluster=p if perlin_input_cluster is None else perlin_input_cluster,
-                ff_factor=p if ff_factor is None else ff_factor,
+                rec_factor=p if rec_factor is None else rec_factor,
                 c_alpha=p if c_alpha is None else c_alpha,
                 img_prop=img_prop,
                 presentation_time=presentation_time,
@@ -405,7 +405,7 @@ def main():
     num_trials = 10
     patches = 3
     c_alpha = 0.7
-    ff_factor = 1.
+    rec_factor = 1.
     img_prop = 1.
     presentation_time = 1000.
     spatial_sampling = False
@@ -459,7 +459,7 @@ def main():
                 raise ValueError("Cannot run experiments about the cluster size with a random network")
             cluster = None
         elif cmd_params.parameter.lower() == "weights":
-            ff_factor = None
+            rec_factor = None
 
     if cmd_params.tuning is not None:
         if tuning_function is not None:
@@ -485,9 +485,9 @@ def main():
         else:
             raise ValueError("Cannot pass 'alpha' as experimental parameter and set c_alpha")
 
-    if cmd_params.ff_factor is not None:
-        if ff_factor is not None:
-            ff_factor = cmd_params.ff_factor
+    if cmd_params.rec_factor is not None:
+        if rec_factor is not None:
+            rec_factor = cmd_params.rec_factor
         else:
             raise ValueError("Cannot pass 'weights' as experimental parameter and set feedforward weight factor")
 
@@ -537,7 +537,7 @@ def main():
         cluster=cluster,
         perlin_input_cluster=perlin_input_cluster,
         patches=patches,
-        ff_factor=ff_factor,
+        rec_factor=rec_factor,
         img_prop=img_prop,
         c_alpha=c_alpha,
         presentation_time=presentation_time,
