@@ -36,6 +36,7 @@ class NeuronalNetworkBase:
             capacitance=80.,
             time_constant=20.,
             layer_size=8.,
+            sub_layer_size_ratio=0.8,
             max_spiking=1000.,
             bg_rate=500.,
             presentation_time=1000.,
@@ -103,8 +104,8 @@ class NeuronalNetworkBase:
         self.num_stim_discr = num_stim_discr
         self.rec_factor = float(rec_factor)
         self.ff_weight = ff_weight
-        self.cap_s = (.5 - img_prop/2.)**2 * cap_s * rec_factor
-        self.inh_weight = (.5 - img_prop/2.)**2 * inh_weight * rec_factor
+        self.cap_s = (1 - img_prop)**2 * cap_s * rec_factor
+        self.inh_weight = (1 - img_prop)**2 * inh_weight * rec_factor
         self.p_rf = p_rf
 
         self.rf_size = rf_size
@@ -120,6 +121,7 @@ class NeuronalNetworkBase:
         self.capacitance = capacitance
         self.time_constant = time_constant
         self.layer_size = layer_size
+        self.sub_layer_size = self.layer_size * sub_layer_size_ratio
         self.max_spiking = max_spiking
         self.bg_rate = bg_rate
         self.presentation_time = presentation_time
@@ -152,6 +154,8 @@ class NeuronalNetworkBase:
         self.torus_layer_nodes = None
         self.torus_inh_nodes = None
         self.torus_layer_positions = None
+        self.input_neurons_mask = None
+        self.input_inh_neurons_mask = None
 
         self.tuning_to_neuron_map = None
         self.tuning_vector = None
@@ -201,6 +205,7 @@ class NeuronalNetworkBase:
             bg_rate=self.bg_rate,
             p_rf=self.p_rf,
             synaptic_strength=self.ff_weight,
+            to_torus=False,
             to_file=self.to_file
         )
         self.torus_layer_nodes = nest.GetNodes(self.torus_layer, properties={"element_type": "neuron"})[0]
@@ -211,6 +216,22 @@ class NeuronalNetworkBase:
             size=self.num_sensory // self.ratio_inh_neurons,
             replace=False
         ).tolist()
+
+        sublayer_mask_specs = {
+            "lower_left": [-self.sub_layer_size / 2., -self.sub_layer_size / 2.],
+            "upper_right": [self.sub_layer_size / 2., self.sub_layer_size / 2.]
+        }
+        input_neurons = np.asarray(tp.SelectNodesByMask(
+            self.torus_layer,
+            (0., 0.),
+            mask_obj=tp.CreateMask("rectangular", specs=sublayer_mask_specs)
+        ))
+        input_inh_neurons = np.asarray(list(set(input_neurons).intersection(set(self.torus_inh_nodes))))
+
+        self.input_neurons_mask = np.zeros(self.num_sensory).astype("bool")
+        self.input_neurons_mask[input_neurons - min(self.torus_layer_nodes)] = True
+        self.input_inh_neurons_mask = np.zeros(self.num_sensory).astype("bool")
+        self.input_inh_neurons_mask[input_inh_neurons - min(self.torus_inh_nodes)] = True
 
     def create_orientation_map(self):
         """
@@ -252,9 +273,11 @@ class NeuronalNetworkBase:
         )
 
     def _choose_ff_neurons(self, exc_only=False, tc=None):
-        neuron_mask = np.ones(self.num_sensory).astype("bool")
+        num_input_neurons = int(self.img_prop * self.input_neurons_mask.sum())
+        neuron_mask = np.zeros(self.num_sensory).astype("bool")
+        neuron_mask |= self.input_neurons_mask
         if exc_only:
-            neuron_mask[np.asarray(self.torus_inh_nodes) - min(self.torus_layer_nodes)] = False
+            neuron_mask &= ~self.input_inh_neurons_mask
         if tc is not None:
             tuning_mask = np.zeros(self.num_sensory).astype("bool")
             tuning_mask[np.asarray(self.tuning_to_neuron_map[tc]) - min(self.torus_layer_nodes)] = True
@@ -266,7 +289,7 @@ class NeuronalNetworkBase:
             if not self.spatial_sampling:
                 neurons_with_input_idx = np.random.choice(
                     np.arange(self.num_sensory).astype("int")[neuron_mask],
-                    int(self.img_prop * self.num_sensory),
+                    num_input_neurons,
                     replace=False
                 ).tolist()
 
@@ -275,27 +298,31 @@ class NeuronalNetworkBase:
                 if exc_only:
                     Warning("Not yet implemented to choose only excitatory neurons when using spatial sampling")
                 sample_centers_idx = np.random.choice(
-                    len(self.torus_layer_positions),
+                    np.arange(self.num_sensory).astype("int")[neuron_mask],
                     self.num_spatial_samples,
                     replace=False
                 )
+
                 sample_centers = np.asarray(self.torus_layer_positions)[sample_centers_idx]
                 k = int(self.num_sensory / self.num_spatial_samples)
+                sublayer_tree = KDTree(np.asarray(self.torus_layer_positions)[self.input_neurons_mask])
                 while True:
-                    _, neurons_with_input_idx = self.torus_layer_tree.query(
+                    _, neurons_with_input_idx = sublayer_tree.query(
                         sample_centers,
                         k=k
                     )
 
                     neurons_with_input_idx = list(set(neurons_with_input_idx.flatten()))
-                    diff = len(neurons_with_input_idx) - int(self.img_prop * self.num_sensory)
+                    diff = len(neurons_with_input_idx) - num_input_neurons
                     if diff > 0:
-                        neurons_with_input_idx = neurons_with_input_idx[:int(self.img_prop * self.num_sensory)]
+                        neurons_with_input_idx = neurons_with_input_idx[:num_input_neurons]
                         break
                     k += np.maximum(-diff, 1)
 
                 chosen_neurons = np.zeros(self.num_sensory).astype("bool")
-                chosen_neurons[neurons_with_input_idx] = True
+                chosen_neurons[
+                    np.arange(self.num_sensory)[self.input_neurons_mask][neurons_with_input_idx]
+                ] = True
                 neurons_with_input = np.asarray(self.torus_layer_nodes)[np.logical_and(chosen_neurons, neuron_mask)]
 
         return neurons_with_input.tolist()
@@ -323,10 +350,10 @@ class NeuronalNetworkBase:
 
         self.rf_center_map = [
             (
-                (y + (self.layer_size / 2.)) / float(self.layer_size) * self.stimulus_size[1],
-                (x + (self.layer_size / 2.)) / float(self.layer_size) * self.stimulus_size[0]
+                (y + (self.sub_layer_size / 2.)) / float(self.sub_layer_size) * self.stimulus_size[1],
+                (x + (self.sub_layer_size / 2.)) / float(self.sub_layer_size) * self.stimulus_size[0]
             )
-            for (x, y) in self.torus_layer_positions
+            for (x, y) in np.asarray(self.torus_layer_positions)[self.input_neurons_mask]
         ]
 
         self.rf_list = create_rf(self, self.stimulus_size)
