@@ -116,20 +116,21 @@ def direct_stimulus_reconstruction(
 
 def oblivious_stimulus_reconstruction(
         firing_rates,
+        input_neuron_mask,
         ff_adj_matrix,
         tuning_vector,
         fr_min=2.,
 ):
-    fr = np.zeros(firing_rates.size)
+    fr = np.zeros(firing_rates[input_neuron_mask].size)
     if fr_min is None:
-        fr_min = np.mean(firing_rates)
+        fr_min = np.mean(firing_rates[input_neuron_mask])
 
-    threshold_mask = firing_rates > fr_min
-    fr[threshold_mask] = firing_rates[threshold_mask]
+    threshold_mask = firing_rates[input_neuron_mask] > fr_min
+    fr[threshold_mask] = firing_rates[input_neuron_mask][threshold_mask]
     class_transformation = (tuning_vector + 1) / (tuning_vector.max() + 1)
     # Set no transformation for inhibitory neurons
     class_transformation[class_transformation <= 0] = 1.
-    feat_trans_fr = fr * class_transformation
+    feat_trans_fr = fr * class_transformation[input_neuron_mask]
     reconstruction = ff_adj_matrix.dot(feat_trans_fr)
     reconstruction = np.nan_to_num(reconstruction / ff_adj_matrix.dot(fr))
     return reconstruction.reshape(int(np.sqrt(reconstruction.size)), int(np.sqrt(reconstruction.size)))
