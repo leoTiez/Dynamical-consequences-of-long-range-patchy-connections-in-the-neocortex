@@ -456,8 +456,8 @@ def plot_reconstruction(
     """
     plt.rcParams.update({"font.size": font_size})
     _, ax = plt.subplots(1, 2 if color_mask is None else 3, figsize=(10, 5))
-    ax[0].imshow(reconstruction, origin="lower", cmap="gray", vmin=0., vmax=1.0)
-    ax[1].imshow(input_stimulus, origin="lower", cmap="gray", vmin=0, vmax=255)
+    ax[0].imshow(input_stimulus, origin="lower", cmap="gray", vmin=0, vmax=255)
+    ax[1].imshow(reconstruction, origin="lower", cmap="gray", vmin=0., vmax=1.0)
     if color_mask is not None:
         stimulus_grid_range_x = np.linspace(0, size_layer, resolution[0])
         stimulus_grid_range_y = np.linspace(0, size_layer, resolution[1])
