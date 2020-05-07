@@ -206,6 +206,7 @@ def create_torus_layer_uniform(
         p_rf=.7,
         ff_factor=1.,
         synaptic_strength=1.,
+        to_torus=False,
         bg_rate=300.,
         positions=None,
         to_file=False
@@ -236,7 +237,7 @@ def create_torus_layer_uniform(
         "extent": [size_layer, size_layer],
         "positions": positions,
         "elements": neuron_type,
-        "edge_wrap": True
+        "edge_wrap": to_torus
     }
 
     if neuron_type == "iaf_psc_delta" or neuron_type == "iaf_psc_alpha":
@@ -1426,12 +1427,15 @@ def create_rf(net, image_size=(50, 50)):
         "lower_left": [-net.rf_size[0] // 2, -net.rf_size[1] // 2],
         "upper_right": [net.rf_size[0] // 2, net.rf_size[1] // 2]
     }
-    net.ff_weight_mat = np.zeros((image_size[0] * image_size[1], net.num_sensory))
+    net.ff_weight_mat = np.zeros((image_size[0] * image_size[1], net.input_neurons_mask.sum()))
     index_values = np.arange(0, image_size[0] * image_size[1], 1).astype("int").reshape(image_size)
     min_id_target = min(net.torus_layer_nodes)
 
     rf_list = []
-    for num, (target_node, rf_c) in enumerate(zip(net.torus_layer_nodes, net.rf_center_map)):
+    for num, (target_node, rf_c) in enumerate(zip(
+            np.asarray(net.torus_layer_nodes)[net.input_neurons_mask],
+            net.rf_center_map)
+    ):
         upper_left = (np.asarray(rf_c) + np.asarray(mask_specs["lower_left"])).astype('int')
         lower_right = (np.asarray(rf_c) + np.asarray(mask_specs["upper_right"])).astype('int')
 
@@ -1452,7 +1456,7 @@ def create_rf(net, image_size=(50, 50)):
         indices = indices[connections.astype('bool').reshape(indices.shape)]
 
         # Set connections in matrix
-        net.ff_weight_mat[indices.reshape(-1), target_node - min_id_target] = 1.
+        net.ff_weight_mat[indices.reshape(-1), num] = 1.
 
     return rf_list
 
@@ -1512,7 +1516,9 @@ def create_connections_rf(
 
     counter = 0
     amplitudes = np.zeros(net.num_sensory)
-    for num, target_node in enumerate(sampled_neurons):
+    for num, target_node in enumerate(np.asarray(net.torus_layer_nodes)[net.input_neurons_mask]):
+        if target_node not in sampled_neurons:
+            continue
         counter += 1
 
         if counter == plot_point:
@@ -1541,7 +1547,7 @@ def create_connections_rf(
             inject = np.maximum(net.max_spiking * amplitude.sum() / max_scale, 0)
             current_dict = {"rate": inject, "stop": net.presentation_time}
 
-        amplitudes[target_node - min_id_target] = inject
+        amplitudes[np.arange(net.num_sensory)[net.input_neurons_mask][num]] = inject
         # Create new input generator if they haven't been created yet. This is usually the case with dc
         if net.spike_gen is None:
             _set_input_current(
@@ -1551,13 +1557,14 @@ def create_connections_rf(
                 use_dc=net.use_dc
             )
         else:
-            nest.SetStatus([net.spike_gen[target_node - min_id_target]], current_dict)
+            nest.SetStatus([np.asarray(net.spike_gen)[net.input_neurons_mask][num]], current_dict)
 
     recons = None
     if net.use_input_neurons:
         import modules.stimulusReconstruction as sr
         recons = sr.oblivious_stimulus_reconstruction(
             amplitudes,
+            net.input_neurons_mask,
             net.ff_weight_mat,
             net.tuning_vector
         )
