@@ -212,6 +212,7 @@ def main_lr(
 
     reconstruction = oblivious_stimulus_reconstruction(
         firing_rates,
+        network.input_neurons_mask,
         network.ff_weight_mat,
         network.tuning_vector
     )
