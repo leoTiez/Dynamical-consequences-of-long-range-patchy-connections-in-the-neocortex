@@ -67,6 +67,7 @@ def main_lr(
 
     stimulus_fft = fourier_trans(input_stimulus)
     if verbosity > 2:
+        plt.rcParams.update({"font.size": 16})
         plt.imshow(input_stimulus, origin="lower", cmap="gray", vmin=0, vmax=255)
         if not save_plots:
             plt.show()
