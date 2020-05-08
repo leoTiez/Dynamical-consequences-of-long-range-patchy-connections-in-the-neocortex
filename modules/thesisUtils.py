@@ -424,6 +424,9 @@ def plot_connections(
                 cmap=custom_cmap(color_mask.max()+1),
                 alpha=0.4
             )
+
+    plt.xlabel("Tissue in X")
+    plt.ylabel("Tissue in Y")
     if plot_name is None:
         plot_name = "connections.png"
     if save_plot:
@@ -457,7 +460,9 @@ def plot_reconstruction(
     plt.rcParams.update({"font.size": font_size})
     _, ax = plt.subplots(1, 2 if color_mask is None else 3, figsize=(10, 5))
     ax[0].imshow(input_stimulus, origin="lower", cmap="gray", vmin=0, vmax=255)
+    ax[0].set_title("Input")
     ax[1].imshow(reconstruction, origin="lower", cmap="gray", vmin=0., vmax=1.0)
+    ax[1].set_title("Reconstruction")
     if color_mask is not None:
         stimulus_grid_range_x = np.linspace(0, size_layer, resolution[0])
         stimulus_grid_range_y = np.linspace(0, size_layer, resolution[1])
@@ -468,6 +473,7 @@ def plot_reconstruction(
             cmap=custom_cmap(num_stimulus_discr),
             alpha=0.4
         )
+
     if not save_plots:
         plt.show()
     else:
@@ -535,6 +541,8 @@ def plot_cmap(
         c=c_rgba
     )
 
+    plt.xlabel("Tissue in X")
+    plt.ylabel("Tissue in Y")
     if not save_plot:
         plt.show()
     else:
@@ -627,6 +635,8 @@ def plot_spikes_over_space(firing_rates, network, title="", c_rgba=None, font_si
         )
     )
 
+    plt.xlabel("Tissue in X")
+    plt.ylabel("Tissue in Y")
     plt.title(title)
     if save_plot:
         curr_dir = os.getcwd()
@@ -709,6 +719,8 @@ def plot_network_animation(
         ax_pot.set_title(
             "%s\nMembrane potential over %s mV at time %s ms" % (title, network.pot_reset + min_mem_pot, t)
         )
+        ax_pot.set_xlabel("Tissue in X")
+        ax_pot.set_ylabel("Tissue in Y")
         if save_plot:
             figure_pot.canvas.draw()
             image_pot = np.frombuffer(figure_pot.canvas.tostring_rgb(), dtype='uint8')
@@ -764,7 +776,7 @@ def plot_rf(net, image, rf_list, counter=9, font_size=16):
         ax[0].add_patch(area_rect)
         ax[1].plot(x, y, 'o')
     ax[0].set_xlabel("Input in X", fontsize=font_size)
-    ax[0].set_ylabel("Input tissue in Y", fontsize=font_size)
+    ax[0].set_ylabel("Input in Y", fontsize=font_size)
 
     ax[1].set_xlabel("V1 tissue in X", fontsize=font_size)
     ax[1].set_ylabel("V1 tissue in Y", fontsize=font_size)
