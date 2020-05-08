@@ -31,7 +31,7 @@ def main_experiment_loop(
     # #############################################################################################################
     # Looping over network and input types
     # #############################################################################################################
-    network_list = list(NETWORK_TYPE.keys())
+    network_list = list(NETWORK_TYPE.keys())[:-1]
     if parameter.lower() == "cluster":
         network_list = [net for net in network_list if net != "random"]
     elif parameter.lower() == "patches" or parameter.lower() == "alpha":
