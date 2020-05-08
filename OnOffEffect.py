@@ -21,11 +21,11 @@ def main():
     use_single_neuron = True
     network_type_id = "local_circ_patchy_sd"
     network_type = NETWORK_TYPE[network_type_id]
-    network_name = "Local Circular Network"
-    num_neurons = int(1e3)
-    img_prop = 1/float(num_neurons) if use_single_neuron else 0.4
+    network_name = "Local Circular Network with Tuning Dependent Patches"
+    num_neurons = 3000
+    img_prop = 0 if use_single_neuron else 0.4
     bg_rate = 500.
-    max_firing_rate = 2000.
+    max_firing_rate = 1e4
 
     save_plots = False
     save_prefix = network_type_id
@@ -42,7 +42,7 @@ def main():
     capacitance = 80.
     time_constant = 20.
     presentation_time = 0.
-    resolution_func_map = (15, 15)
+    resolution_func_map = (20, 20)
     num_patches = 3
     spatial_sampling = False
     use_dc = False
@@ -92,6 +92,7 @@ def main():
     )
 
     if use_single_neuron:
+        network.img_prop = 1. / network.input_neurons_mask.sum()
         input_generator = network.set_input_rate(
             input_rate=max_firing_rate,
             origin=1000.,
@@ -113,7 +114,12 @@ def main():
         if use_single_neuron:
             network.set_input_generator(input_generator, input_rate=max_firing_rate, origin=t+sim_time, end=50.)
 
-    recon = oblivious_stimulus_reconstruction(firing_rates, network.ff_weight_mat, network.tuning_vector)
+    recon = oblivious_stimulus_reconstruction(
+        firing_rates,
+        network.input_neurons_mask,
+        network.ff_weight_mat,
+        network.tuning_vector
+    )
     plot_reconstruction(recon, recon, save_plots=save_plots, save_prefix=save_prefix)
 
     print_msg("Plot firing pattern over time")
