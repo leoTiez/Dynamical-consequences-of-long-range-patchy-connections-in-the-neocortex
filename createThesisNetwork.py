@@ -304,7 +304,7 @@ class NeuronalNetworkBase:
                 )
 
                 sample_centers = np.asarray(self.torus_layer_positions)[sample_centers_idx]
-                k = int(self.num_sensory / self.num_spatial_samples)
+                k = int(num_input_neurons / self.num_spatial_samples)
                 sublayer_tree = KDTree(np.asarray(self.torus_layer_positions)[self.input_neurons_mask])
                 while True:
                     _, neurons_with_input_idx = sublayer_tree.query(
@@ -415,6 +415,7 @@ class NeuronalNetworkBase:
                 resolution=self.resolution_perlin,
                 num_stimulus_discr=self.num_stim_discr,
                 save_plot=self.save_plots,
+                plot_sublayer=True,
                 save_prefix=self.save_prefix
             )
 
