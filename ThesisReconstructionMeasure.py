@@ -402,7 +402,7 @@ def main():
     network_type = None
     num_neurons = int(1e4)
     tuning_function = TUNING_FUNCTION["gauss"]
-    cluster = (15, 15)
+    cluster = (8, 8)
     perlin_input_cluster = (4, 4)
     num_trials = 10
     patches = 3
