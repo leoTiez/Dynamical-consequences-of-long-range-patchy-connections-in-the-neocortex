@@ -48,7 +48,7 @@ class NeuronalNetworkBase:
             spatial_sampling=False,
             num_spatial_samples=5,
             use_input_neurons=False,
-            use_dc=True,
+            use_dc=False,
             verbosity=0,
             to_file=False,
             save_plots=False,
