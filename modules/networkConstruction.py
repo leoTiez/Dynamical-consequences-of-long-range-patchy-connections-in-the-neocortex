@@ -1541,7 +1541,7 @@ def create_connections_rf(
             amplitude = rf
 
         if net.use_dc:
-            inject = np.maximum((amplitude.sum() / max_scale) / net.ff_factor, 0.)
+            inject = np.maximum((amplitude.sum() / max_scale), 0.)
             current_dict = {"amplitude": inject}
         else:
             inject = np.maximum(net.max_spiking * amplitude.sum() / max_scale, 0)
