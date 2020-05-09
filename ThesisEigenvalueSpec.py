@@ -22,6 +22,7 @@ def main_eigenvalue_spec(
         num_neurons=int(1e4),
         patches=3,
         c_alpha=0.7,
+        img_prop=0.4,
         compute_sum=False,
         load_network=False,
         save_plot=False,
@@ -46,6 +47,7 @@ def main_eigenvalue_spec(
         c_alpha=c_alpha,
         network_type=network_type,
         num_patches=patches,
+        img_prop=img_prop,
         num_sensory=num_neurons,
         verbosity=verbosity
     )
