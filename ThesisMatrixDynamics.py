@@ -21,11 +21,12 @@ nest.set_verbosity("M_ERROR")
 
 
 def main_matrix_dynamics(
-        network_type=NETWORK_TYPE["local_circ_patchy_sd"],
+        network_type="local_circ_patchy_sd",
         num_neurons=int(1e4),
         perlin_resolution=(4, 4),
         c_alpha=0.7,
         load_network=False,
+        img_prop=0.4,
         normalise=False,
         save_fig=True,
         save_prefix="",
@@ -53,13 +54,14 @@ def main_matrix_dynamics(
     # #################################################################################################################
     # Define values
     # #################################################################################################################
-    plot_arrangement_rows = 5
-    plot_arrangement_columns = 5
+    plot_arrangement_rows = 3
+    plot_arrangement_columns = 4
     num_neurons = num_neurons
     network_shape = (int(np.sqrt(num_neurons)), int(np.sqrt(num_neurons)))
     network = network_factory(
         c_alpha=c_alpha,
-        network_type=network_type,
+        network_type=NETWORK_TYPE[network_type],
+        img_prop=img_prop,
         num_sensory=num_neurons,
         verbosity=verbosity
     )
@@ -73,14 +75,24 @@ def main_matrix_dynamics(
     # Input stimulus propagation
     # #################################################################################################################
     # Sufficient to use only 255 as we don't use the neurons themselves
-    input_matrix = np.ones(stimulus_size[0] * stimulus_size[1] + 1)
-    input_matrix[:stimulus_size[0] * stimulus_size[1]] = input_stimulus.reshape(-1)
-    sensory_activity = input_matrix.reshape(-1).dot(network.ff_weight_mat)[:-1]
     fig, axes = plt.subplots(plot_arrangement_rows, plot_arrangement_columns, figsize=(20, 10))
+    sensory_input = input_stimulus.reshape(-1).dot(network.ff_weight_mat)
+
+    no_input_neurons = np.random.choice(
+        network.input_neurons_mask.sum(),
+        int(network.input_neurons_mask.sum() * (1 - img_prop)),
+        replace=False
+    )
+    sensory_input[no_input_neurons] = 0
+    sensory_activity = np.zeros(network.num_sensory)
+    sensory_activity[network.input_neurons_mask] = sensory_input
     all_activities = []
     for ax in axes.reshape(-1):
         if normalise:
+            sensory_activity -= sensory_activity.min()
             sensory_activity /= sensory_activity.max()
+        ax.set_xticks([], [])
+        ax.set_yticks([], [])
         all_activities.append(ax.imshow(sensory_activity.reshape(network_shape), cmap="cool"))
         sensory_activity = sens_weight_mat.T.dot(sensory_activity)
 
@@ -93,8 +105,25 @@ def main_matrix_dynamics(
         norm = colors.Normalize(vmin=vmin, vmax=vmax)
         for im in all_activities:
             im.set_norm(norm)
+
+    plt.rcParams.update({"font.size": 16})
     fig.colorbar(all_activities[0], ax=axes, orientation='horizontal', fraction=.05)
 
+    title = ""
+    if network_type == "random":
+        title = "Random Network"
+    elif network_type == "local_circ":
+        title = "Circular Local Network"
+    elif network_type == "local_sd":
+        title = "Tuning Dependent Local Network"
+    elif network_type == "local_circ_patchy_random":
+        title = "Circular Local Network with Random Patches"
+    elif network_type == "local_circ_patchy_sd":
+        title = "Circular Local Network with Tuning Dependent Patches"
+    else:
+        title = "Tuning Dependent Local Network with Tuning Dependent Patches"
+
+    plt.suptitle("Linear Dynamics for %s" % title)
     if not save_fig:
         plt.show()
     else:
@@ -110,7 +139,7 @@ def main():
     # #################################################################################################################
     # Initialise parameters
     # #################################################################################################################
-    networks = NETWORK_TYPE.keys()
+    networks = list(NETWORK_TYPE.keys())[:-1]
     perlin_resolution = PERLIN_INPUT
     save_fig = True
     verbosity = VERBOSITY
@@ -168,7 +197,7 @@ def main():
         for pr in perlin_resolution:
             save_prefix = "%s_%s" % (net, pr)
             main_matrix_dynamics(
-                network_type=NETWORK_TYPE[net],
+                network_type=net,
                 perlin_resolution=(pr, pr),
                 num_neurons=num_neurons,
                 c_alpha=c_alpha,
