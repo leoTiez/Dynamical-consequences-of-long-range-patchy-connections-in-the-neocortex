@@ -494,6 +494,8 @@ def plot_cmap(
         font_size=16,
         resolution=(10, 10),
         num_stimulus_discr=4,
+        plot_sublayer=False,
+        sublayer_extent=6.4,
         save_plot=False,
         save_prefix=""
 ):
@@ -524,6 +526,18 @@ def plot_cmap(
         alpha=0.4
     )
 
+    if plot_sublayer:
+        area_rect = patches.Rectangle(
+            (-sublayer_extent/2., -sublayer_extent/2.),
+            width=sublayer_extent,
+            height=sublayer_extent,
+            color="red",
+            fill=False,
+            linewidth=3,
+            alpha=1.
+        )
+        plt.gca().add_patch(area_rect)
+
     min_idx = np.minimum(min(ff_nodes), min(muted_nodes)) if len(muted_nodes) > 0 else min(ff_nodes)
     inh_mask = np.zeros(len(ff_nodes) + len(muted_nodes)).astype('bool')
     inh_mask[np.asarray(inh_nodes) - min_idx] = True
@@ -534,7 +548,7 @@ def plot_cmap(
     for num, color in enumerate(c):
         c_rgba[num, :3] = np.asarray(hex_to_rgb(color))[:] / 255.
 
-    c_rgba[np.asarray(muted_nodes).astype("int64") - min_idx, 3] = 0.2
+    c_rgba[np.asarray(muted_nodes).astype("int64") - min_idx, 3] = 0.1
     plt.scatter(
         np.asarray(positions)[:, 0],
         np.asarray(positions)[:, 1],
