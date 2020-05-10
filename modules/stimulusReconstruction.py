@@ -121,6 +121,15 @@ def oblivious_stimulus_reconstruction(
         tuning_vector,
         fr_min=2.,
 ):
+    """
+    The reconstruction method if no information about the input transformation is known.
+    :param firing_rates: The firing rates
+    :param input_neuron_mask: Mask for neurons that receive feedforward input
+    :param ff_adj_matrix: The feedforward adjacency matrix
+    :param tuning_vector: The tuning vector
+    :param fr_min: The minimum firing rate that is said to be influential
+    :return: The reconstructed stimulus
+    """
     fr = np.zeros(firing_rates[input_neuron_mask].size)
     if fr_min is None:
         fr_min = np.mean(firing_rates[input_neuron_mask])

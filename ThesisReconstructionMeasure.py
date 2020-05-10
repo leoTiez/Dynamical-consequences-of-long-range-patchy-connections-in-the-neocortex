@@ -50,10 +50,13 @@ def main_lr(
     is ignored
     :param num_patches: number of patches. If the network does not establish patches this parameter is ignored
     :param rec_factor: Multiplier for the ff weights
+    :param c_alpha: Connection probability to connect to another neuron within the local radius
     :param img_prop: Proportion of the image information that is used
+    :param presentation_time: The time duration a stimulus is presented to the network
     :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
     :param use_equilibrium: If set to true, only the last 400ms of the simulation are used, ie when the network is
     expected to approach equilibrium
+    :param load_network: If set to true, the network is loaded from file
     :param write_to_file: If set to true the firing rate is written to an file
     :param save_plots: If set to true, plots are saved instead of being displayed
     :param save_prefix: Naming prefix that can be set before a file to mark a trial or an experiment
@@ -266,14 +269,19 @@ def experiment(
     :param cluster: The size of the mesh that is used for the Perlin noise distribution of the sensory neurons
     The parameter is ignored if random network is chosen
     :param perlin_input_cluster: Cluster size of the perlin input image
+    :param c_alpha: Connection probability to connect to another neuron within the local radius
     :param patches: The number of patches. This parameter is ignored if network is chosen that does not make use of
     patchy connctions
     :param rec_factor: Multiplier for the ff weights
     (second index)
     :param img_prop: Defines the sparse sampling, i.e. the number of neurons that receive feedforward input.
+    :param presentation_time: The time duration a stimulus is presented to the network
     :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
     :param use_equilibrium: If set to true, only the last 400ms of the simulation is used, ie when the network
     is expected to approach equilibrium
+    :param load_network: If set to true, the network is loaded from file
+    :param existing_ok: If set to true, it is checked whether a file has been already created for a particular
+    experiment and trial and skips if it does.
     :param save_plots: If set to true, plots are saved instead of being displayed
     :param num_trials: The number of trials that are conducted
     :param verbosity: Set the verbosity flag
@@ -396,6 +404,10 @@ def experiment(
 
 
 def main():
+    """
+    Main function
+    :return: None
+    """
     # ################################################################################################################
     # Initialise parameters
     # ################################################################################################################

@@ -116,8 +116,10 @@ def image_with_spatial_correlation(
 
 def perlin_image(size=50, num_stimulus_discr=4, resolution=(5, 5), **kwargs):
     """
-    Create an image with spatial correlation using the Perlin noise distribution
+    Create an image with spatial correlation using the Perlin noise distribution. No smooth intensity gradients.
+    This can be approximated by setting num_stimulus_discr sufficiently high
     :param size: Size of the image. It takes only a single integer and assumes the image to be quadratic
+    :param num_stimulus_discr: The number of tuning classes that can be discriminated
     :param resolution: Resolution of the Perlin mesh with the randomly sampled vectors
     :param kwargs: Additional parameters that might be passed because of the factory method that should not cause
     an error

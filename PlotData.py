@@ -106,6 +106,11 @@ def filter_dataframe(df, params, ignore_sampling=False):
 
 
 def create_li_df(df):
+    """
+    Create new dataframe that is used for determining the information loss
+    :param df: The dataframe with the loaded data
+    :return: New datafram that contains the lost information for different sampling rates
+    """
     df_data_full = df[np.logical_and(df["sampling"] == "1.0", df["measure"] == "distance")].sort_values(
         by=list(df.columns)
     ).drop(columns="sampling", inplace=False)
@@ -230,6 +235,10 @@ def information_loss_plot(df, params):
 
 
 def main():
+    """
+    Main function
+    :return: None
+    """
     params = get_parameters()
     df = read_files(params["path"])
     if params["measure"] == "distance":

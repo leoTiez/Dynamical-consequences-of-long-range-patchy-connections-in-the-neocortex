@@ -223,6 +223,7 @@ def create_torus_layer_uniform(
     :param p_rf: The receptive field conenction probability. This is used to determine an adequate background activity
     :param ff_factor: The weight factor for the ff weights. This is used to determine an adequate background activity
     :param synaptic_strength: The feedforward activity. This is used to determine an adequate background activity
+    :param to_torus: If set to true, the neural sheet is wrapped to a torus
     :param bg_rate: Maximal spiking rate for background activity
     :param positions: If set to None, positions are generated, otherwise these positions are used. Note that the number
     of positions must match the number of neurons
@@ -553,6 +554,7 @@ def create_random_patches(
     :param r_loc: Radius for local connections
     :param p_loc: Probability for local connections
     :param num_patches: Number of patches that should be created
+    :param r_p: Radius of a patch
     :param cap_s: The excitatory weight
     :param p_p: Probability to establish long-range patchy connections. If none, prob. is calculated according to Voges
     paper
@@ -1333,7 +1335,7 @@ def same_input_current(layer, synaptic_strength, connect_prob, value=255/2., rf_
     :param value: The value to which it is set
     :param rf_size: Size of the receptive field
     :param use_dc: If set to true, direct current is injected
-    :return: List of generaturs that inject input
+    :return: List of generators that inject input
     """
     if use_dc:
         current_dict = {"amplitude": (rf_size[0] * rf_size[1]) * value * connect_prob}
@@ -1356,14 +1358,10 @@ def convert_step_tuning(
 ):
     """
     Convert the values from the receptive field to an activation according to the step function
-    :param target_node: Node that receives input from the receptive field
     :param rf: The receptive field values
     :param neuron_tuning: Tuning class of the neuron
     :param tuning_discr_step: The margin of a single step that is within a class. If there are 4 classes the step size
     for every class is 255 / 4
-    :param indices: The indices that correspond to the receptive field
-    :param adj_mat: The adjacency / weight matrix
-    :param min_target: Minimum id of the sensory neurons
     :return: Amplitudes
     """
     amplitude = np.zeros(rf.shape)
@@ -1386,14 +1384,10 @@ def convert_gauss_tuning(
 ):
     """
     Convert the values from the receptive field to an activation according to the Gauss function
-    :param target_node: Node that receives input from the receptive field
     :param rf: The receptive field values
     :param neuron_tuning: Tuning class of the neuron
     :param tuning_discr_step: The margin of a single step that is within a class. If there are 4 classes the step size
     for every class is 255 / 4
-    :param indices: The indices that correspond to the receptive field
-    :param adj_mat: The adjacency / weight matrix
-    :param min_target: Minimum id of the sensory neurons
     :return: Amplitudes
     """
     amplitude = continuous_tuning_curve(rf, neuron_tuning, tuning_discr_step)
@@ -1407,14 +1401,10 @@ def convert_linear_tuning(
 ):
     """
     Convert the values from the receptive field to an activation according to a linear function
-    :param target_node: Node that receives input from the receptive field
     :param rf: The receptive field values
     :param neuron_tuning: Tuning class of the neuron
     :param tuning_discr_step: The margin of a single step that is within a class. If there are 4 classes the step size
     for every class is 255 / 4
-    :param indices: The indices that correspond to the receptive field
-    :param adj_mat: The adjacency / weight matrix
-    :param min_target: Minimum id of the sensory neurons
     :return: Amplitudes
     """
     amplitude, slope, intercept = linear_tuning(rf, neuron_tuning, tuning_discr_step)
@@ -1422,7 +1412,13 @@ def convert_linear_tuning(
 
 
 def create_rf(net, image_size=(50, 50)):
-    # Follow the nest convention [columns, rows]
+    """
+    Create the receptive field for all neurons
+    :param net: The network passed as an object
+    :param image_size: The size of the input stimulus
+    :return: List with location and extent of rf for plotting
+    """
+    # Follow the convention [columns, rows]
     mask_specs = {
         "lower_left": [-net.rf_size[0] // 2, -net.rf_size[1] // 2],
         "upper_right": [net.rf_size[0] // 2, net.rf_size[1] // 2]
@@ -1471,32 +1467,11 @@ def create_connections_rf(
     """
     Create receptive fields for sensory neurons and establishes connections
     :param image: Input image
-    :param target_node_ids: Neurons in the target layer (i.e. the sheet with sensory neurons) to an input is injected
-    :param rf_centers: The centers of the receptive fields
-    :param tuning_vector: The map from neuron to stimulus tuning
-    :param inh_neurons: IDs of inhibitory neurons
-    :param rf_size: The size of a receptive field
-    :param tuning_function: The tuning function of the sensory neurons
-    :param synaptic_strength: Synaptic weight for the connections
-    :param total_num_target: Total number of neurons. Note that if a sampling rate < 1 is used, the number of the
-    target_node_ids is lower than the this value
-    :param p_rf: Connection probability to the cells in the receptive field
-    :param target_layer_size: Size of the square sheet with the sensory neurons
-    :param max_spiking: Maximal spiking rate of a Poisson spike generator
-    :param presentation_time: The time the image is presented to the network. Only possible with a Poisson spike train
-    :param calc_error: If set to true, the reconstruction error is calculated based in the injected input,
-    the reconstruction method is applied and the results is saved or displayed
-    :param use_dc: If set to True a DC is injected, otherwise a Poisson spike train
-    :param ff_factor: factor that scales the ff weight and hence must be the divisor for the rate
-    :param plot_src_target: Flag for plotting
-    :param save_plot: Flag for saving the plot. If plot_src_target is False this parameter is ignored
-    :param save_prefix: Naming prefix for the saved plot. Is ignored if save_plot or plot is False
-    :param non_changing_connections: If set to True, the function establishes the same conenctions if the other
-    parameters remain unchanged
+    :param sampled_neurons: The sampled neurons that receive feedforward input
+    :param net: The network as an object
+    :param rf_list: The list with receptive fields. Only needed if it is plotted
     :param plot_point: Number determining after how many established connections the plot is made
-    :param retina_size: Size of the retina / input layer
-    :param color_mask: Color mask of the functional map to plot receptive fields and sensory neurons properly
-    :return: Adjacency matrix from receptors to sensory nodes
+    :return: The reconstruction if input only was chosen otherwise None
     """
     num_tuning_discr = int(net.tuning_vector.max() + 1)
     tuning_discr_step = 256. / float(num_tuning_discr)

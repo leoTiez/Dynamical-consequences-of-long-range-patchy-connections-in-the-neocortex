@@ -33,8 +33,11 @@ def main_eigenvalue_spec(
     :param network_type: The network type. This must be an integer number defined in the NETWORK_TYPE dictionary
     :param num_neurons: Number of sensory neurons
     :param patches: Number of patches per neuron
+    :param c_alpha: Connection probability to connect to another neuron within the local radius
+    :param img_prop: Since using adaptive weights, the connections are set as there is a sampling rate.
     :param compute_sum: If set to true, the sum of the input weights is computed
     :param save_plot: If set to True the plot is saved. If False the plot is displayed
+    :param load_network: If set to true, the network is loaded from file
     :param verbosity: Verbosity flag
     :return: None
     """
@@ -74,6 +77,10 @@ def main_eigenvalue_spec(
 
 
 def main():
+    """
+    Main function
+    :return: None
+    """
     # #################################################################################################################
     # Initialise parameters
     # #################################################################################################################

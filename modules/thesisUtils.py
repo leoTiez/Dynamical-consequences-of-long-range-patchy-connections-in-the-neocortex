@@ -228,7 +228,7 @@ def sort_nodes_space(nodes, axis=0):
     return nodes, pos
 
 
-def get_in_out_degree(nodes, node_tree=None, node_pos=None, r_loc=0.5, r_p=None, size_layer=8.):
+def get_in_out_degree(nodes, node_tree=None, node_pos=None, r_loc=0.5, r_p=None):
     """
     Computes the distribution of in- and outdegree in the network
     :param nodes: The network nodes
@@ -236,7 +236,6 @@ def get_in_out_degree(nodes, node_tree=None, node_pos=None, r_loc=0.5, r_p=None,
     :param node_pos: The nodes positions
     :param r_loc: The local radius
     :param r_p: The patchy radius. If set to None the half of the local radius is taken
-    :param size_layer: The size of the layer
     :return: indegree dist of all connections, outdegree dist of all connections, indegree dist of local connections,
     the outdegree dist of local connections, the indegree of long-range connections, the outdegree of long-range
     conncetions
@@ -342,6 +341,11 @@ def plot_colorbar(fig, ax, num_stim_classes=4):
 
 
 def get_neuron_rgba(network):
+    """
+    Return rgba values for the neurons in netwokr
+    :param network: The network
+    :return: The rgba values as a vector
+    """
     inh_mask = np.zeros(len(network.torus_layer_nodes)).astype('bool')
     inh_mask[np.asarray(network.torus_inh_nodes) - min(network.torus_layer_nodes)] = True
 
@@ -379,6 +383,7 @@ def plot_connections(
     :param layer_size: Size of the layer
     :param save_plot: Flag for saving the plot
     :param plot_name: Name of the saved plot file. Is not taken into account if save_plot is False
+    :param font_size: Font size
     :param save_prefix: Naming prefix that is used if the plot save_plot is set to true
     :param color_mask: Color mask for the color/orientation map of neurons. If none it is not taken into account
     :return None
@@ -447,6 +452,10 @@ def plot_reconstruction(
     Plot stimulus reconstruction
     :param input_stimulus: Original input stimulus
     :param reconstruction: Reconstructed stimulus
+    :param color_mask: Color mask of the functional map that is displayed in a separate subplot
+    :param size_layer: The layer size. Is ignored if no color mask is passed
+    :param resolution: Perlin resolution of the functional map
+    :param font_size: Font size
     :param save_plots: If set to true, the plot is saved
     :param save_prefix: Prefix that is used for the saved file to identify the plot and the corresponding experiment
     :return: None
@@ -502,8 +511,11 @@ def plot_cmap(
     :param positions: Position of all neurons
     :param muted_nodes: Neurons without ff input
     :param size_layer: Size of the layer, ie length of one side of the square sheet
+    :param font_size: Font size
     :param resolution: Resolution that was used to create the color map
     :param num_stimulus_discr: Number of tuning classes
+    :param plot_sublayer: If true, the sublayer is marked with a red square
+    :param sublayer_extent: The size of the sublayer. This parameter is ignored if plot_sublayer is false
     :param save_plot: If set to true, the plot is saved
     :param save_prefix: Prefix that is used for the saved file to identify the plot and the corresponding experiment
     :return: None
@@ -574,6 +586,21 @@ def plot_spikes_over_time(
         save_plot=True,
         save_prefix=""
 ):
+    """
+    Plot neural activity over time
+    :param spikes_s: The IDs of the neurons that spiked
+    :param time_s: The respective times
+    :param network: The netwokr
+    :param t_start: Start of the simulation
+    :param t_end: End of the simulation
+    :param t_stim_start: Start times of input stimulation (excitation)
+    :param t_stim_end: End times of input stimulation (excitation)
+    :param title: Plot title
+    :param font_size: Font size
+    :param save_plot: If true, the plot is saved
+    :param save_prefix: Prefix that is added to the saved file
+    :return: None
+    """
     plt.rcParams.update({"font.size": font_size})
     plt.figure(figsize=(10, 5))
     positions = np.asarray(tp.GetPosition(spikes_s.tolist()))
@@ -616,6 +643,17 @@ def plot_spikes_over_time(
 
 
 def plot_spikes_over_space(firing_rates, network, title="", c_rgba=None, font_size=16, save_plot=False, save_prefix=""):
+    """
+    Plot the neural activity over space
+    :param firing_rates: Firing rates
+    :param network: Network
+    :param title: Plot title
+    :param c_rgba: Vector with rgba values
+    :param font_size: Font size
+    :param save_plot: If true, the plot is saved
+    :param save_prefix: Prefix that is added to the saved file
+    :return: None
+    """
     plt.rcParams.update({"font.size": font_size})
     plt.figure(figsize=(10, 5))
     plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=network.num_stim_discr)
@@ -670,6 +708,21 @@ def plot_network_animation(
         save_plot=False,
         save_prefix=""
 ):
+    """
+    Creates a moving network animation
+    :param network: The netwokr
+    :param spikes_s: The IDs of the neurons that spiked
+    :param time_s: The respective spiking times
+    :param title: Title of the animation
+    :param c_rgba: Vector that contains the rgba values
+    :param min_mem_pot: Mimimum membrane potential that is required for a neuron to be plotted
+    :param animation_start: When the animation starts
+    :param animation_end: When the animation ends
+    :param font_size: Font size
+    :param save_plot: If true, the animation is saved as gif
+    :param save_prefix: Prefix that is added to the saved file
+    :return: None
+    """
     plt.rcParams.update({"font.size": font_size})
     multi_events = nest.GetStatus(network.multi_meter, "events")[0]
     times_multi = multi_events["times"]
@@ -750,6 +803,15 @@ def plot_network_animation(
 
 
 def plot_rf(net, image, rf_list, counter=9, font_size=16):
+    """
+    Plot the receptive fields
+    :param net: The network
+    :param image: The image
+    :param rf_list: The list with receptive fields
+    :param counter: How many of the receptive fields is to be plotted
+    :param font_size: Font size
+    :return: None
+    """
     plt.rcParams.update({"font.size": font_size})
     fig, ax = plt.subplots(1, 2, sharex='none', sharey='none', figsize=(10, 5))
     ax[0].axis((0, net.stimulus_size[1], 0, net.stimulus_size[0]))
@@ -801,6 +863,15 @@ def plot_rf(net, image, rf_list, counter=9, font_size=16):
 
 
 def plot_tuning_classes(tuning_fun, num_tuning_discr=4, save_plot=False, save_prefix="", font_size=16):
+    """
+    Plot the transformation with the tuning curves
+    :param tuning_fun: The tuning function
+    :param num_tuning_discr: Number of tuning classes
+    :param save_plot: If true, plot is saved
+    :param save_prefix: The prefix that is added to the saved file
+    :param font_size: Font size
+    :return: None
+    """
     plt.rcParams.update({"font.size": font_size})
     applied_current = np.arange(0, 255)
     plt.figure(figsize=(10, 5))

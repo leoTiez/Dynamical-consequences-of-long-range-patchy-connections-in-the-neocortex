@@ -37,7 +37,12 @@ def main_matrix_dynamics(
     Calculate the network dynamics based on matrix calculations. For that, the input is once transformed via the
     feedforward matrix and then the dynamics are investigated via the weight matrix for the recurrent connections
     :param network_type: Network type. This is an integer number defined in the NETWORK_TYPE dictionary
-    :param input_type: Input type. This is an integer number defined in INPUT_TYPE dictionary
+    :param perlin_resolution: The Perlin resolution that is used as input
+    :param c_alpha: Connection probability to connect to another neuron within the local radius
+    :param load_network: If set to true, the network is loaded from file
+    :param img_prop: The sampling rate. Important to set as it determines the weights (since using adaptive weights)
+    :param normalise: If set to true, the outcome is normalised and shows the activity with respect to each other
+    instead of the absolute values
     :param num_neurons: Number of sensory neurons. Needs to have an integer square root
     :param save_fig: If set to true, the created plot is saved
     :param save_prefix: The prefix that is used for the name of the saved plot
@@ -136,6 +141,10 @@ def main_matrix_dynamics(
 
 
 def main():
+    """
+    Main function
+    :return: None
+    """
     # #################################################################################################################
     # Initialise parameters
     # #################################################################################################################

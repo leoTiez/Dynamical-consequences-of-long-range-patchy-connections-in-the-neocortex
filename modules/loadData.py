@@ -118,6 +118,11 @@ def check_experiment_type(file_name):
 
 
 def check_spatial_sampling(file_name):
+    """
+    Check whether neurons were sampled with spatial correlation
+    :param file_name: Name of the file
+    :return: True if it was, False else. Value returned as string
+    """
     img_prop_str = "spatials"
     idx = file_name.index(img_prop_str)
     use_spatial_sampling = file_name[idx + 1:].split("_")[1]

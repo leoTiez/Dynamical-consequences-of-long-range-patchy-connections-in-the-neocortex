@@ -22,8 +22,10 @@ def main_experiment_loop(
     :param parameter: Parameter under investigation
     :param img_prop: Sampling rate
     :param num_trials: Number of trials
+    :param less_cpus: The number of cpus that are not used when full capacity is available
     :param spatial_sampling: Flag, if set to true, the sampling of the neurons is dependent on their spatial correlation
     :param load_network: If set to true, the network is loaded from file
+    :param existing_ok: If set to true, all trials that have been already conducted are skipped
     :return: None
     """
     curr_dir = os.getcwd()
@@ -73,6 +75,10 @@ def main_experiment_loop(
 
 
 def main():
+    """
+    Main function
+    :return: None
+    """
     # #############################################################################################################
     # Parsing command line arguments
     # #############################################################################################################
