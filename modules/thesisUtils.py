@@ -251,7 +251,7 @@ def get_in_out_degree(nodes, node_tree=None, node_pos=None, r_loc=0.5, r_p=None,
     out_degree_lr = []
 
     min_id = min(nodes)
-    for node in nodes:
+    for num, node in enumerate(nodes):
         out_connect = nest.GetConnections(source=[node])
         in_connect = nest.GetConnections(target=[node])
         out_degree.append(len(out_connect))
@@ -260,25 +260,19 @@ def get_in_out_degree(nodes, node_tree=None, node_pos=None, r_loc=0.5, r_p=None,
         if node_tree is not None and node_pos is not None:
             out_partners = set(nest.GetStatus(out_connect, "target"))
             in_partners = set(nest.GetStatus(in_connect, "source"))
-            pos = node_pos[node - min_id]
+            pos = node_pos[num]
 
             if r_p is None:
                 r_p = r_loc / 2.
 
-            min_distance_lr = r_loc + r_p
-            max_distance_lr = np.sqrt(size_layer ** 2 + size_layer ** 2) / 2. - r_p
-
             # Local in/out degree
-            connect_partners = set((np.asarray(node_tree.query_ball_point(pos, r_loc)) + min_id).tolist())
+            connect_partners = set(np.asarray(nodes)[np.asarray(node_tree.query_ball_point(pos, r_loc))].tolist())
             in_degree_loc.append(len(connect_partners.intersection(in_partners)))
             out_degree_loc.append(len(connect_partners.intersection(out_partners)))
 
             # Long range in/out degree
-            inner_nodes = (np.asarray(node_tree.query_ball_point(pos, min_distance_lr)) + min_id).tolist()
-            outer_nodes = (np.asarray(node_tree.query_ball_point(pos, max_distance_lr)) + min_id).tolist()
-            patchy_partners = set(outer_nodes).difference(set(inner_nodes))
-            in_degree_lr.append(len(patchy_partners.intersection(in_partners)))
-            out_degree_lr.append(len(patchy_partners.intersection(out_partners)))
+            in_degree_lr.append(len(in_partners.difference(connect_partners)))
+            out_degree_lr.append(len(out_partners.difference(connect_partners)))
 
     return in_degree, out_degree, in_degree_loc, out_degree_loc, in_degree_lr, out_degree_lr
 
