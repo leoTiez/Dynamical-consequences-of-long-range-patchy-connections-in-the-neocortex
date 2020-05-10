@@ -62,14 +62,15 @@ class NeuronalNetworkBase:
         meaning that the ration is 1/ratio_inh_neurons
         :param num_stim_discr: The number of discriminated stimulus classes
         :param ff_weight: Weight of feedforward connections
-        :param ff_factor: Factor by which the feedforward input is scaled. This is also the divisor of the recurrent
-        weights and the maximal spiking rate for the Poisson spike generator
+        :param rec_factor: Factor by which the recurrent input is scaled.
         :param cap_s: Excitatory weight
         :param inh_weight: Inhibitory weight
         :param p_rf: Connection probability of the receptive field
         :param rf_size: The size of the receptive field
         :param tuning_function: The tuning function, passed as an integer number defined in
         the dictionary TUNING_FUNCTION defined in the networkConstruction module
+        :param global_connect: The global connectivity that should be perserved. Determined by k / num_sensory with
+        k representing the average in-/out-degree
         :param all_same_input_current: Flag to determine whether all sensory neurons receive the same input.
         The flag mostly usful for bugfix and should be set to False otherwise
         :param pot_threshold: Threshold potential of the sensory neurons
@@ -77,6 +78,9 @@ class NeuronalNetworkBase:
         :param capacitance: Capacitance of the sensory neurons
         :param time_constant: Time constant tau of the sensory neurons
         :param layer_size: Size of the sheet of the neural tissue that is modelled
+        :param sub_layer_size_ratio: Ratio of the layer size that is used for determining the network dynamics.
+        This means that input is only injected into neurons within this areas as well as only taking these cells into
+        account when reconstructing the stimulus
         :param max_spiking: Maximal spiking rate of the ff input Poisson spike generator
         :param bg_rate: Rate that is used for background activity
         :param presentation_time: Time the image is presented to the network. Only possible if Poisson spike generator
@@ -166,6 +170,158 @@ class NeuronalNetworkBase:
         self.adj_sens_sens_mat = None
         self.rf_center_map = None
         self.input_recon = None
+
+    # #################################################################################################################
+    # Private methods
+    # #################################################################################################################
+
+    def _choose_ff_neurons(self, exc_only=False, tc=None):
+        """
+        Select neurons that receive feedforward input
+        :param exc_only: If set, only excitatory neurons are chosen
+        :param tc: If set, the neurons are sampled from a particular tuning class
+        :return: The selected neurons
+        """
+        num_input_neurons = int(self.img_prop * self.input_neurons_mask.sum())
+        neuron_mask = np.zeros(self.num_sensory).astype("bool")
+        neuron_mask |= self.input_neurons_mask
+        if exc_only:
+            neuron_mask &= ~self.input_inh_neurons_mask
+        if tc is not None:
+            tuning_mask = np.zeros(self.num_sensory).astype("bool")
+            tuning_mask[np.asarray(self.tuning_to_neuron_map[tc]) - min(self.torus_layer_nodes)] = True
+            neuron_mask &= tuning_mask
+
+        if self.img_prop == 1.0:
+            neurons_with_input = np.asarray(self.torus_layer_nodes)[neuron_mask]
+        else:
+            if not self.spatial_sampling:
+                neurons_with_input_idx = np.random.choice(
+                    np.arange(self.num_sensory).astype("int")[neuron_mask],
+                    num_input_neurons,
+                    replace=False
+                ).tolist()
+
+                neurons_with_input = np.asarray(self.torus_layer_nodes)[neurons_with_input_idx]
+            else:
+                if exc_only:
+                    Warning("Not yet implemented to choose only excitatory neurons when using spatial sampling")
+                sample_centers_idx = np.random.choice(
+                    np.arange(self.num_sensory).astype("int")[neuron_mask],
+                    self.num_spatial_samples,
+                    replace=False
+                )
+
+                sample_centers = np.asarray(self.torus_layer_positions)[sample_centers_idx]
+                k = int(num_input_neurons / self.num_spatial_samples)
+                sublayer_tree = KDTree(np.asarray(self.torus_layer_positions)[self.input_neurons_mask])
+                while True:
+                    _, neurons_with_input_idx = sublayer_tree.query(
+                        sample_centers,
+                        k=k
+                    )
+
+                    neurons_with_input_idx = list(set(neurons_with_input_idx.flatten()))
+                    diff = len(neurons_with_input_idx) - num_input_neurons
+                    if diff > 0:
+                        neurons_with_input_idx = neurons_with_input_idx[:num_input_neurons]
+                        break
+                    k += np.maximum(-diff, 1)
+
+                chosen_neurons = np.zeros(self.num_sensory).astype("bool")
+                chosen_neurons[
+                    np.arange(self.num_sensory)[self.input_neurons_mask][neurons_with_input_idx]
+                ] = True
+                neurons_with_input = np.asarray(self.torus_layer_nodes)[np.logical_and(chosen_neurons, neuron_mask)]
+
+        return neurons_with_input.tolist()
+
+    def _connect_distribution(self, plot_local=False, plot_lr=False, plot_name="in_out_deg_dist.png", **kwargs):
+        """
+        Plot the in-/out-degree distribution in the network
+        :param plot_local: If set to true, the in/out-degree is plotted for local connections as well
+        :param plot_lr: If set to true, the in/out-degree is plotted for long-range connections as well
+        :param plot_name: Name of the plot
+        :return: None
+        """
+        # Check ups
+        if self.torus_layer_nodes is None:
+            raise ValueError("The sensory nodes have not been created yet. Run create_layer")
+
+        tree = KDTree(np.asarray(self.torus_layer_positions)[self.input_neurons_mask])
+        in_degree, out_degree, in_degree_loc, out_degree_loc, in_degree_lr, out_degree_lr = get_in_out_degree(
+            np.asarray(self.torus_layer_nodes)[self.input_neurons_mask],
+            node_tree=tree if plot_local or plot_lr else None,
+            node_pos=np.asarray(self.torus_layer_positions)[self.input_neurons_mask] if plot_local or plot_lr else None,
+            r_loc=self.r_loc if plot_local or plot_lr else None,
+            size_layer=self.layer_size
+        )
+
+        in_deg_dist = OrderedDict(sorted(Counter(in_degree).items()))
+        out_deg_dist = OrderedDict(sorted(Counter(out_degree).items()))
+
+        num_rows = 1
+        if plot_local:
+            num_rows += 1
+        if plot_lr:
+            num_rows += 1
+
+        fig, ax = plt.subplots(num_rows, 2, figsize=(10, 10))
+
+        if not plot_local and not plot_lr:
+            ax[0].bar(list(in_deg_dist.keys()), list(in_deg_dist.values()))
+            ax[0].set_ylabel("Total")
+            ax[1].bar(list(out_deg_dist.keys()), list(out_deg_dist.values()))
+            ax[0].set_xlabel("Indegree")
+            ax[1].set_xlabel("Outdegree")
+
+        else:
+            ax[0][0].bar(list(in_deg_dist.keys()), list(in_deg_dist.values()))
+            ax[0][0].set_ylabel("Total")
+            ax[0][1].bar(list(out_deg_dist.keys()), list(out_deg_dist.values()))
+
+            if plot_local:
+                in_deg_dist_loc = OrderedDict(sorted(Counter(in_degree_loc).items()))
+                out_deg_dist_loc = OrderedDict(sorted(Counter(out_degree_loc).items()))
+
+                ax[1][0].bar(list(in_deg_dist_loc.keys()), list(in_deg_dist_loc.values()))
+                ax[1][0].set_ylabel("Proximal")
+                ax[1][1].bar(list(out_deg_dist_loc.keys()), list(out_deg_dist_loc.values()))
+
+            if plot_lr:
+                in_deg_dist_lr = OrderedDict(sorted(Counter(in_degree_lr).items()))
+                out_deg_dist_lr = OrderedDict(sorted(Counter(out_degree_lr).items()))
+
+                ax[2][0].bar(list(in_deg_dist_lr.keys()), list(in_deg_dist_lr.values()))
+                ax[2][0].set_ylabel("Distal")
+                ax[2][1].bar(list(out_deg_dist_lr.keys()), list(out_deg_dist_lr.values()))
+
+            ax[-1][0].set_xlabel("Indegree")
+            ax[-1][1].set_xlabel("Outdegree")
+
+        fig.text(0.03, 0.5, "#Nodes", ha="center", va="center", rotation="vertical")
+
+        if self.save_plots:
+            curr_dir = os.getcwd()
+            Path(curr_dir + "/figures/in-out-dist/").mkdir(parents=True, exist_ok=True)
+            plt.savefig(curr_dir + "/figures/in-out-dist/%s_%s" % (self.save_prefix, plot_name))
+        else:
+            plt.show()
+
+    def _set_nest_kernel(self):
+        """
+        Reset the nest kernel. It is triggered when creating or loading a network
+        :return:
+        """
+        nest.ResetKernel()
+        curr_dir = os.getcwd()
+        path = "%s/network_files/spikes/" % curr_dir
+        Path(path).mkdir(parents=True, exist_ok=True)
+        nest.SetKernelStatus({
+            "overwrite_files": True,
+            "data_path": path,
+            "data_prefix": self.save_prefix
+        })
 
     # #################################################################################################################
     # Network creation
@@ -272,62 +428,11 @@ class NeuronalNetworkBase:
             save_prefix=self.save_prefix
         )
 
-    def _choose_ff_neurons(self, exc_only=False, tc=None):
-        num_input_neurons = int(self.img_prop * self.input_neurons_mask.sum())
-        neuron_mask = np.zeros(self.num_sensory).astype("bool")
-        neuron_mask |= self.input_neurons_mask
-        if exc_only:
-            neuron_mask &= ~self.input_inh_neurons_mask
-        if tc is not None:
-            tuning_mask = np.zeros(self.num_sensory).astype("bool")
-            tuning_mask[np.asarray(self.tuning_to_neuron_map[tc]) - min(self.torus_layer_nodes)] = True
-            neuron_mask &= tuning_mask
-
-        if self.img_prop == 1.0:
-            neurons_with_input = np.asarray(self.torus_layer_nodes)[neuron_mask]
-        else:
-            if not self.spatial_sampling:
-                neurons_with_input_idx = np.random.choice(
-                    np.arange(self.num_sensory).astype("int")[neuron_mask],
-                    num_input_neurons,
-                    replace=False
-                ).tolist()
-
-                neurons_with_input = np.asarray(self.torus_layer_nodes)[neurons_with_input_idx]
-            else:
-                if exc_only:
-                    Warning("Not yet implemented to choose only excitatory neurons when using spatial sampling")
-                sample_centers_idx = np.random.choice(
-                    np.arange(self.num_sensory).astype("int")[neuron_mask],
-                    self.num_spatial_samples,
-                    replace=False
-                )
-
-                sample_centers = np.asarray(self.torus_layer_positions)[sample_centers_idx]
-                k = int(num_input_neurons / self.num_spatial_samples)
-                sublayer_tree = KDTree(np.asarray(self.torus_layer_positions)[self.input_neurons_mask])
-                while True:
-                    _, neurons_with_input_idx = sublayer_tree.query(
-                        sample_centers,
-                        k=k
-                    )
-
-                    neurons_with_input_idx = list(set(neurons_with_input_idx.flatten()))
-                    diff = len(neurons_with_input_idx) - num_input_neurons
-                    if diff > 0:
-                        neurons_with_input_idx = neurons_with_input_idx[:num_input_neurons]
-                        break
-                    k += np.maximum(-diff, 1)
-
-                chosen_neurons = np.zeros(self.num_sensory).astype("bool")
-                chosen_neurons[
-                    np.arange(self.num_sensory)[self.input_neurons_mask][neurons_with_input_idx]
-                ] = True
-                neurons_with_input = np.asarray(self.torus_layer_nodes)[np.logical_and(chosen_neurons, neuron_mask)]
-
-        return neurons_with_input.tolist()
-
     def create_rf(self):
+        """
+        Method creates the receptive fields of the neurons in the sublayer
+        :return: None
+        """
         if self.verbosity > 0:
             print_msg("Create receptive fields")
 
@@ -362,6 +467,7 @@ class NeuronalNetworkBase:
         """
         Creates the receptive fields and computes the injected DC / spike rate of a Poisson generator for every
         sensory neuron.
+        :param input_stimulus: The image that is perceived
         :return: None
         """
         if self.verbosity > 0:
@@ -492,76 +598,6 @@ class NeuronalNetworkBase:
             color_mask=self.color_map
         )
 
-    def _connect_distribution(self, plot_local=False, plot_lr=False, plot_name="in_out_deg_dist.png", **kwargs):
-        """
-        Plot the in-/outdegree distribution in the network
-        :param plot_name: Name of the plot
-        :return: None
-        """
-        # Check ups
-        if self.torus_layer_nodes is None:
-            raise ValueError("The sensory nodes have not been created yet. Run create_layer")
-
-        tree = KDTree(np.asarray(self.torus_layer_positions)[self.input_neurons_mask])
-        in_degree, out_degree, in_degree_loc, out_degree_loc, in_degree_lr, out_degree_lr = get_in_out_degree(
-            np.asarray(self.torus_layer_nodes)[self.input_neurons_mask],
-            node_tree=tree if plot_local or plot_lr else None,
-            node_pos=np.asarray(self.torus_layer_positions)[self.input_neurons_mask] if plot_local or plot_lr else None,
-            r_loc=self.r_loc if plot_local or plot_lr else None,
-            size_layer=self.layer_size
-        )
-
-        in_deg_dist = OrderedDict(sorted(Counter(in_degree).items()))
-        out_deg_dist = OrderedDict(sorted(Counter(out_degree).items()))
-
-        num_rows = 1
-        if plot_local:
-            num_rows += 1
-        if plot_lr:
-            num_rows += 1
-
-        fig, ax = plt.subplots(num_rows, 2, figsize=(10, 10))
-
-        if not plot_local and not plot_lr:
-            ax[0].bar(list(in_deg_dist.keys()), list(in_deg_dist.values()))
-            ax[0].set_ylabel("Total")
-            ax[1].bar(list(out_deg_dist.keys()), list(out_deg_dist.values()))
-            ax[0].set_xlabel("Indegree")
-            ax[1].set_xlabel("Outdegree")
-
-        else:
-            ax[0][0].bar(list(in_deg_dist.keys()), list(in_deg_dist.values()))
-            ax[0][0].set_ylabel("Total")
-            ax[0][1].bar(list(out_deg_dist.keys()), list(out_deg_dist.values()))
-
-            if plot_local:
-                in_deg_dist_loc = OrderedDict(sorted(Counter(in_degree_loc).items()))
-                out_deg_dist_loc = OrderedDict(sorted(Counter(out_degree_loc).items()))
-
-                ax[1][0].bar(list(in_deg_dist_loc.keys()), list(in_deg_dist_loc.values()))
-                ax[1][0].set_ylabel("Proximal")
-                ax[1][1].bar(list(out_deg_dist_loc.keys()), list(out_deg_dist_loc.values()))
-
-            if plot_lr:
-                in_deg_dist_lr = OrderedDict(sorted(Counter(in_degree_lr).items()))
-                out_deg_dist_lr = OrderedDict(sorted(Counter(out_degree_lr).items()))
-
-                ax[2][0].bar(list(in_deg_dist_lr.keys()), list(in_deg_dist_lr.values()))
-                ax[2][0].set_ylabel("Distal")
-                ax[2][1].bar(list(out_deg_dist_lr.keys()), list(out_deg_dist_lr.values()))
-
-            ax[-1][0].set_xlabel("Indegree")
-            ax[-1][1].set_xlabel("Outdegree")
-
-        fig.text(0.03, 0.5, "#Nodes", ha="center", va="center", rotation="vertical")
-
-        if self.save_plots:
-            curr_dir = os.getcwd()
-            Path(curr_dir + "/figures/in-out-dist/").mkdir(parents=True, exist_ok=True)
-            plt.savefig(curr_dir + "/figures/in-out-dist/%s_%s" % (self.save_prefix, plot_name))
-        else:
-            plt.show()
-
     # #################################################################################################################
     # Getter / Setter
     # #################################################################################################################
@@ -597,6 +633,15 @@ class NeuronalNetworkBase:
         )
 
     def set_input_generator(self, input_generators, input_rate=None, origin=0., start=0., end=1000.):
+        """
+        Set the parameters of the passed input generators
+        :param input_generators: Input generators that are to be updated
+        :param input_rate: The new input rate
+        :param origin: Reference time of the NEST kernel
+        :param start: Time when the generator is activated
+        :param end: Time when the generator is switched off
+        :return: None
+        """
         if self.use_dc:
             Warning("Cannot set input rate when using DC input. Nothing changed.")
             return
@@ -607,6 +652,16 @@ class NeuronalNetworkBase:
         nest.SetStatus(input_generators, {"rate": input_rate, "origin": origin, "start": start, "stop": end})
 
     def set_input_rate(self, input_rate=None, origin=0., start=0., end=1000., exc_only=True, tc=None):
+        """
+        Set same input rate of randomly sampled input neurons
+        :param input_rate: The input rate that is to be set
+        :param origin: The reference time
+        :param start: The starting time with reference to the origin
+        :param end: The stopping time with reference to the origin
+        :param exc_only: If set to true, only excitatory neurons are selected
+        :param tc: If set, neurons are sampled only from this tuning class
+        :return: The sampled input generators that were updated
+        """
         if self.use_dc:
             Warning("Cannot set input rate when using DC input. Nothing changed.")
             return
@@ -624,23 +679,8 @@ class NeuronalNetworkBase:
         return input_generators
 
     # #################################################################################################################
-    # Abstract methods
+    # Loading / saving / creating methods
     # #################################################################################################################
-
-    def _set_nest_kernel(self):
-        """
-        Reset the nest kernel. It is triggered when creating or loading a network
-        :return:
-        """
-        nest.ResetKernel()
-        curr_dir = os.getcwd()
-        path = "%s/network_files/spikes/" % curr_dir
-        Path(path).mkdir(parents=True, exist_ok=True)
-        nest.SetKernelStatus({
-            "overwrite_files": True,
-            "data_path": path,
-            "data_prefix": self.save_prefix
-        })
 
     def create_network(self, input_stimulus=None):
         """
@@ -687,9 +727,6 @@ class RandomNetwork(NeuronalNetworkBase):
         Random network class
         :param num_sensory: Number of sensory nodes in the sheet
         :param layer_size: Size of the layer
-        :param r_loc: Defines the radius for local connections. Although this parameter is not used for establishing
-        any distance dependent functions, it is applied for determining a connection probability that makes a comparison
-        possible between the different network types
         :param verbosity: Verbosity flag to determine the amount of printed output and created plots
         :param kwargs: Key value arguments that are passed to the base class
         """
@@ -709,9 +746,7 @@ class RandomNetwork(NeuronalNetworkBase):
             **kwargs
         )
         # Set probability to a value such that it becomes comparable to clustered networks
-        # Calculation is taken from Voges et al.
         self.p_random = self.global_connect
-
         self.plot_random_connections = False if verbosity < 4 else True
 
     def create_random_connections(self):
@@ -750,11 +785,18 @@ class RandomNetwork(NeuronalNetworkBase):
         )
 
     def connect_distribution(self, plot_name="in_out_deg_dist.png"):
+        """
+        Plot the in-/out degree distribution
+        :param plot_name: Name of the saved file. This is ignored if the verbosity flag is set such the plot is not
+        saved
+        :return: None
+        """
         NeuronalNetworkBase._connect_distribution(self, plot_local=False, plot_lr=False, plot_name=plot_name)
 
     def create_network(self, input_stimulus=None):
         """
         Create the network and establish the connections. Calls create function of parent class
+        :param The input stimulus that is perceived
         :return: None
         """
         NeuronalNetworkBase.create_network(self, input_stimulus)
@@ -776,8 +818,8 @@ class LocalNetwork(NeuronalNetworkBase):
     ):
         """
         Class that establishes local connections with locally clustered tuning specfic neurons
-        :param c_alpha: Connection probability to connect to another neuron within the local radius
         :param r_loc: Radius within which a local connection is established
+        :param c_alpha: Connection probability to connect to another neuron within the local radius
         :param loc_connection_type: Connection policy for local connections. This can be any value in the
         ACCEPTED_LOC_CONN list. Circ are circular connections, whereas sd are stimulus dependent connections
         :param verbosity: Determines the amount of output and created plots
@@ -886,6 +928,7 @@ class LocalNetwork(NeuronalNetworkBase):
     def create_network(self, input_stimulus=None):
         """
         Creates the network and class the create function of the parent class
+        :param input_stimulus: The input stimulus that is perceived
         :return: None
         """
         NeuronalNetworkBase.create_network(self, input_stimulus)
@@ -907,7 +950,7 @@ class PatchyNetwork(LocalNetwork):
     ):
         """
         Class for patchy networks with long-range patchy connections
-        :param p_lr: Connection probability for long-range patchy connections
+        :param c_alpha: Connection probability to connect to another neuron within the local radius
         :param num_patches: Number of patches per neuron
         :param lr_connection_type: The connection type of the long-range patchy connections. Can be any value from the
         ACCEPTED_LR_CONN list. Random patches can be created everywhere within in given distance, whereas sd establishes
@@ -1013,7 +1056,7 @@ class PatchyNetwork(LocalNetwork):
 
     def connect_distribution(self, plot_name="in_out_deg_dist.png"):
         """
-        Plot in/outdegree distribution. There are different subplots created for all connections, local, and long-range
+        Plot in/out-degree distribution. There are different subplots created for all connections, local, and long-range
         :param plot_name: Name of the plot if self.save_plots is set to True
         :return: None
         """
@@ -1022,7 +1065,8 @@ class PatchyNetwork(LocalNetwork):
     def create_network(self, input_stimulus=None):
         """
         Create the network, establishes the connections and calls the create function of the parent class
-        :return:
+        :param input_stimulus: The input stimulus that is perceived
+        :return: None
         """
         LocalNetwork.create_network(self, input_stimulus)
         if self.use_input_neurons:
