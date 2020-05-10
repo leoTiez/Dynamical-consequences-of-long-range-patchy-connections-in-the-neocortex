@@ -106,6 +106,11 @@ def filter_dataframe(df, params, ignore_sampling=False):
 
 
 def create_li_df(df):
+    """
+    Create new dataframe that is used for determining the information loss
+    :param df: The dataframe with the loaded data
+    :return: New datafram that contains the lost information for different sampling rates
+    """
     df_data_full = df[np.logical_and(df["sampling"] == "1.0", df["measure"] == "distance")].sort_values(
         by=list(df.columns)
     ).drop(columns="sampling", inplace=False)
@@ -148,6 +153,7 @@ def violin_plot(df, params):
     :param params: Parameters
     :return: None
     """
+    plt.rcParams.update({"font.size": 16})
     new_df, save_string = filter_dataframe(df, params)
     figure = plt.gcf()
     figure.set_size_inches((15, 8))
@@ -181,6 +187,7 @@ def violin_plot(df, params):
         ax_2.set_title("Error distribution for Error values > 1")
 
     figure.suptitle(params["name"], fontsize=16)
+    ax.set_ylabel("Reconstruction Error E")
     if params["save_plot"]:
         curr_dir = os.getcwd()
         Path(curr_dir + "/figures/data_analysis").mkdir(parents=True, exist_ok=True)
@@ -198,6 +205,7 @@ def information_loss_plot(df, params):
     :param params: Parameters
     :return: None
     """
+    plt.rcParams.update({"font.size": 16})
     new_df, save_string = filter_dataframe(df, params, ignore_sampling=True)
     df_li = create_li_df(new_df)
     df_li.sort_values("li_type", inplace=True)
@@ -227,6 +235,10 @@ def information_loss_plot(df, params):
 
 
 def main():
+    """
+    Main function
+    :return: None
+    """
     params = get_parameters()
     df = read_files(params["path"])
     if params["measure"] == "distance":

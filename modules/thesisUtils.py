@@ -77,7 +77,7 @@ def arg_parse(args):
     )
     parser.add_argument("--num_trials", type=int, help="Sets the number of trials")
     parser.add_argument(
-        "--ff_factor",
+        "--rec_factor",
         type=float,
         help="Sets the weight factor that is multiplied to the default value of the feedforward weights"
     )
@@ -130,23 +130,6 @@ def arg_parse(args):
     parsed_args = parser.parse_args(args)
 
     return parsed_args
-
-
-def custom_cmap(num_stimulus_discr=4, add_inh=False):
-    """
-    Custom color map for coloring the neurons and tuning map
-    :param num_stimulus_discr: Number of stimulus feature classes that can be discriminated
-    :param add_inh: Flag to determine whether inhibitory neurons are to be included as they don't have any
-    stimulus tuning
-    :return: The customised color map
-    """
-    cmap = plt.get_cmap('tab10')
-    new_cmap = mcolors.LinearSegmentedColormap.from_list(
-        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=0.0, b=(1/num_stimulus_discr)+0.1),
-        cmap(np.linspace(0.0, (1/num_stimulus_discr)+0.1, 100)))
-    if add_inh:
-        new_cmap.set_under('k')
-    return new_cmap
 
 
 def degree_to_rad(deg):
@@ -207,6 +190,7 @@ def perlin_noise(size_layer=50, resolution=(5, 5), spacing=0.01):
 
     ipol = ip.RectBivariateSpline(stimulus_grid_range_x, stimulus_grid_range_y, V)
     c_map = ipol(grid_nodes_range, grid_nodes_range)
+
     return c_map
 
 
@@ -244,7 +228,7 @@ def sort_nodes_space(nodes, axis=0):
     return nodes, pos
 
 
-def get_in_out_degree(nodes, node_tree=None, node_pos=None, r_loc=0.5, r_p=None, size_layer=8.):
+def get_in_out_degree(nodes, node_tree=None, node_pos=None, r_loc=0.5, r_p=None):
     """
     Computes the distribution of in- and outdegree in the network
     :param nodes: The network nodes
@@ -252,7 +236,6 @@ def get_in_out_degree(nodes, node_tree=None, node_pos=None, r_loc=0.5, r_p=None,
     :param node_pos: The nodes positions
     :param r_loc: The local radius
     :param r_p: The patchy radius. If set to None the half of the local radius is taken
-    :param size_layer: The size of the layer
     :return: indegree dist of all connections, outdegree dist of all connections, indegree dist of local connections,
     the outdegree dist of local connections, the indegree of long-range connections, the outdegree of long-range
     conncetions
@@ -267,7 +250,7 @@ def get_in_out_degree(nodes, node_tree=None, node_pos=None, r_loc=0.5, r_p=None,
     out_degree_lr = []
 
     min_id = min(nodes)
-    for node in nodes:
+    for num, node in enumerate(nodes):
         out_connect = nest.GetConnections(source=[node])
         in_connect = nest.GetConnections(target=[node])
         out_degree.append(len(out_connect))
@@ -276,25 +259,19 @@ def get_in_out_degree(nodes, node_tree=None, node_pos=None, r_loc=0.5, r_p=None,
         if node_tree is not None and node_pos is not None:
             out_partners = set(nest.GetStatus(out_connect, "target"))
             in_partners = set(nest.GetStatus(in_connect, "source"))
-            pos = node_pos[node - min_id]
+            pos = node_pos[num]
 
             if r_p is None:
                 r_p = r_loc / 2.
 
-            min_distance_lr = r_loc + r_p
-            max_distance_lr = np.sqrt(size_layer ** 2 + size_layer ** 2) / 2. - r_p
-
             # Local in/out degree
-            connect_partners = set((np.asarray(node_tree.query_ball_point(pos, r_loc)) + min_id).tolist())
+            connect_partners = set(np.asarray(nodes)[np.asarray(node_tree.query_ball_point(pos, r_loc))].tolist())
             in_degree_loc.append(len(connect_partners.intersection(in_partners)))
             out_degree_loc.append(len(connect_partners.intersection(out_partners)))
 
             # Long range in/out degree
-            inner_nodes = (np.asarray(node_tree.query_ball_point(pos, min_distance_lr)) + min_id).tolist()
-            outer_nodes = (np.asarray(node_tree.query_ball_point(pos, max_distance_lr)) + min_id).tolist()
-            patchy_partners = set(outer_nodes).difference(set(inner_nodes))
-            in_degree_lr.append(len(patchy_partners.intersection(in_partners)))
-            out_degree_lr.append(len(patchy_partners.intersection(out_partners)))
+            in_degree_lr.append(len(in_partners.difference(connect_partners)))
+            out_degree_lr.append(len(out_partners.difference(connect_partners)))
 
     return in_degree, out_degree, in_degree_loc, out_degree_loc, in_degree_lr, out_degree_lr
 
@@ -315,12 +292,87 @@ def firing_rate_sorting(idx_based_list, sorted_list, new_idx_neurons, element):
     return new_idx_neurons[element]
 
 
+def print_msg(msg):
+    print("\n#####################\t%s" % msg)
+
+# #################################################################################################################
+# Plotting functions
+# #################################################################################################################
+
+
+def custom_cmap(num_stimulus_discr=4, add_inh=False):
+    """
+    Custom color map for coloring the neurons and tuning map
+    :param num_stimulus_discr: Number of stimulus feature classes that can be discriminated
+    :param add_inh: Flag to determine whether inhibitory neurons are to be included as they don't have any
+    stimulus tuning
+    :return: The customised color map
+    """
+    cmap = plt.get_cmap('tab10')
+    new_cmap = mcolors.LinearSegmentedColormap.from_list(
+        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=0.0, b=(1/num_stimulus_discr)+0.1),
+        cmap(np.linspace(0.0, (1/num_stimulus_discr)+0.1, 100)))
+    if add_inh:
+        new_cmap.set_under('k')
+    return new_cmap
+
+
+def plot_colorbar(fig, ax, num_stim_classes=4):
+    """
+    Adds a color bar to the plot
+    :param fig: The matplotlib figure
+    :param ax: The matplotlib axis
+    :param num_stim_classes: The number of stimulus feature classes that can be discriminated
+    :return: None
+    """
+    step_size = 255 / float(num_stim_classes)
+    bounds = [i * step_size for i in range(0, num_stim_classes + 1)]
+    cmap = custom_cmap(num_stimulus_discr=num_stim_classes, add_inh=True)
+    norm = mcolors.BoundaryNorm(bounds, cmap.N)
+    fig.colorbar(
+        cm.ScalarMappable(norm=norm, cmap=cmap),
+        ax=ax,
+        extend='min',
+        boundaries=[-1] + bounds,
+        ticks=bounds,
+        spacing='uniform',
+        orientation='vertical'
+    )
+
+
+def get_neuron_rgba(network):
+    """
+    Return rgba values for the neurons in netwokr
+    :param network: The network
+    :return: The rgba values as a vector
+    """
+    inh_mask = np.zeros(len(network.torus_layer_nodes)).astype('bool')
+    inh_mask[np.asarray(network.torus_inh_nodes) - min(network.torus_layer_nodes)] = True
+
+    x_grid, y_grid = coordinates_to_cmap_index(
+        network.layer_size,
+        np.asarray(network.torus_layer_positions)[~inh_mask],
+        network.spacing_perlin
+    )
+    stim_classes = network.color_map[x_grid, y_grid]
+
+    c = np.full(len(network.torus_layer_nodes), '#000000')
+    c[~inh_mask] = np.asarray(list(mcolors.TABLEAU_COLORS.items()))[stim_classes, 1]
+
+    c_rgba = np.zeros((len(network.torus_layer_nodes), 4))
+    for num, color in enumerate(c):
+        c_rgba[num, :3] = np.asarray(hex_to_rgb(color))[:] / 255.
+
+    return c_rgba
+
+
 def plot_connections(
         src_nodes,
         target_nodes,
         layer_size,
         save_plot=False,
         plot_name=None,
+        font_size=16,
         save_prefix="",
         color_mask=None
 ):
@@ -331,10 +383,12 @@ def plot_connections(
     :param layer_size: Size of the layer
     :param save_plot: Flag for saving the plot
     :param plot_name: Name of the saved plot file. Is not taken into account if save_plot is False
+    :param font_size: Font size
     :param save_prefix: Naming prefix that is used if the plot save_plot is set to true
     :param color_mask: Color mask for the color/orientation map of neurons. If none it is not taken into account
     :return None
     """
+    plt.rcParams.update({"font.size": font_size})
     plt.axis((-layer_size/2., layer_size/2., -layer_size/2., layer_size/2.))
     source_positions = tp.GetPosition(src_nodes)
     x_source, y_source = zip(*source_positions)
@@ -369,6 +423,9 @@ def plot_connections(
                 cmap=custom_cmap(color_mask.max()+1),
                 alpha=0.4
             )
+
+    plt.xlabel("Tissue in X")
+    plt.ylabel("Tissue in Y")
     if plot_name is None:
         plot_name = "connections.png"
     if save_plot:
@@ -380,41 +437,46 @@ def plot_connections(
         plt.show()
 
 
-def plot_colorbar(fig, ax, num_stim_classes=4):
-    """
-    Adds a color bar to the plot
-    :param fig: The matplotlib figure
-    :param ax: The matplotlib axis
-    :param num_stim_classes: The number of stimulus feature classes that can be discriminated
-    :return: None
-    """
-    step_size = 255 / float(num_stim_classes)
-    bounds = [i * step_size for i in range(0, num_stim_classes + 1)]
-    cmap = custom_cmap(num_stimulus_discr=num_stim_classes, add_inh=True)
-    norm = mcolors.BoundaryNorm(bounds, cmap.N)
-    fig.colorbar(
-        cm.ScalarMappable(norm=norm, cmap=cmap),
-        ax=ax,
-        extend='min',
-        boundaries=[-1] + bounds,
-        ticks=bounds,
-        spacing='uniform',
-        orientation='vertical'
-    )
-
-
-def plot_reconstruction(input_stimulus, reconstruction, save_plots=False, save_prefix=""):
+def plot_reconstruction(
+        input_stimulus,
+        reconstruction,
+        color_mask=None,
+        size_layer=8.,
+        resolution=(15, 15),
+        num_stimulus_discr=4,
+        font_size=16,
+        save_plots=False,
+        save_prefix=""
+):
     """
     Plot stimulus reconstruction
     :param input_stimulus: Original input stimulus
     :param reconstruction: Reconstructed stimulus
+    :param color_mask: Color mask of the functional map that is displayed in a separate subplot
+    :param size_layer: The layer size. Is ignored if no color mask is passed
+    :param resolution: Perlin resolution of the functional map
+    :param font_size: Font size
     :param save_plots: If set to true, the plot is saved
     :param save_prefix: Prefix that is used for the saved file to identify the plot and the corresponding experiment
     :return: None
     """
-    _, fig_2 = plt.subplots(1, 2, figsize=(10, 5))
-    fig_2[0].imshow(reconstruction, cmap='gray')
-    fig_2[1].imshow(input_stimulus, cmap='gray', vmin=0, vmax=255)
+    plt.rcParams.update({"font.size": font_size})
+    _, ax = plt.subplots(1, 2 if color_mask is None else 3, figsize=(10, 5))
+    ax[0].imshow(input_stimulus, origin="lower", cmap="gray", vmin=0, vmax=255)
+    ax[0].set_title("Input")
+    ax[1].imshow(reconstruction, origin="lower", cmap="gray", vmin=0., vmax=1.0)
+    ax[1].set_title("Reconstruction")
+    if color_mask is not None:
+        stimulus_grid_range_x = np.linspace(0, size_layer, resolution[0])
+        stimulus_grid_range_y = np.linspace(0, size_layer, resolution[1])
+        ax[2].imshow(
+            color_mask,
+            origin=(stimulus_grid_range_x.size // 2, stimulus_grid_range_y.size // 2),
+            extent=(-size_layer / 2.,  size_layer/ 2., -size_layer / 2., size_layer / 2.),
+            cmap=custom_cmap(num_stimulus_discr),
+            alpha=0.4
+        )
+
     if not save_plots:
         plt.show()
     else:
@@ -432,8 +494,11 @@ def plot_cmap(
         positions,
         muted_nodes=[],
         size_layer=8.,
+        font_size=16,
         resolution=(10, 10),
         num_stimulus_discr=4,
+        plot_sublayer=False,
+        sublayer_extent=6.4,
         save_plot=False,
         save_prefix=""
 ):
@@ -446,14 +511,19 @@ def plot_cmap(
     :param positions: Position of all neurons
     :param muted_nodes: Neurons without ff input
     :param size_layer: Size of the layer, ie length of one side of the square sheet
+    :param font_size: Font size
     :param resolution: Resolution that was used to create the color map
     :param num_stimulus_discr: Number of tuning classes
+    :param plot_sublayer: If true, the sublayer is marked with a red square
+    :param sublayer_extent: The size of the sublayer. This parameter is ignored if plot_sublayer is false
     :param save_plot: If set to true, the plot is saved
     :param save_prefix: Prefix that is used for the saved file to identify the plot and the corresponding experiment
     :return: None
     """
+    plt.rcParams.update({"font.size": font_size})
     stimulus_grid_range_x = np.linspace(0, size_layer, resolution[0])
     stimulus_grid_range_y = np.linspace(0, size_layer, resolution[1])
+    plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=num_stimulus_discr)
     plt.imshow(
         color_map,
         origin=(stimulus_grid_range_x.size // 2, stimulus_grid_range_y.size // 2),
@@ -461,6 +531,18 @@ def plot_cmap(
         cmap=custom_cmap(num_stimulus_discr),
         alpha=0.4
     )
+
+    if plot_sublayer:
+        area_rect = patches.Rectangle(
+            (-sublayer_extent/2., -sublayer_extent/2.),
+            width=sublayer_extent,
+            height=sublayer_extent,
+            color="red",
+            fill=False,
+            linewidth=3,
+            alpha=1.
+        )
+        plt.gca().add_patch(area_rect)
 
     min_idx = np.minimum(min(ff_nodes), min(muted_nodes)) if len(muted_nodes) > 0 else min(ff_nodes)
     inh_mask = np.zeros(len(ff_nodes) + len(muted_nodes)).astype('bool')
@@ -472,13 +554,15 @@ def plot_cmap(
     for num, color in enumerate(c):
         c_rgba[num, :3] = np.asarray(hex_to_rgb(color))[:] / 255.
 
-    c_rgba[np.asarray(muted_nodes).astype("int64") - min_idx, 3] = 0.2
+    c_rgba[np.asarray(muted_nodes).astype("int64") - min_idx, 3] = 0.1
     plt.scatter(
         np.asarray(positions)[:, 0],
         np.asarray(positions)[:, 1],
         c=c_rgba
     )
 
+    plt.xlabel("Tissue in X")
+    plt.ylabel("Tissue in Y")
     if not save_plot:
         plt.show()
     else:
@@ -498,9 +582,26 @@ def plot_spikes_over_time(
         t_stim_start=[],
         t_stim_end=[],
         title="",
+        font_size=16,
         save_plot=True,
         save_prefix=""
 ):
+    """
+    Plot neural activity over time
+    :param spikes_s: The IDs of the neurons that spiked
+    :param time_s: The respective times
+    :param network: The netwokr
+    :param t_start: Start of the simulation
+    :param t_end: End of the simulation
+    :param t_stim_start: Start times of input stimulation (excitation)
+    :param t_stim_end: End times of input stimulation (excitation)
+    :param title: Plot title
+    :param font_size: Font size
+    :param save_plot: If true, the plot is saved
+    :param save_prefix: Prefix that is added to the saved file
+    :return: None
+    """
+    plt.rcParams.update({"font.size": font_size})
     plt.figure(figsize=(10, 5))
     positions = np.asarray(tp.GetPosition(spikes_s.tolist()))
     plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=network.num_stim_discr)
@@ -529,6 +630,8 @@ def plot_spikes_over_time(
     for st in t_stim_end:
         plt.axvline(x=st, c="blue")
 
+    plt.xlabel("Time", fontsize=font_size)
+    plt.ylabel("Neuron", fontsize=font_size)
     plt.title(title)
     if save_plot:
         curr_dir = os.getcwd()
@@ -538,28 +641,20 @@ def plot_spikes_over_time(
     else:
         plt.show()
 
-def get_neuron_rgba(network):
-    inh_mask = np.zeros(len(network.torus_layer_nodes)).astype('bool')
-    inh_mask[np.asarray(network.torus_inh_nodes) - min(network.torus_layer_nodes)] = True
 
-    x_grid, y_grid = coordinates_to_cmap_index(
-        network.layer_size,
-        np.asarray(network.torus_layer_positions)[~inh_mask],
-        network.spacing_perlin
-    )
-    stim_classes = network.color_map[x_grid, y_grid]
-
-    c = np.full(len(network.torus_layer_nodes), '#000000')
-    c[~inh_mask] = np.asarray(list(mcolors.TABLEAU_COLORS.items()))[stim_classes, 1]
-
-    c_rgba = np.zeros((len(network.torus_layer_nodes), 4))
-    for num, color in enumerate(c):
-        c_rgba[num, :3] = np.asarray(hex_to_rgb(color))[:] / 255.
-
-    return c_rgba
-
-
-def plot_spikes_over_space(firing_rates, network, title="", c_rgba=None, save_plot=False, save_prefix=""):
+def plot_spikes_over_space(firing_rates, network, title="", c_rgba=None, font_size=16, save_plot=False, save_prefix=""):
+    """
+    Plot the neural activity over space
+    :param firing_rates: Firing rates
+    :param network: Network
+    :param title: Plot title
+    :param c_rgba: Vector with rgba values
+    :param font_size: Font size
+    :param save_plot: If true, the plot is saved
+    :param save_prefix: Prefix that is added to the saved file
+    :return: None
+    """
+    plt.rcParams.update({"font.size": font_size})
     plt.figure(figsize=(10, 5))
     plot_colorbar(plt.gcf(), plt.gca(), num_stim_classes=network.num_stim_discr)
 
@@ -586,6 +681,8 @@ def plot_spikes_over_space(firing_rates, network, title="", c_rgba=None, save_pl
         )
     )
 
+    plt.xlabel("Tissue in X")
+    plt.ylabel("Tissue in Y")
     plt.title(title)
     if save_plot:
         curr_dir = os.getcwd()
@@ -607,9 +704,26 @@ def plot_network_animation(
         min_mem_pot=10.,
         animation_start=0.,
         animation_end=200.,
+        font_size=16,
         save_plot=False,
         save_prefix=""
 ):
+    """
+    Creates a moving network animation
+    :param network: The netwokr
+    :param spikes_s: The IDs of the neurons that spiked
+    :param time_s: The respective spiking times
+    :param title: Title of the animation
+    :param c_rgba: Vector that contains the rgba values
+    :param min_mem_pot: Mimimum membrane potential that is required for a neuron to be plotted
+    :param animation_start: When the animation starts
+    :param animation_end: When the animation ends
+    :param font_size: Font size
+    :param save_plot: If true, the animation is saved as gif
+    :param save_prefix: Prefix that is added to the saved file
+    :return: None
+    """
+    plt.rcParams.update({"font.size": font_size})
     multi_events = nest.GetStatus(network.multi_meter, "events")[0]
     times_multi = multi_events["times"]
     potential_multi = multi_events["V_m"]
@@ -666,6 +780,8 @@ def plot_network_animation(
         ax_pot.set_title(
             "%s\nMembrane potential over %s mV at time %s ms" % (title, network.pot_reset + min_mem_pot, t)
         )
+        ax_pot.set_xlabel("Tissue in X")
+        ax_pot.set_ylabel("Tissue in Y")
         if save_plot:
             figure_pot.canvas.draw()
             image_pot = np.frombuffer(figure_pot.canvas.tostring_rgb(), dtype='uint8')
@@ -686,6 +802,93 @@ def plot_network_animation(
     return c_rgba
 
 
-def print_msg(msg):
-    print("\n#####################\t%s" % msg)
+def plot_rf(net, image, rf_list, counter=9, font_size=16):
+    """
+    Plot the receptive fields
+    :param net: The network
+    :param image: The image
+    :param rf_list: The list with receptive fields
+    :param counter: How many of the receptive fields is to be plotted
+    :param font_size: Font size
+    :return: None
+    """
+    plt.rcParams.update({"font.size": font_size})
+    fig, ax = plt.subplots(1, 2, sharex='none', sharey='none', figsize=(10, 5))
+    ax[0].axis((0, net.stimulus_size[1], 0, net.stimulus_size[0]))
+    if net.color_map is not None:
+        ax[0].imshow(
+            image,
+            cmap="gray",
+            origin="lower",
+            extent=(0, image.shape[0], 0, image.shape[1])
+        )
+        ax[1].imshow(
+            net.color_map,
+            origin=(net.color_map.shape[0] // 2, net.color_map.shape[1] // 2),
+            extent=(
+                -net.layer_size / 2., net.layer_size / 2.,
+                -net.layer_size / 2., net.layer_size / 2.),
+            cmap=custom_cmap(net.color_map.max() + 1),
+            alpha=0.4
+        )
+    color_list = list(mcolors.TABLEAU_COLORS.items())
+    target_positions = np.asarray(net.torus_layer_positions)[net.input_neurons_mask][:counter + 1]
+    for num, (rf, (x, y)) in enumerate(list(zip(rf_list, target_positions))):
+        # De-zip to get x and y values separately
+        color = color_list[num % len(color_list)]
+        area_rect = patches.Rectangle(
+            rf[0],
+            width=rf[1]-1,
+            height=rf[2]-1,
+            color=color[0],
+            alpha=0.4
+        )
+        ax[0].add_patch(area_rect)
+        ax[1].plot(x, y, 'o')
+    ax[0].set_xlabel("Input in X", fontsize=font_size)
+    ax[0].set_ylabel("Input in Y", fontsize=font_size)
+
+    ax[1].set_xlabel("V1 tissue in X", fontsize=font_size)
+    ax[1].set_ylabel("V1 tissue in Y", fontsize=font_size)
+    ax[1].set_xlim([-net.layer_size / 2., net.layer_size / 2.])
+    ax[1].set_ylim([-net.layer_size / 2., net.layer_size / 2.])
+
+    if net.save_plots:
+        curr_dir = os.getcwd()
+        Path(curr_dir + "/figures/rf/").mkdir(parents=True, exist_ok=True)
+        plt.savefig(curr_dir + "/figures/rf/%s_receptive_fields.png" % net.save_prefix)
+        plt.close()
+    else:
+        plt.show()
+
+
+def plot_tuning_classes(tuning_fun, num_tuning_discr=4, save_plot=False, save_prefix="", font_size=16):
+    """
+    Plot the transformation with the tuning curves
+    :param tuning_fun: The tuning function
+    :param num_tuning_discr: Number of tuning classes
+    :param save_plot: If true, plot is saved
+    :param save_prefix: The prefix that is added to the saved file
+    :param font_size: Font size
+    :return: None
+    """
+    plt.rcParams.update({"font.size": font_size})
+    applied_current = np.arange(0, 255)
+    plt.figure(figsize=(10, 5))
+    for tune in range(num_tuning_discr):
+        plt.plot(
+            applied_current,
+            tuning_fun(applied_current, tune, 255. / 4.),
+            label="Class %s" % tune
+        )
+    plt.xlabel("Pixel intensity", fontsize=font_size)
+    plt.ylabel("Transformed value", fontsize=font_size)
+    plt.legend()
+    if not save_plot:
+        plt.show()
+    else:
+        curr_dir = os.getcwd()
+        Path(curr_dir + "/figures/rf/").mkdir(parents=True, exist_ok=True)
+        plt.savefig(curr_dir + "/figures/rf/%s_tuning_function.png" % save_prefix)
+        plt.close()
 

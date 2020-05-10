@@ -114,13 +114,18 @@ def load_net(net, network_name, feature_folder="", path="", use_cwd=True, num=No
 
     net_df = pd.read_csv("%s/%s_%s.csv" % (path, network_name, num), usecols=["neurons", "inh_neurons"])
     net.torus_layer_nodes = convert_string_to_list(net_df["neurons"][0], dtype=int)
+    min_node = min(net.torus_layer_nodes)
     net.num_sensory = len(net.torus_layer_nodes)
     net.torus_inh_nodes = convert_string_to_list(net_df["inh_neurons"][0], int)
     del net_df
 
     net_df = pd.read_csv("%s/%s_%s.csv" % (path, network_name, num), usecols=["neuron_tuning", "tuning_neuron"])
-    net.neuron_to_tuning_map = ast.literal_eval(net_df["neuron_tuning"][0])
     net.tuning_to_neuron_map = ast.literal_eval(net_df["tuning_neuron"][0])
+    neuron_to_tuning_map = ast.literal_eval(net_df["neuron_tuning"][0])
+    net.tuning_vector = np.zeros(net.num_sensory)
+    for n, c in neuron_to_tuning_map.items():
+        net.tuning_vector[n - min_node] = c
+    net.tuning_vector[np.asarray(net.torus_inh_nodes) - min_node] = -1
     del net_df
 
     net_df = pd.read_csv("%s/%s_%s.csv" % (path, network_name, num), usecols=["color_map"])
@@ -129,7 +134,7 @@ def load_net(net, network_name, feature_folder="", path="", use_cwd=True, num=No
     )
     del net_df
 
-    net.create_retina()
+    net.create_rf()
 
     if net.verbosity > 0:
         print_msg("Create connections")

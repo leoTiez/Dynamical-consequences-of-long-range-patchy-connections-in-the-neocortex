@@ -4,10 +4,11 @@ import numpy as np
 GLOBAL_CONNECTIVITY = 0.0123
 R_MAX = 8.
 
+IMG_PROP = [0.8, 0.6, 0.4]
 PERLIN_INPUT = [4, 8, 16, 50]
-FF_FACTORS_PAR = [0.2, 0.8, 1.2, 1.8]
-PATCHES_PAR = np.arange(1, 10, 1)
-FUNC_MAP_CLUSTER_PAR = [(4, 4), (8, 8), (12, 12), (16, 16), (20, 20)]
+REC_FACTORS_PAR = [0.6, 0.8, 1.2, 1.4]
+PATCHES_PAR = np.arange(1, 7, 1)
+FUNC_MAP_CLUSTER_PAR = [(4, 4), (8, 8), (20, 20)]
 ALPHA_PAR = np.arange(0.5, 1.0, 0.1)
 
 NETWORK_TYPE = {

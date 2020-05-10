@@ -75,7 +75,6 @@ def main():
 
     for _ in range(num_trials):
         network = network_factory(
-            input_stimulus,
             network_type=network_type,
             num_sensory=num_neurons,
             all_same_input_current=all_same_input_current,
