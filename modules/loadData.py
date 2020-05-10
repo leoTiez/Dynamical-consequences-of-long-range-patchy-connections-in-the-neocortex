@@ -8,10 +8,10 @@ from modules.thesisConstants import TUNING_FUNCTION
 NETWORK_TYPE_NAMING = {
     "random": "Random",
     "local_circ": "Loc Circular",
-    "local_sd": "Loc Tuning Dependent",
-    "local_circ_patchy_sd": "Loc Circular\nTuning Dependent Patches",
+    "local_sd": "Loc TD",
+    "local_circ_patchy_sd": "Loc Circular\nTD Patches",
     "local_circ_patchy_random": "Loc Circular\nRandom Patches",
-    "local_sd_patchy_sd": "Loc Tuning Dependent\nTuning Dependent Patches",
+    "local_sd_patchy_sd": "Loc TD\nTD Patches",
     "input_only": "Only Input"
 }
 
@@ -110,6 +110,9 @@ def check_experiment_type(file_name):
 
     if experiment_type == "alpha":
         experiment_parameter = str(np.around(float(experiment_parameter), decimals=1))
+
+    if experiment_type == "orientation_map":
+        experiment_parameter = str(experiment_parameter.strip("(").strip(")").split(", ")[0])
 
     return experiment_type, experiment_parameter
 
