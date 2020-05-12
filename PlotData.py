@@ -39,31 +39,31 @@ def get_parameters():
         parameter_dict["path"] = cmd_par.path
 
     if cmd_par.x is not None:
-        parameter_dict["x"] = cmd_par.x.lower()
+        parameter_dict["x"] = cmd_par.x
 
     if cmd_par.y is not None:
-        parameter_dict["y"] = cmd_par.y.lower()
+        parameter_dict["y"] = cmd_par.y
 
     if cmd_par.group is not None:
-        parameter_dict["group"] = cmd_par.group.lower()
+        parameter_dict["group"] = cmd_par.group
 
     if cmd_par.network is not None:
-        parameter_dict["network"] = cmd_par.network.lower()
+        parameter_dict["network"] = cmd_par.network
 
     if cmd_par.input is not None:
-        parameter_dict["stimulus"] = cmd_par.input.lower()
+        parameter_dict["stimulus"] = cmd_par.input
 
     if cmd_par.experiment is not None:
-        parameter_dict["experiment"] = cmd_par.experiment.lower()
+        parameter_dict["experiment"] = cmd_par.experiment
 
     if cmd_par.sampling is not None:
-        parameter_dict["sampling"] = cmd_par.sampling.lower()
+        parameter_dict["sampling"] = cmd_par.sampling
 
     if cmd_par.parameter is not None:
-        parameter_dict["parameter"] = cmd_par.parameter.lower()
+        parameter_dict["parameter"] = cmd_par.parameter
 
     if cmd_par.measure is not None:
-        parameter_dict["measure"] = cmd_par.measure.lower()
+        parameter_dict["measure"] = cmd_par.measure
 
     if cmd_par.title is not None:
         parameter_dict["name"] = cmd_par.title
@@ -84,10 +84,10 @@ def filter_dataframe(df, params, ignore_sampling=False):
     save_string = params["x"] + "_" + params["y"]
     if params["network"] is not None:
         save_string += "_network_%s" % params["network"]
-        new_df = new_df[new_df["network"] == params["network"]]
+        new_df = new_df[new_df["network"] == params["network"].replace("\\n", "\n")]
     if params["stimulus"] is not None:
         save_string += "_input_%s" % params["stimulus"]
-        new_df = new_df[new_df["stimulus"] == params["stimulus"]]
+        new_df = new_df[new_df["stimulus"] == int(params["stimulus"])]
     if params["experiment"] is not None:
         save_string += "_experiment_%s" % params["experiment"]
         new_df = new_df[new_df["experiment"] == params["experiment"]]

@@ -36,7 +36,7 @@ def check_stimulus(file_name, network):
     """
     idx = len(network)
     input_type = file_name[idx + 1:].split("_")[0]
-    return input_type
+    return int(input_type)
 
 
 def check_measure_type(file_name):

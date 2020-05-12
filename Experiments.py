@@ -38,6 +38,9 @@ def main_experiment_loop(
         network_list = [net for net in network_list if net != "random"]
     elif parameter.lower() == "patches" or parameter.lower() == "alpha":
         network_list = [net for net in network_list if "patchy" in net]
+    elif parameter.lower() == "tuning":
+        network_list = [net for net in network_list if net == "random" or net == "local_circ"]
+        img_prop = [1.0]
 
     input_list = PERLIN_INPUT
 
