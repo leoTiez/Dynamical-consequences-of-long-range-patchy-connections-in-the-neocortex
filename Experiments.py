@@ -34,13 +34,14 @@ def main_experiment_loop(
     # Looping over network and input types
     # #############################################################################################################
     network_list = list(NETWORK_TYPE.keys())[:-1]
-    if parameter.lower() == "cluster":
-        network_list = [net for net in network_list if net != "random"]
-    elif parameter.lower() == "patches" or parameter.lower() == "alpha":
-        network_list = [net for net in network_list if "patchy" in net]
-    elif parameter.lower() == "tuning":
-        network_list = [net for net in network_list if net == "random" or net == "local_circ"]
-        img_prop = [1.0]
+    if parameter is not None:
+        if parameter.lower() == "cluster":
+            network_list = [net for net in network_list if net != "random"]
+        elif parameter.lower() == "patches" or parameter.lower() == "alpha":
+            network_list = [net for net in network_list if "patchy" in net]
+        elif parameter.lower() == "tuning":
+            network_list = [net for net in network_list if net == "random" or net == "local_circ"]
+            img_prop = [1.0]
 
     input_list = PERLIN_INPUT
 
@@ -54,7 +55,7 @@ def main_experiment_loop(
                   "%s"
                   "--network=%s "
                   "--perlin=%s "
-                  "--parameter=%s "
+                  "%s"
                   "--img_prop=%s "
                   "--num_trials=%s "
                   "%s"
@@ -64,7 +65,7 @@ def main_experiment_loop(
                       "--load_network " if load_network else "",
                       pc[0],
                       pc[1],
-                      parameter,
+                      "--parameter=%s" % parameter if parameter is not None else "",
                       pc[2],
                       num_trials,
                       "--existing_ok " if existing_ok else "",
@@ -87,17 +88,18 @@ def main():
     # #############################################################################################################
     cmd_params = arg_parse(sys.argv[1:])
 
-    parameter = PARAMETER_DICT["tuning"]
+    parameter = None
     img_prop = None
     spatial_sampling = False
     load_network = False
     less_cpus = 2
     existing_ok = False
 
-    if cmd_params.parameter in list(PARAMETER_DICT.keys()):
-        parameter = cmd_params.parameter
-    else:
-        raise ValueError("Please chose a valid parameter for your experiments that is under investigation")
+    if cmd_params.parameter is not None:
+        if cmd_params.parameter in list(PARAMETER_DICT.keys()):
+            parameter = cmd_params.parameter
+        else:
+            raise ValueError("Please chose a valid parameter for your experiments that is under investigation")
 
     print("\n#####################\t Start with experiments for parameter %s" % parameter)
 
