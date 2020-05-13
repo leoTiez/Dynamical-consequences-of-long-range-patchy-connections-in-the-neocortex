@@ -31,8 +31,10 @@ def main_lr(
         c_alpha=0.7,
         img_prop=1.,
         presentation_time=1000.,
+        simulation_time=1000.,
+        eq_time=0.,
+        fr_min=2,
         spatial_sampling=False,
-        use_equilibrium=False,
         load_network=False,
         write_to_file=False,
         save_plots=True,
@@ -54,8 +56,10 @@ def main_lr(
     :param img_prop: Proportion of the image information that is used
     :param presentation_time: The time duration a stimulus is presented to the network
     :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
-    :param use_equilibrium: If set to true, only the last 400ms of the simulation are used, ie when the network is
-    expected to approach equilibrium
+    :param simulation_time: Time for the nest simulation in ms
+    :param eq_time: Defines the time after which the network is expected to approach equilibrium in ms
+    :param fr_min: Minimum firing rate for a neuron to be considered to have sufficient information for
+    the reconstruction
     :param load_network: If set to true, the network is loaded from file
     :param write_to_file: If set to true the firing rate is written to an file
     :param save_plots: If set to true, plots are saved instead of being displayed
@@ -83,8 +87,6 @@ def main_lr(
     # #################################################################################################################
     # Define values
     # #################################################################################################################
-    simulation_time = 1000.
-    eq_time = 600.
     cap_s = 1.
     inh_weight = -5.
     ff_weight = 1.0
@@ -156,7 +158,7 @@ def main_lr(
     # #################################################################################################################
     firing_rates, (spikes_s, time_s) = network.simulate(
         simulation_time,
-        use_equilibrium=use_equilibrium,
+        use_equilibrium=True,
         eq_time=eq_time
     )
 
@@ -182,7 +184,7 @@ def main_lr(
             network,
             t_start=0.,
             t_end=simulation_time,
-            t_stim_start=[eq_time] if use_equilibrium else [],
+            t_stim_start=[eq_time],
             t_stim_end=[presentation_time] if presentation_time < simulation_time else [],
             save_plot=save_plots,
             save_prefix=save_prefix
@@ -218,7 +220,8 @@ def main_lr(
         firing_rates,
         network.input_neurons_mask,
         network.ff_weight_mat,
-        network.tuning_vector
+        network.tuning_vector,
+        fr_min=fr_min
     )
     response_fft = fourier_trans(reconstruction)
 
@@ -252,8 +255,10 @@ def experiment(
         c_alpha=0.7,
         img_prop=1.,
         presentation_time=1000.,
+        simulation_time=1000.,
+        eq_time=0.,
+        fr_min=2,
         spatial_sampling=False,
-        use_equilibrium=False,
         load_network=False,
         existing_ok=False,
         save_plots=True,
@@ -277,8 +282,6 @@ def experiment(
     :param img_prop: Defines the sparse sampling, i.e. the number of neurons that receive feedforward input.
     :param presentation_time: The time duration a stimulus is presented to the network
     :param spatial_sampling: If set to true, the neurons that receive ff input are chosen with spatial correlation
-    :param use_equilibrium: If set to true, only the last 400ms of the simulation is used, ie when the network
-    is expected to approach equilibrium
     :param load_network: If set to true, the network is loaded from file
     :param existing_ok: If set to true, it is checked whether a file has been already created for a particular
     experiment and trial and skips if it does.
@@ -360,8 +363,10 @@ def experiment(
                 c_alpha=p if c_alpha is None else c_alpha,
                 img_prop=img_prop,
                 presentation_time=presentation_time,
+                simulation_time=simulation_time,
+                eq_time=eq_time,
+                fr_min=fr_min,
                 spatial_sampling=spatial_sampling,
-                use_equilibrium=use_equilibrium,
                 write_to_file=True,
                 load_network=load_network,
                 save_plots=save_plots,
@@ -422,9 +427,11 @@ def main():
     rec_factor = 1.
     img_prop = 1.
     presentation_time = 1000.
+    simulation_time = 1000.
     spatial_sampling = False
     save_plots = True
-    use_equilibrium = False
+    equilibrium = 0.
+    fr_min = 2.
     verbosity = VERBOSITY
     load_network = False
     existing_ok = False
@@ -499,6 +506,9 @@ def main():
         else:
             raise ValueError("Cannot pass 'alpha' as experimental parameter and set c_alpha")
 
+    if cmd_params.simulation_time is not None:
+        simulation_time = cmd_params.simulation_time
+
     if cmd_params.rec_factor is not None:
         if rec_factor is not None:
             rec_factor = cmd_params.rec_factor
@@ -517,8 +527,11 @@ def main():
     if cmd_params.verbosity is not None:
         verbosity = cmd_params.verbosity
 
-    if cmd_params.equilibrium:
-        use_equilibrium = True
+    if cmd_params.equilibrium is not None:
+        equilibrium = cmd_params.equilibrium
+
+    if cmd_params.fr_min is not None:
+        fr_min = cmd_params.fr_min
 
     if cmd_params.existing_ok:
         existing_ok = True
@@ -526,14 +539,14 @@ def main():
     print("Start experiments for network %s given the Perlin resolution is %s."
           " The parameter %s is changed."
           " The number of trials is %s."
-          " For the reconstruction methods, the equilibrium state of the network is%s used"
+          " For the reconstruction methods, the equilibrium is set after %s ms"
           " and sampling rate is %s with%s spatial correlation"
           % (
               cmd_params.network,
               perlin_input_cluster[0],
               cmd_params.parameter,
               num_trials,
-              "" if use_equilibrium else " not",
+              equilibrium,
               img_prop,
               "" if spatial_sampling else "out"
           ))
@@ -555,8 +568,10 @@ def main():
         img_prop=img_prop,
         c_alpha=c_alpha,
         presentation_time=presentation_time,
+        simulation_time=simulation_time,
+        fr_min=fr_min,
         spatial_sampling=spatial_sampling,
-        use_equilibrium=use_equilibrium,
+        eq_time=equilibrium,
         save_plots=save_plots,
         load_network=load_network,
         existing_ok=existing_ok,
