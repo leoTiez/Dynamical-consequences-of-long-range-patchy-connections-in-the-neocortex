@@ -97,8 +97,8 @@ def arg_parse(args):
     parser.add_argument(
         "--equilibrium",
         dest="equilibrium",
-        action="store_true",
-        help="If set, only the last 400ms are used for the reconstruction"
+        type=float,
+        help="Defines the time after which it is assumed the network reached equilibrium"
     )
     parser.add_argument(
         "--load_network",
@@ -126,6 +126,14 @@ def arg_parse(args):
         help="The time an image is presented to the network. "
              "Note that this parameter is ignored if the source code is changed, such that dc is used"
     )
+
+    parser.add_argument(
+        "--fr_min",
+        type=float,
+        help="Minimal firing rate for the reconstruction"
+    )
+
+    parser.add_argument("--simulation_time", type=float, help="The time the network is simulated.")
 
     parsed_args = parser.parse_args(args)
 
