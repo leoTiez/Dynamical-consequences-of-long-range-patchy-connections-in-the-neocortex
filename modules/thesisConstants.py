@@ -36,7 +36,8 @@ PARAMETER_DICT = {
     "cluster": 1,
     "patches": 2,
     "weights": 3,
-    "alpha": 4
+    "alpha": 4,
+    "activity": 5
 }
 
 TUNING_FUNCTION = {
