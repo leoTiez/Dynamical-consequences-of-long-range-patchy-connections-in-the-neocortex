@@ -34,6 +34,8 @@ def main_experiment_loop(
     # Looping over network and input types
     # #############################################################################################################
     network_list = list(NETWORK_TYPE.keys())[:-1]
+    input_list = PERLIN_INPUT
+
     if parameter is not None:
         if parameter.lower() == "cluster":
             network_list = [net for net in network_list if net != "random"]
@@ -42,8 +44,9 @@ def main_experiment_loop(
         elif parameter.lower() == "tuning":
             network_list = [net for net in network_list if net == "random" or net == "local_circ"]
             img_prop = [1.0]
-
-    input_list = PERLIN_INPUT
+        elif parameter.lower() == "activity":
+            img_prop = [0.4]
+            input_list = [4]
 
     parameter_combination = product(network_list, input_list, img_prop)
 
@@ -60,6 +63,7 @@ def main_experiment_loop(
                   "--num_trials=%s "
                   "%s"
                   "%s"
+                  "%s"
                   % (
                       curr_dir,
                       "--load_network " if load_network else "",
@@ -69,7 +73,8 @@ def main_experiment_loop(
                       pc[2],
                       num_trials,
                       "--existing_ok " if existing_ok else "",
-                      "--spatial_sampling" if spatial_sampling else ""
+                      "--spatial_sampling" if spatial_sampling else "",
+                      "--simulation_time=1250 --equilibrium=1000 --fr_min=0" if parameter == "activity" else ""
                   ),
                   )
         )
