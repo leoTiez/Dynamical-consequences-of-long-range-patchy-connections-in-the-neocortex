@@ -74,7 +74,7 @@ def main_experiment_loop(
                       num_trials,
                       "--existing_ok " if existing_ok else "",
                       "--spatial_sampling " if spatial_sampling else "",
-                      "--simulation_time=1250 --equilibrium=1000 --fr_min=0 " if parameter == "activity" else ""
+                      "--simulation_time=1250 --equilibrium=1000 --fr_min=2 " if parameter == "activity" else ""
                   ),
                   )
         )
