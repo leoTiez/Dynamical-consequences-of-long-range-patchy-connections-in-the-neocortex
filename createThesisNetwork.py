@@ -552,7 +552,17 @@ class NeuronalNetworkBase:
         if self.spike_detect is None:
             raise ValueError("The spike detector must not be None. Run create_layer")
 
-        nest.Simulate(float(simulation_time))
+        nest.Simulate(float(self.presentation_time))
+        if simulation_time > self.presentation_time:
+            nest.SetStatus(
+                self.spike_gen,
+                {
+                    "rate": self.bg_rate,
+                    "origin": self.presentation_time,
+                    "stop": simulation_time - self.presentation_time
+                }
+            )
+            nest.Simulate(float(simulation_time - self.presentation_time))
 
         # Get network response in spikes
         data_sp = nest.GetStatus(self.spike_detect, keys="events")[0]
