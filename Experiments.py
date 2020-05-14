@@ -69,7 +69,7 @@ def main_experiment_loop(
                       "--load_network " if load_network else "",
                       pc[0],
                       pc[1],
-                      "--parameter=%s" % parameter if parameter is not None else "",
+                      "--parameter=%s " % parameter if parameter is not None else "",
                       pc[2],
                       num_trials,
                       "--existing_ok " if existing_ok else "",
