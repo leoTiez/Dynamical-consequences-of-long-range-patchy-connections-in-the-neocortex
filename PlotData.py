@@ -153,40 +153,63 @@ def violin_plot(df, params):
     :param params: Parameters
     :return: None
     """
-    plt.rcParams.update({"font.size": 16})
+    plt.rcParams.update({"font.size": 20})
     new_df, save_string = filter_dataframe(df, params)
     figure = plt.gcf()
-    figure.set_size_inches((15, 8))
+    figure.set_size_inches((15, 10))
     ax = figure.add_subplot(1, 2 if len(new_df[new_df.value > 1]) > 0 else 1, 1)
-    sb.violinplot(
+
+    sb.boxplot(
         x=params["x"],
         y=params["y"],
         hue=params["group"],
         data=new_df[new_df.value <= 1].sort_values(params["group"]),
-        inner="quartile",
-        palette="muted",
+        dodge=True,
         order=sorted(new_df[params["x"]].drop_duplicates().tolist()),
-        bw=0.3,
-        ax=ax
+        ax=ax,
+        boxprops={"alpha":0.2}
     )
+
+    sb.swarmplot(
+        x=params["x"],
+        y=params["y"],
+        hue=params["group"],
+        data=new_df[new_df.value <= 1].sort_values(params["group"]),
+        order=sorted(new_df[params["x"]].drop_duplicates().tolist()),
+        ax=ax,
+        dodge=True,
+    )
+
     ax.set_ylim(0., 1.)
+    handles, lables = ax.get_legend_handles_labels()
+    num_labels = len(new_df[params["group"]].drop_duplicates())
+    ax.legend(handles[:num_labels], lables[:num_labels])
+
     if len(new_df[new_df.value > 1]) > 0:
         ax.set_title("Error distribution for Error values <= 1")
         ax_2 = figure.add_subplot(1, 2, 2)
-        sb.violinplot(
+        sb.boxplot(
             x=params["x"],
             y=params["y"],
             hue=params["group"],
             data=new_df[new_df.value > 1].sort_values(params["group"]),
-            inner="quartile",
-            palette="muted",
             order=sorted(new_df[params["x"]].drop_duplicates().tolist()),
-            bw=0.3,
+            dodge=True,
+            boxprops={"alpha": 0.2},
             ax=ax_2
+        )
+        sb.swarmplot(
+            x=params["x"],
+            y=params["y"],
+            hue=params["group"],
+            data=new_df[new_df.value > 1].sort_values(params["group"]),
+            order=sorted(new_df[params["x"]].drop_duplicates().tolist()),
+            ax=ax,
+            dodge=True,
         )
         ax_2.set_title("Error distribution for Error values > 1")
 
-    figure.suptitle(params["name"], fontsize=16)
+    figure.suptitle(params["name"], fontsize=20)
     ax.set_ylabel("Reconstruction Error E")
     if params["save_plot"]:
         curr_dir = os.getcwd()
@@ -205,7 +228,7 @@ def information_loss_plot(df, params):
     :param params: Parameters
     :return: None
     """
-    plt.rcParams.update({"font.size": 16})
+    plt.rcParams.update({"font.size": 20})
     new_df, save_string = filter_dataframe(df, params, ignore_sampling=True)
     df_li = create_li_df(new_df)
     df_li.sort_values("li_type", inplace=True)
