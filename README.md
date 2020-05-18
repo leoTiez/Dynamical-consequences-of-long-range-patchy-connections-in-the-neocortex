@@ -51,14 +51,14 @@ with a notion of spatial correlation (see figure below; the higher opacity marks
 neurons with feedforward input, the red square represents the sublayer input neurons are sampled from
 to avoid boundary effects).
 
-![Image of V1](figures/spatial_sampling_40.png)
+![Image of V1](readme_figures/spatial_sampling_40.png)
 
 The input image is converted to a Poisson spike train or a DC current. Note that for all experiments we use Poisson spikes.
 To investigate  the effect of long-range patchy connections different networks are implemented and can be
 used, e.g. with or without distal patchy connections or with or without tuning-specific synapses. The figure
 below shows circular local with random patchy distal connections.
 
-![Image of Connections](figures/connections_example_patchy.png)
+![Image of Connections](readme_figures/connections_example_patchy.png)
  
 The original input image is reproduced based on the
 firing rates. The eigenvalue spectrum of the different networks can be computed using the
@@ -103,7 +103,7 @@ Different networks produce different firing patterns in time and space. An examp
 
 Time            |  Space
 :-------------------------:|:-------------------------:
-![Firing Pattern Time](figures/local_circ_patchy_random_8_c_alpha_0.5_img_prop_0.4_spatials_True_no_0_firing_time.png)  |  ![](figures/local_circ_patchy_random_8_c_alpha_0.5_img_prop_0.4_spatials_True_no_0_firing_space.png)
+![Firing Pattern Time](readme_figures/local_circ_patchy_random_8_c_alpha_0.5_img_prop_0.4_spatials_True_no_0_firing_time.png)  |  ![](readme_figures/local_circ_patchy_random_8_c_alpha_0.5_img_prop_0.4_spatials_True_no_0_firing_space.png)
 
 This script can be run for all network and input types via
 ```bash
