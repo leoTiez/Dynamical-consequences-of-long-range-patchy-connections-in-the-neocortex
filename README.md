@@ -1,7 +1,7 @@
 # The investigation of the dynamical consequences of long-range patchy connections in the visual cortex V1
 
-This repository collects the code for simulations and experiments that was used for
-my thesis project. The code is written in Python3.6 and uses mainly the Nest framework.
+The repository contains the Python code for the simulations and experiments of my master's degree project
+at Kungliga Tekniska Högskolan KTH in Stockholm, Sweden.
 
 ## Requirements
 PyNest is maintained in a separate ppa repository. Use the provided script to install the
@@ -11,15 +11,14 @@ latest stable version of PyNest. Run
 sudo sh nest_install.sh
 ```
 
-The required Python modules that can be downloaded via pip are compiled in the
-`requirements.txt` file and can be installed via
+The required Python modules can be installed via pip
 
 ```bash
 pip3 install -r requirements.txt
 ```
 
-To make the project executable it's crucial to add the project's directory to the PYHTONPATH. Thus,
-you can either add it permanently in you `~/.bashrc` file through appending the following line
+To make the project executable it's necessary to add the project's directory to the PYHTONPATH. Thus,
+you can either add it permanently to your `~/.bashrc` file through appending the following line
 
 ```bash
 export PYTHONPATH="${PYTHONPATH}:/path/to/module"
@@ -38,60 +37,30 @@ export PYTHONPATH=$PYTHONPATH:/path/to/module
 
 where `/path/to/module` is respectively replaced by the actual path to the project's directory. 
 
-
-## Install the Barranca neuron model
-To use the customised neuron model that was described by Barranca [1] several install steps have to be run first.
-Navigate to the `src` directory and run 
-
-```bash
-nestml --input_path=neuron-models/BarrancaNeuron.nestml --target_path=target-neurons
-cd target-neurons
-```
-
-Unfortunately, there is a bug in creating the right C++ files. Thus, it's necessary to add the include directory 
-for the header files that are used. Open the file `CMakeLists.txt` and add to the end of the file before the 
-`message()` commands in a separate line `include_directories("/usr/include/nest")`. Close the editor and run 
-
-```bash
-cmake -Dwith-nest=/usr/bin/nest-config .
-make
-sudo make install
-```
-
-Afterwards the customised `nestmlmodule` can be dynamically linked to the script via the command in the Python script
-
-```python
-nest.Install("nestmlmodules")
-``` 
-
 ## Coding style and naming
 All scripts follow the standard Python coding style. It uses the conventional naming for variables 
 and files with one exception: main files start with a capital letter, whereas module files start
 with a lower case letter. The aim is to simplify the navigation through the project directories.
 
 ## Execution
-There are two main files that implement proposals of the two papers [1] and [2]. The script 
-`VogesNetwork.py` implements the network setups proposed in [2]. Run the script via the command
-```bash
-python3 VogesNetwork.py
-```
-There are five different networks implemented. To try out different networks change the parameter
-`use_lr_connection_type` passed to the main function.
+All main files use the same functions for network construction, and are hence consistent in their
+execution. We can distinguish roughly between two processing steps:
+firstly, we simulate the feedforward transformation of input applied through the early visual pathway and the 
+LGN; secondly, a layer with sensory neurons represents the V1. Neurons that receive feedforward input are sampled
+with a notion of spatial correlation (see figure below; the higher opacity marks the 
+neurons with feedforward input, the red square represents the sublayer input neurons are sampled from
+to avoid boundary effects).
 
-The script `CSCodeingNetworkBarranca.py` implements the stimulus response reconstruction based on 
-the neural response that was described in [1]. Run the script via
-```bash
-pyhton3 CSCodingNetworkBarranca.py
-``` 
-If you want to compute the mutual information (MI) of input and reconstructed stimulus over a number of
-stimuli set the flag `use_mi=True` that is passed as a parameter to the main function.
+![Image of V1](figures/spatial_sampling_40.png)
 
-All main files that are used for the thesis work are using the `Thesis` prefix.
-All main files use the same functions for network construction. They create a two layer network,
-one layer with the photoreceptors and one layer with sensory neurons. The input image is 
-converted to a direct current or Poisson spike generator. To investigate 
-the effect of long-range patchy connections different networks can are implemented and can be
-used, e.g. with or without distal patchy connections. The stimulus is reproduced based on the
+The input image is converted to a Poisson spike train or a DC current. Note that for all experiments we use Poisson spikes.
+To investigate  the effect of long-range patchy connections different networks are implemented and can be
+used, e.g. with or without distal patchy connections or with or without tuning-specific synapses. The figure
+below shows circular local with random patchy distal connections.
+
+![Image of Connections](figures/connections_example_patchy.png)
+ 
+The original input image is reproduced based on the
 firing rates. The eigenvalue spectrum of the different networks can be computed using the
 file `ThesisEignevalueSpec.py`. It iterates through all predefined networks, calculates the 
 eigenvalue spectrum and saves the plot. Run it via
@@ -117,9 +86,7 @@ stimulus processing and propagation properly it is crucial that `--num_neurons` 
 is an integer value.
 
 The main experiments are implemented in the script `ThesisReconstructionMeasure.py`. 
-It reconstructs the stimulus and computes the normalised L2 norm between the original and reconstructed image, 
-as well as it computes the mutual information based on the histograms that can be created of the
-firing rate and the input stimulus. Note that the latter metric loses the notion of spatial relations.
+It reconstructs the stimulus and computes the normalised L2 norm between the original and reconstructed image.
 Run the file via
 
 ```bash
@@ -131,8 +98,14 @@ If none is given, the default values are used. All other command line parameters
 and values are explained below. Please note that it is not possible to set the `--parameter` flag to value
 that is specified via one of the parameters, e.g. `--parameter=tuning` and `--tuning=gauss`
 
- This script can be run for all network and input types via
+Different networks produce different firing patterns in time and space. An example for a network with
+ circular local and random long-range connections is given below.
 
+Time            |  Space
+:-------------------------:|:-------------------------:
+![Firing Pattern Time](figures/local_circ_patchy_random_8_c_alpha_0.5_img_prop_0.4_spatials_True_no_0_firing_time.png)  |  ![](figures/local_circ_patchy_random_8_c_alpha_0.5_img_prop_0.4_spatials_True_no_0_firing_space.png)
+
+This script can be run for all network and input types via
 ```bash
 python3 Experiments.py --parameter=parameter [optional: --img_prop=1.0 --spatial_sampling --num_trials=10]
 ```
@@ -154,9 +127,21 @@ usually set to `distance` or `li` but can be alternatively set to `mean` or `var
 If `network`, `input`, `experiment`, `sampling` and `paramater` are not set 
 the data set is not filtered for these values.
 
-Please note that the network is currently under development, and hence, the implementation is not
-final yet. Moreover, more sophisticated explanations are missing. Nevertheless, feel free to 
-browse through the repository and to checkout the implementation at the recent state 
+There are two files that implement the models described by the two papers [1] and [2]. The script 
+`VogesNetwork.py` implements the network setups proposed in [2]. Run the script via the command
+```bash
+python3 VogesNetwork.py
+```
+There are five different networks implemented. To try out different networks change the parameter
+`use_lr_connection_type` passed to the main function.
+
+The script `CSCodeingNetworkBarranca.py` implements the stimulus response reconstruction based on 
+the neural response that was described in [1]. Run the script via
+```bash
+pyhton3 CSCodingNetworkBarranca.py
+``` 
+If you want to compute the mutual information (MI) of input and reconstructed stimulus over a number of
+stimuli set the flag `use_mi=True` that is passed as a parameter to the main function.
 
 ## Commandline parameters
 ### Network types 
@@ -233,6 +218,33 @@ jupyter notebook InteractiveThesisNetwork.ipynb
 If you are re-directed to a graphical interface with file directory in your browser, select the
 file `InteractiveThesisNetwork.ipynb`.
 
+## Install the Barranca neuron model
+To use the customised neuron model that was described by Barranca et al. [1] several install steps have to be run first.
+Navigate to the `src` directory and run 
+
+```bash
+nestml --input_path=neuron-models/BarrancaNeuron.nestml --target_path=target-neurons
+cd target-neurons
+```
+
+Unfortunately, there is a bug in creating the right C++ files. Thus, it's necessary to add the `include/` directory
+to the `CMAkeLists.txt`. Open the file `CMakeLists.txt` and add in a separate line 
+`include_directories("/usr/include/nest")`to the end of the file before the `message()` commands.
+Close the editor and run 
+
+```bash
+cmake -Dwith-nest=/usr/bin/nest-config .
+make
+sudo make install
+```
+
+Afterwards the customised `nestmlmodule` is linked dynamically to the script via the following command
+
+```python
+nest.Install("nestmlmodules")
+``` 
+
+Please note, however, that this neuron model was never used for the actual experiments.
 ## Sources
 [1] 1.Barranca, V. J., Kovačič, G., Zhou, D. & Cai, D. Sparsity and Compressed Coding in Sensory Systems. PLoS Computational Biology 10, (2014).
 
