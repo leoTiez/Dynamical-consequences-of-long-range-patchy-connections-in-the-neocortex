@@ -48,7 +48,7 @@ def mutual_information_img(input_data, reconstruction_data):
 
 def error_distance(input_data, reconstructed_data):
     """
-    Computes the normalised Eucledian distance between the original image and the reconstructed image
+    Computes the normalised Euclidean distance between the original image and the reconstructed image
     :param input_data: The input image
     :param reconstructed_data: The reconstructed image
     :return: The normalised error

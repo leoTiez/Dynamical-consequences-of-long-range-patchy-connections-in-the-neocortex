@@ -4,24 +4,7 @@ from modules.thesisUtils import *
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-
-
-INPUT_TYPE = {
-    "plain": 0,
-    "perlin": 1,
-    "natural": 2,
-    "random": 3
-}
-
-INPUT_TYPE_EXTENDED = {
-    "plain": 0,
-    "perlin": 1,
-    "bar": 2,
-    "circles": 3,
-    "natural": 4,
-    "edges": 5,
-    "random": 6
-}
+from modules.thesisConstants import *
 
 
 def convert_image_to_orientation_map(image, magnitude_threshold=50, num_orientation_ranges=8, **kwargs):
@@ -131,10 +114,12 @@ def image_with_spatial_correlation(
     return image
 
 
-def perlin_image(size=50, resolution=(5, 5), **kwargs):
+def perlin_image(size=50, num_stimulus_discr=4, resolution=(5, 5), **kwargs):
     """
-    Create an image with spatial correlation using the Perlin noise distribution
+    Create an image with spatial correlation using the Perlin noise distribution. No smooth intensity gradients.
+    This can be approximated by setting num_stimulus_discr sufficiently high
     :param size: Size of the image. It takes only a single integer and assumes the image to be quadratic
+    :param num_stimulus_discr: The number of tuning classes that can be discriminated
     :param resolution: Resolution of the Perlin mesh with the randomly sampled vectors
     :param kwargs: Additional parameters that might be passed because of the factory method that should not cause
     an error
@@ -145,6 +130,17 @@ def perlin_image(size=50, resolution=(5, 5), **kwargs):
     perlin_img = perlin_noise(size, resolution=resolution, spacing=1)
     perlin_img -= perlin_img.min()
     perlin_img = 255. * perlin_img / perlin_img.max()
+
+    ind = np.indices(perlin_img.shape)
+    # Zip the row and column indices
+    ind = list(zip(ind[0].reshape(-1), ind[1].reshape(-1)))
+    c_map_sorted = sorted(zip(perlin_img.reshape(-1), ind), key=lambda x: x[0])
+    _, ind = zip(*c_map_sorted)
+    step_size = len(c_map_sorted) // num_stimulus_discr
+    for stim_class in range(num_stimulus_discr):
+        row, col = zip(*ind[stim_class * step_size: np.minimum(len(ind) - 1, (stim_class + 1) * step_size)])
+        perlin_img[row, col] = (stim_class + 1) * 255/num_stimulus_discr
+
     return perlin_img.astype('int')
 
 
@@ -166,19 +162,19 @@ def stimulus_factory(input_type=INPUT_TYPE["plain"], **kwargs):
     :param kwargs: Additional parameters that are needed for the respective functions that create the image
     :return: The created image
     """
-    # if input_type == INPUT_TYPE["circles"]:
-    #     input_stimulus = image_with_spatial_correlation(**kwargs)
-    # elif input_type == INPUT_TYPE["bar"]:
-    #     input_stimulus = create_image_bar(**kwargs)
-    if input_type == INPUT_TYPE["natural"]:
+    if input_type == INPUT_TYPE["circles"]:
+        input_stimulus = image_with_spatial_correlation(**kwargs)
+    elif input_type == INPUT_TYPE["bar"]:
+        input_stimulus = create_image_bar(**kwargs)
+    elif input_type == INPUT_TYPE["natural"]:
         input_stimulus = load_image(**kwargs)
     elif input_type == INPUT_TYPE["perlin"]:
         input_stimulus = perlin_image(**kwargs)
     elif input_type == INPUT_TYPE["plain"]:
         input_stimulus = plain_stimulus(**kwargs)
-    # elif input_type == INPUT_TYPE["edges"]:
-    #     input_stimulus = load_image(**kwargs)
-    #     input_stimulus = convert_image_to_orientation_map(input_stimulus, **kwargs)
+    elif input_type == INPUT_TYPE["edges"]:
+        input_stimulus = load_image(**kwargs)
+        input_stimulus = convert_image_to_orientation_map(input_stimulus, **kwargs)
     elif input_type == INPUT_TYPE["random"]:
         input_stimulus = image_with_spatial_correlation(shuffle=True, **kwargs)
     else:
