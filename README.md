@@ -1,5 +1,8 @@
 # The investigation of the dynamical consequences of long-range patchy connections in the visual cortex V1
 
+[![DOI](https://zenodo.org/badge/236470656.svg)](https://zenodo.org/badge/latestdoi/236470656)
+
+
 The repository contains the Python code for the simulations and experiments of my master's degree project
 at Kungliga Tekniska Högskolan KTH in Stockholm, Sweden.
 
