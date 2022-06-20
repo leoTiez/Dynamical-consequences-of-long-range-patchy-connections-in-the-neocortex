@@ -3,8 +3,7 @@
 [![DOI](https://zenodo.org/badge/236470656.svg)](https://zenodo.org/badge/latestdoi/236470656)
 
 
-The repository contains the Python code for the simulations and experiments of my master's degree project
-at Kungliga Tekniska Högskolan KTH in Stockholm, Sweden.
+The repository contains the Python code for the simulations and experiments of my [master's degree project](http://urn.kb.se/resolve?urn=urn%3Anbn%3Ase%3Akth%3Adiva-279584) at Kungliga Tekniska Högskolan KTH in Stockholm, Sweden.
 
 ## Requirements
 PyNest is maintained in a separate ppa repository. Use the provided script to install the
