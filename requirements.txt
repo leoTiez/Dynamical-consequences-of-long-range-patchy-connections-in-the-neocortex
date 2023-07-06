@@ -1,7 +1,7 @@
 numpy>=1.12
 matplotlib==3.2.0
 cvxpy>=1
-scipy==1.1.0
+scipy==1.10.0
 Pillow>=6.2
 opencv-python
 nestml
